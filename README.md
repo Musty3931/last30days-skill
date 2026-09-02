@@ -129,6 +129,10 @@ If you'd rather use the agent-skills install path on Claude Code, that's also su
 npx skills add Musty3931/last30days-skill -g -a claude-code
 ```
 
+**Setting up a new machine?** Open [ONBOARDING.md](ONBOARDING.md) in Claude Code and let it walk you through prerequisites, install, the wizard, and verification.
+
+First run walks a short setup wizard. On macOS two things need a hand: install Go (`brew install go`) before the wizard so the Digg and arXiv CLIs build, and if your X login lives in Chrome/Brave/Edge, add `FROM_BROWSER=brave` (or your browser) to `~/.config/last30days/.env` afterwards — see [CONFIGURATION.md](CONFIGURATION.md#first-run-onboarding).
+
 The native plugin and the `npx skills` install can coexist. Note that Claude Code does not dedupe across install methods: if you have both the marketplace plugin and the `npx skills` copy active, `/last30days` will show two entries. Use one install method per machine.
 
 ### Grok (xAI Build CLI)

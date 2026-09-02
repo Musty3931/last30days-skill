@@ -94,6 +94,11 @@ Both share the same consent points:
 2. **Full Disk Access (macOS)** - if a Safari cookie read is permission-denied, the model surfaces the System Settings > Privacy & Security > Full Disk Access fix and offers one retry.
 3. **ScrapeCreators GitHub signup** - offered on every first run (10,000 free calls). Reddit already works free; the key is the Reddit search **backup when the free path returns no items** (empty-only by default). On consent it runs `setup --github` (or the `--github-start` / `--github-poll` split), which opens a browser for GitHub device-auth and, on success, **persists `SCRAPECREATORS_API_KEY` automatically** (0o600, masked in output). Decline anytime; you can run it later by asking to set up ScrapeCreators. There is no source-tier opt-in step: the engine has no ScrapeCreators-only sources left.
 
+**Two macOS gotchas the wizard cannot fix for you:**
+
+- **Digg and arXiv CLIs need Go.** The Printing Press installer builds them from source; without Go it fails with "Go is required to install Printing Press CLIs". Run `brew install go`, then `npx -y @mvanhorn/printing-press-library@0.1.16 install digg --cli-only` and `... install arxiv --cli-only`. Both binaries land in `~/.local/bin`, which must be on the PATH the agent's subprocesses see.
+- **Chromium browsers are found but not pinned.** Setup reports "X cookies found in chrome/brave/edge" but deliberately does not write `FROM_BROWSER` for Chromium browsers (to avoid surprise Keychain prompts on every run), so steady-state runs still skip X. Add `FROM_BROWSER=brave` (or `chrome`, `edge`, ...) to `~/.config/last30days/.env` yourself and choose "Always Allow" on the one-time Keychain dialog. Firefox and Safari are pinned automatically.
+
 Re-run onboarding by deleting `~/.config/last30days/.env`. The mechanical work lives in `scripts/lib/setup_wizard.py`; the consent conversation and both host flows are specified in `skills/last30days/SKILL.md` Step 0. The original v3.0.0 wizard is captured at `docs/reference/old-nux-wizard-v3.0.0.md`.
 
 ---
