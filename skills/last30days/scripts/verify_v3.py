@@ -21,10 +21,10 @@ EVALUATOR = SKILL_ROOT / "scripts" / "evaluate_search_quality.py"
 
 SMOKE_TOPIC = "openclaw skills"
 SMOKE_CASES = [
-    ("gemini", ["--quick", "--search=grounding,hackernews"]),
-    ("openai", ["--quick", "--search=reddit,hackernews"]),
-    ("xai", ["--quick", "--search=reddit,hackernews"]),
-    ("auto", ["--quick", "--search=reddit,grounding,hackernews"]),
+    ("gemini", ["--quick", "--search=reddit,github"]),
+    ("openai", ["--quick", "--search=reddit,github"]),
+    ("xai", ["--quick", "--search=reddit,github"]),
+    ("auto", ["--quick", "--search=reddit,github"]),
 ]
 
 LATENCY_TOPICS = [
@@ -33,9 +33,9 @@ LATENCY_TOPICS = [
     "anthropic odds",
 ]
 LATENCY_PROFILES = [
-    ("quick", ["--quick", "--search=grounding,hackernews"]),
-    ("default", ["--search=grounding,hackernews"]),
-    ("deep", ["--deep", "--search=grounding,hackernews"]),
+    ("quick", ["--quick", "--search=reddit,github"]),
+    ("default", ["--search=reddit,github"]),
+    ("deep", ["--deep", "--search=reddit,github"]),
 ]
 
 

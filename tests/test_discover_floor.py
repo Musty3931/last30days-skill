@@ -23,15 +23,16 @@ def _x_item(item_id: str, text: str, likes: int, *, date: str = "2026-07-09") ->
     }
 
 
-def _hn_item(item_id: str, title: str, points: int, comments: int, *, date: str = "2026-07-09") -> dict:
+def _digg_item(item_id: str, title: str, post_count: int, unique_authors: int, *, date: str = "2026-07-09") -> dict:
+    """Raw Digg AI cluster as ``digg.parse_digg_response`` emits it: the
+    discovery engagement counters are ``postCount`` + ``uniqueAuthors``."""
     return {
         "id": item_id,
         "title": title,
-        "url": f"https://example.com/{item_id}",
-        "hn_url": f"https://news.ycombinator.com/item?id={item_id}",
-        "author": "example",
+        "url": f"https://di.gg/ai/{item_id}",
+        "tldr": title,
         "date": date,
-        "engagement": {"points": points, "comments": comments},
+        "engagement": {"postCount": post_count, "uniqueAuthors": unique_authors},
         "relevance": 0.9,
     }
 
@@ -86,10 +87,10 @@ def test_junk_corpus_returns_nothing_solid_not_ranked_noise():
 
 
 def test_strong_single_source_spike_clears_floor():
-    """A 1,084-point / 577-comment single-source HN thread (the '60% of US
+    """A 1,084-post / 577-author single-source Digg cluster (the '60% of US
     consumers' case) is a real story and must rank."""
     report = _run_discover_with(
-        {"hackernews": [_hn_item("big1", "Sixty percent of consumers say AI in sports ads is a turnoff", 1084, 577)]},
+        {"digg": [_digg_item("big1", "Sixty percent of consumers say AI in sports ads is a turnoff", 1084, 577)]},
         domain="sports",
     )
 
@@ -112,7 +113,7 @@ def test_weak_single_source_item_stays_buried():
 def test_mixed_corpus_emits_only_floor_clearing_topics():
     """Strong multi-source story ranks; 1-like junk is silently dropped."""
     report = _run_discover_with({
-        "hackernews": [_hn_item("story1", "NBA finals collapse shocks sports world", 450, 200)],
+        "digg": [_digg_item("story1", "NBA finals collapse shocks sports world", 450, 200)],
         "reddit": [_reddit_item("story1r", "NBA finals collapse shocks sports world", 900, 400)],
         "x": [_x_item("junkA", "random sports meme", 1)],
     })
@@ -140,11 +141,11 @@ def test_enriched_evidence_is_judged_not_seed_evidence():
                     engagement={"score": 800, "num_comments": 300}, snippet=topic,
                 ),
             ],
-            "hackernews": [
+            "digg": [
                 schema.SourceItem(
-                    item_id="e2", source="hackernews", title=topic, body=topic,
+                    item_id="e2", source="digg", title=topic, body=topic,
                     url="https://example.com/e2", published_at="2026-07-09",
-                    engagement={"points": 400, "comments": 150}, snippet=topic,
+                    engagement={"postCount": 400, "uniqueAuthors": 150}, snippet=topic,
                 ),
             ],
         }
@@ -173,7 +174,7 @@ def test_enriched_evidence_is_judged_not_seed_evidence():
     assert len(report.topics) == 1
     topic = report.topics[0]
     # Judged on the enriched corpus: multi-source, enriched engagement.
-    assert set(topic.sources) == {"hackernews", "reddit"}
+    assert set(topic.sources) == {"digg", "reddit"}
     assert "evidence item" in topic.why_spiking
 
 
@@ -227,16 +228,16 @@ def test_same_engagement_without_junk_shape_surfaces():
 
 def test_junk_shape_with_two_seed_sources_surfaces():
     """A junk-shaped story corroborated across two SEED listing sources
-    (reddit + hackernews) clears the floor."""
+    (reddit + digg) clears the floor."""
     title = "Help me understand the Marseille sports betting collapse"
     report = _run_discover_with({
         "reddit": [_reddit_item("junk2a", title, 40, 30)],
-        "hackernews": [_hn_item("junk2b", title, 35, 20)],
+        "digg": [_digg_item("junk2b", title, 35, 20)],
     })
 
     assert report.outcome == "ok"
     assert len(report.topics) == 1
-    assert set(report.topics[0].sources) == {"hackernews", "reddit"}
+    assert set(report.topics[0].sources) == {"digg", "reddit"}
 
 
 def test_junk_corroboration_counts_seed_sources_not_enriched_corpus():
@@ -257,11 +258,11 @@ def test_junk_corroboration_counts_seed_sources_not_enriched_corpus():
                     engagement={"score": 800, "num_comments": 300}, snippet=topic,
                 ),
             ],
-            "hackernews": [
+            "digg": [
                 schema.SourceItem(
-                    item_id="e2", source="hackernews", title=topic, body=topic,
+                    item_id="e2", source="digg", title=topic, body=topic,
                     url="https://example.com/e2", published_at="2026-07-09",
-                    engagement={"points": 400, "comments": 150}, snippet=topic,
+                    engagement={"postCount": 400, "uniqueAuthors": 150}, snippet=topic,
                 ),
             ],
         }
@@ -296,7 +297,7 @@ def test_weak_signal_prefers_non_junk_failure():
     when a junk-shaped failure has higher velocity."""
     report = _run_discover_with({
         "reddit": [_reddit_item("junkfast1", "Help me pick my first sports bike", 30, 100)],
-        "hackernews": [_hn_item("slow1", "Zion Bay sports arena funding vote stalls", 20, 10)],
+        "digg": [_digg_item("slow1", "Zion Bay sports arena funding vote stalls", 20, 10)],
     })
 
     assert report.topics == []
@@ -326,7 +327,7 @@ def test_one_shot_live_run_emits_heuristics_note_once(capsys):
     SKILL.md protocol - never at provider API keys (the engine-side judge is
     gone; no key would change this path)."""
     report = _run_discover_with(
-        {"hackernews": [_hn_item("big1", "Sixty percent of consumers say AI in sports ads is a turnoff", 1084, 577)]},
+        {"digg": [_digg_item("big1", "Sixty percent of consumers say AI in sports ads is a turnoff", 1084, 577)]},
     )
 
     assert report.outcome == "ok"
@@ -363,6 +364,19 @@ _SHARED_COMMENT = {
 }
 
 
+def _engagement_for(source: str, primary: int, secondary: int) -> dict[str, int]:
+    """Native engagement in the shape each surviving seed source really
+    carries (see rerank._DISCOVERY_ENGAGEMENT_FIELDS): a fixture in the wrong
+    shape scores zero velocity and silently vanishes from the sweep."""
+    if source == "reddit":
+        return {"score": primary, "num_comments": secondary}
+    if source == "digg":
+        return {"postCount": primary, "uniqueAuthors": secondary}
+    if source == "x":
+        return {"likes": primary, "replies": secondary}
+    raise ValueError(f"no discovery engagement shape for source {source!r}")
+
+
 def _evidence_item(
     item_id: str,
     source: str,
@@ -373,11 +387,7 @@ def _evidence_item(
     comments: int = 200,
     top_comments: list[dict] | None = None,
 ) -> schema.SourceItem:
-    engagement = (
-        {"score": score, "num_comments": comments}
-        if source == "reddit"
-        else {"points": score, "comments": comments}
-    )
+    engagement = _engagement_for(source, score, comments)
     return schema.SourceItem(
         item_id=item_id, source=source, title=title, body=title,
         url=url, published_at="2026-07-09",
@@ -412,9 +422,9 @@ def _fake_report(topic: str, items: list[schema.SourceItem]) -> schema.Report:
 def _run_discover_enriched(reports_by_key: dict[str, list[schema.SourceItem]]) -> schema.DiscoveryReport:
     """Two strong seed stories (Kestrel first / higher seed velocity), each
     enriched via a fake pipeline.run keyed on the topic name."""
-    seed = {"hackernews": [
-        _hn_item("k1", KESTREL_TITLE, 900, 400),
-        _hn_item("s1", SOURDOUGH_TITLE, 700, 300),
+    seed = {"digg": [
+        _digg_item("k1", KESTREL_TITLE, 900, 400),
+        _digg_item("s1", SOURDOUGH_TITLE, 700, 300),
     ]}
 
     def fake_run(*, topic, **_kwargs):
@@ -437,7 +447,7 @@ def test_same_story_survivors_fold_to_higher_velocity_one(capsys):
             _evidence_item("ka", "reddit", KESTREL_TITLE,
                            "https://reddit.com/r/aero/comments/shared1",
                            score=900, comments=300, top_comments=[_SHARED_COMMENT]),
-            _evidence_item("kb", "hackernews", KESTREL_TITLE,
+            _evidence_item("kb", "digg", KESTREL_TITLE,
                            "https://news.example.com/shared2",
                            score=500, comments=200),
         ],
@@ -445,7 +455,7 @@ def test_same_story_survivors_fold_to_higher_velocity_one(capsys):
             _evidence_item("sa", "reddit", SOURDOUGH_TITLE,
                            "https://reddit.com/r/aero/comments/shared1",
                            score=300, comments=100, top_comments=[_SHARED_COMMENT]),
-            _evidence_item("sb", "hackernews", SOURDOUGH_TITLE,
+            _evidence_item("sb", "digg", SOURDOUGH_TITLE,
                            "https://news.example.com/shared2",
                            score=200, comments=80),
         ],
@@ -471,7 +481,7 @@ def test_distinct_stories_do_not_fold():
                            "https://reddit.com/r/aero/comments/k1",
                            score=900, comments=300,
                            top_comments=[{"text": "Regulators folded like a cheap suit here", "score": 40, "author": "a"}]),
-            _evidence_item("kb", "hackernews", KESTREL_TITLE,
+            _evidence_item("kb", "digg", KESTREL_TITLE,
                            "https://news.example.com/k2", score=500, comments=200),
         ],
         "sourdough": [
@@ -479,7 +489,7 @@ def test_distinct_stories_do_not_fold():
                            "https://reddit.com/r/bread/comments/s1",
                            score=300, comments=100,
                            top_comments=[{"text": "The starter culture is doing the heavy lifting", "score": 30, "author": "b"}]),
-            _evidence_item("sb", "hackernews", SOURDOUGH_TITLE,
+            _evidence_item("sb", "digg", SOURDOUGH_TITLE,
                            "https://news.example.com/s2", score=200, comments=80),
         ],
     })
@@ -497,14 +507,14 @@ def test_rank_order_follows_displayed_velocity():
             _evidence_item("ka", "reddit", KESTREL_TITLE,
                            "https://reddit.com/r/aero/comments/k1",
                            score=100, comments=50),
-            _evidence_item("kb", "hackernews", KESTREL_TITLE,
+            _evidence_item("kb", "digg", KESTREL_TITLE,
                            "https://news.example.com/k2", score=60, comments=20),
         ],
         "sourdough": [
             _evidence_item("sa", "reddit", SOURDOUGH_TITLE,
                            "https://reddit.com/r/bread/comments/s1",
                            score=900, comments=300),
-            _evidence_item("sb", "hackernews", SOURDOUGH_TITLE,
+            _evidence_item("sb", "digg", SOURDOUGH_TITLE,
                            "https://news.example.com/s2", score=500, comments=200),
         ],
     })
@@ -527,12 +537,12 @@ def test_url_only_overlap_folds_without_shared_comment(capsys):
         "kestrel": [
             _evidence_item("ka", "reddit", KESTREL_TITLE, shared_urls[0], score=900, comments=300),
             _evidence_item("kb", "reddit", KESTREL_TITLE, shared_urls[1], score=400, comments=100),
-            _evidence_item("kc", "hackernews", KESTREL_TITLE, shared_urls[2], score=500, comments=200),
+            _evidence_item("kc", "digg", KESTREL_TITLE, shared_urls[2], score=500, comments=200),
         ],
         "sourdough": [
             _evidence_item("sa", "reddit", SOURDOUGH_TITLE, shared_urls[0], score=300, comments=100),
             _evidence_item("sb", "reddit", SOURDOUGH_TITLE, shared_urls[1], score=100, comments=40),
-            _evidence_item("sc", "hackernews", SOURDOUGH_TITLE, shared_urls[2], score=200, comments=80),
+            _evidence_item("sc", "digg", SOURDOUGH_TITLE, shared_urls[2], score=200, comments=80),
         ],
     })
 
@@ -551,7 +561,7 @@ def test_single_shared_url_with_different_comments_does_not_fold():
                            "https://reddit.com/r/aero/comments/k1",
                            score=900, comments=300,
                            top_comments=[{"text": "Regulators folded like a cheap suit here", "score": 40, "author": "a"}]),
-            _evidence_item("kb", "hackernews", KESTREL_TITLE,
+            _evidence_item("kb", "digg", KESTREL_TITLE,
                            "https://news.example.com/shared", score=500, comments=200),
         ],
         "sourdough": [
@@ -559,7 +569,7 @@ def test_single_shared_url_with_different_comments_does_not_fold():
                            "https://reddit.com/r/bread/comments/s1",
                            score=300, comments=100,
                            top_comments=[{"text": "The starter culture is doing the heavy lifting", "score": 30, "author": "b"}]),
-            _evidence_item("sb", "hackernews", SOURDOUGH_TITLE,
+            _evidence_item("sb", "digg", SOURDOUGH_TITLE,
                            "https://news.example.com/shared", score=200, comments=80),
         ],
     })
@@ -660,11 +670,7 @@ def _seed_item(
     comments: int = 40,
     published_at: str = "2026-07-09",
 ) -> schema.SourceItem:
-    engagement = (
-        {"score": points, "num_comments": comments}
-        if source == "reddit"
-        else {"points": points, "comments": comments}
-    )
+    engagement = _engagement_for(source, points, comments)
     return schema.SourceItem(
         item_id=item_id,
         source=source,
@@ -742,7 +748,7 @@ def test_resume_host_junk_never_takes_a_slot_next_candidate_does():
     cannot pass the floor's seed-corroboration rule)."""
     rows = [
         _bundle_row(f"n{index}", f"Story {chr(64 + index)}",
-                    [_seed_item(f"s{index}", "hackernews", f"Story {chr(64 + index)}",
+                    [_seed_item(f"s{index}", "digg", f"Story {chr(64 + index)}",
                                 points=900 - 50 * index)])
         for index in range(1, 8)  # n1..n7: one more than ENRICH_LIMIT
     ]
@@ -771,14 +777,14 @@ def test_resume_quiet_but_worthy_survives_the_cut():
     weakest of six high-velocity worthiness-10 rows is the one cut."""
     rows = [
         _bundle_row(f"n{index}", f"Viral story {chr(64 + index)}",
-                    [_seed_item(f"v{index}", "hackernews",
+                    [_seed_item(f"v{index}", "digg",
                                 f"Viral story {chr(64 + index)}",
                                 points=100 - index, comments=20)])
         for index in range(1, 7)  # n1..n6 fill every slot on velocity alone
     ]
     rows.append(_bundle_row(
         "n7", "Quiet maintainer burnout wave",
-        [_seed_item("q1", "hackernews", "Quiet maintainer burnout wave",
+        [_seed_item("q1", "digg", "Quiet maintainer burnout wave",
                     points=45, comments=15)],
     ))
     judgments = {
@@ -804,7 +810,7 @@ def test_resume_judgments_omitting_row_falls_back_to_heuristics():
     completes with both topics ranked."""
     rows = [
         _bundle_row("n1", "Kestrel avionics merger",
-                    [_seed_item("k1", "hackernews", "Kestrel avionics merger",
+                    [_seed_item("k1", "digg", "Kestrel avionics merger",
                                 points=900, comments=400)]),
         _bundle_row("n2", "Sourdough robot bakery",
                     [_seed_item("s1", "reddit", "Sourdough robot bakery",
@@ -864,7 +870,7 @@ def test_resume_heuristic_junk_fallback_keeps_seed_corroboration_rule():
         "n1", title,
         [
             _seed_item("s1", "reddit", title, points=40, comments=30),
-            _seed_item("s2", "hackernews", title, points=35, comments=20),
+            _seed_item("s2", "digg", title, points=35, comments=20),
         ],
         heuristic_junk=True,
     )
@@ -887,7 +893,7 @@ def test_resume_zero_survivors_prefers_non_junk_weak_signal():
     slot is ever spent."""
     rows = [
         _bundle_row("n1", "Viral junk story",
-                    [_seed_item("s1", "hackernews", "Viral junk story", points=900)]),
+                    [_seed_item("s1", "digg", "Viral junk story", points=900)]),
         _bundle_row("n2", "Quiet real story",
                     [_seed_item("s2", "reddit", "Quiet real story",
                                 points=20, comments=6)]),
@@ -911,7 +917,7 @@ def test_resume_all_host_junk_names_junk_weak_signal_and_skips_enrichment():
     (junk-tracked, never empty when failures exist) and enrichment never runs."""
     rows = [
         _bundle_row("n1", "Junk story one",
-                    [_seed_item("s1", "hackernews", "Junk story one", points=900)]),
+                    [_seed_item("s1", "digg", "Junk story one", points=900)]),
         _bundle_row("n2", "Junk story two",
                     [_seed_item("s2", "reddit", "Junk story two", points=100)]),
     ]
@@ -930,7 +936,7 @@ def test_resume_velocity_and_momentum_pinned_to_bundle_window():
     """Scenario 7: with a bundle whose to_date is NOT today, velocity and
     momentum must be computed against the bundle window - identical to an
     in-memory computation at that as_of date, and different from today's."""
-    items = [_seed_item("s1", "hackernews", "Window pinned story",
+    items = [_seed_item("s1", "digg", "Window pinned story",
                         points=900, comments=400, published_at="2026-07-09")]
     rows = [_bundle_row("n1", "Window pinned story", items)]
     with mock.patch.object(
@@ -965,9 +971,9 @@ def test_resume_reuses_same_story_fold_and_velocity_ranks(capsys):
     }
     rows = [
         _bundle_row("n1", KESTREL_TITLE,
-                    [_seed_item("k1", "hackernews", KESTREL_TITLE, points=900)]),
+                    [_seed_item("k1", "digg", KESTREL_TITLE, points=900)]),
         _bundle_row("n2", SOURDOUGH_TITLE,
-                    [_seed_item("s1", "hackernews", SOURDOUGH_TITLE, points=700)]),
+                    [_seed_item("s1", "digg", SOURDOUGH_TITLE, points=700)]),
     ]
 
     def fake_run(*, topic, **_kwargs):
@@ -981,7 +987,7 @@ def test_resume_reuses_same_story_fold_and_velocity_ranks(capsys):
                 top_comments=[shared_comment],
             ),
             _evidence_item(
-                f"{topic[:4]}-b", "hackernews", topic,
+                f"{topic[:4]}-b", "digg", topic,
                 "https://news.example.com/shared2",
                 score=500 if strong else 200,
                 comments=200 if strong else 80,
@@ -1010,8 +1016,8 @@ def test_resume_report_carries_restored_leg1_source_status_and_warning():
     import dataclasses
 
     status = {
-        "hackernews": schema.SourceOutcome(
-            source="hackernews", state="ok", items_returned=1,
+        "digg": schema.SourceOutcome(
+            source="digg", state="ok", items_returned=1,
         ),
         "reddit": schema.SourceOutcome(
             source="reddit", state=schema.UNREACHABLE, detail="dns failure",
@@ -1019,7 +1025,7 @@ def test_resume_report_carries_restored_leg1_source_status_and_warning():
     }
     rows = [_bundle_row(
         "n1", "Window pinned story",
-        [_seed_item("s1", "hackernews", "Window pinned story",
+        [_seed_item("s1", "digg", "Window pinned story",
                     points=900, comments=400)],
     )]
     bundle = dataclasses.replace(_resume_bundle(rows), source_status=status)

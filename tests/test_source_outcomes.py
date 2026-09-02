@@ -8,14 +8,12 @@ from lib import (
     bird_x,
     health,
     http,
-    jobs,
     pipeline,
     reddit,
     reddit_listing,
     reddit_rss,
     render,
     schema,
-    youtube_yt,
 )
 
 
@@ -85,8 +83,6 @@ def test_http_wrapper_classifies_dns_failure(mock_urlopen, _mock_sleep):
 def test_source_specific_text_failures_are_mapped():
     assert bird_x.classify_run_failure("likely Twitter anti-bot interstitial") == schema.SCHEMA_DRIFT
     assert reddit.classify_run_failure("blocked by Reddit interstitial") == schema.RATE_LIMITED
-    assert youtube_yt.classify_run_failure("Sign in to confirm you're not a bot") == schema.RATE_LIMITED
-    assert youtube_yt.classify_run_failure("Search timed out after 1s") == health.TIMEOUT
 
 
 def test_bundle_distinguishes_clean_no_results_from_failure():
@@ -217,69 +213,6 @@ def test_tee_failures_does_not_hide_from_parent_sink(mock_urlopen):
     assert local == parent
 
 
-@patch("lib.http.urllib.request.urlopen")
-def test_jobs_expected_probe_misses_do_not_degrade_final_result(mock_urlopen):
-    miss = urllib.error.HTTPError(
-        "https://boards-api.greenhouse.io/v1/boards/example/jobs",
-        404,
-        "Not Found",
-        {},
-        None,
-    )
-    success = MagicMock()
-    success.status = 200
-    success.read.return_value = (
-        b'{"jobs":[{"id":"1","title":"Engineer",'
-        b'"jobUrl":"https://jobs.ashbyhq.com/example/1"}]}'
-    )
-    success.__enter__.return_value = success
-    success.__exit__.return_value = False
-    mock_urlopen.side_effect = [miss, success]
-
-    with patch("lib.jobs._candidate_slugs", return_value=["example"]):
-        with http.capture_failures() as failures:
-            provider, slug, _ = jobs._probe_ats("Example")
-
-    assert provider == jobs.ATS_PROVIDER_ASHBY
-    assert slug == "example"
-    assert failures == []
-
-
-@pytest.mark.parametrize(
-    ("source", "artifact", "expected"),
-    [
-        ("perplexity", {"error": "timeout"}, health.TIMEOUT),
-        (
-            "grounding",
-            {"reason": "keyless-search-unavailable"},
-            schema.UNREACHABLE,
-        ),
-    ],
-)
-def test_stream_adapter_converts_legacy_error_artifacts(source, artifact, expected):
-    with patch("lib.pipeline._retrieve_stream_impl", return_value=([], artifact)):
-        _, converted = pipeline._retrieve_stream(source=source)
-
-    assert converted["_source_outcome"]["state"] == expected
-
-
-@pytest.mark.parametrize(
-    ("source", "detail", "expected"),
-    [
-        ("truthsocial", "Truth Social token expired", schema.AUTH_FAILED),
-        (
-            "bluesky",
-            "Cloudflare blocked the request (403 Forbidden). This is a network-level block, not an auth issue.",
-            schema.UNREACHABLE,
-        ),
-    ],
-)
-def test_legacy_result_uses_source_specific_outcome(source, detail, expected):
-    artifact = pipeline._result_outcome_artifact(source, {"error": detail})
-
-    assert artifact["_source_outcome"]["state"] == expected
-
-
 def test_captured_http_failure_overrides_generic_artifact_error():
     failure = http.HTTPError("HTTP 429: Too Many Requests", status_code=429)
     outcome = pipeline._resolve_stream_outcome(
@@ -337,91 +270,6 @@ def test_pipeline_records_clean_empty_source_as_no_results():
 
     assert report.source_status["x"].state == schema.NO_RESULTS
     assert "x" not in report.errors_by_source
-
-
-def _perplexity_plan():
-    return {
-        "intent": "general",
-        "freshness_mode": "balanced_recent",
-        "cluster_mode": "story",
-        "subqueries": [
-            {
-                "label": "primary",
-                "search_query": "test topic",
-                "ranking_query": "test topic",
-                "sources": ["perplexity"],
-            }
-        ],
-        "source_weights": {"perplexity": 1.0},
-    }
-
-
-def test_pipeline_records_both_mode_semantic_leg_failure_as_partial():
-    raw_item = {
-        "id": "PXS1",
-        "title": "Search result",
-        "url": "https://example.com/result",
-        "snippet": "Raw search evidence",
-        "date": "2026-08-10",
-        "relevance": 0.8,
-        "why_relevant": "Perplexity Search result",
-        "engagement": {},
-    }
-    artifact = {
-        "mode": "both",
-        "search": {"mode": "search"},
-        "agent": {
-            "error": "failed",
-            "agentErrorMessage": "Provider rejected synthesis",
-        },
-        "itemCount": 1,
-    }
-    with patch("lib.pipeline._retrieve_stream_impl", return_value=([raw_item], artifact)):
-        report = pipeline.run(
-            topic="test topic",
-            config={
-                "LAST30DAYS_REASONING_PROVIDER": "gemini",
-                "PERPLEXITY_API_KEY": "pplx-test",
-            },
-            depth="quick",
-            requested_sources=["perplexity"],
-            mock=True,
-            external_plan=_perplexity_plan(),
-        )
-
-    outcome = report.source_status["perplexity"]
-    assert outcome.state == schema.PARTIAL
-    assert outcome.items_returned == 1
-    assert outcome.detail == "agent leg: Provider rejected synthesis"
-
-
-def test_pipeline_records_both_mode_semantic_failure_without_items():
-    artifact = {
-        "mode": "both",
-        "search": {"mode": "search"},
-        "agent": {
-            "error": "failed",
-            "agentErrorMessage": "Provider rejected synthesis",
-        },
-        "itemCount": 0,
-    }
-    with patch("lib.pipeline._retrieve_stream_impl", return_value=([], artifact)):
-        report = pipeline.run(
-            topic="test topic",
-            config={
-                "LAST30DAYS_REASONING_PROVIDER": "gemini",
-                "PERPLEXITY_API_KEY": "pplx-test",
-            },
-            depth="quick",
-            requested_sources=["perplexity"],
-            mock=True,
-            external_plan=_perplexity_plan(),
-        )
-
-    outcome = report.source_status["perplexity"]
-    assert outcome.state == health.ERROR
-    assert outcome.items_returned == 0
-    assert outcome.detail == "agent leg: Provider rejected synthesis"
 
 
 def test_pipeline_preserves_typed_http_failure():

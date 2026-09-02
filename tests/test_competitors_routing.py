@@ -25,7 +25,6 @@ def _route(topic: str, *argv: str):
     plan = cli.parse_competitors_plan(args.competitors_plan)
     return cli.apply_vs_competitor_routing(
         topic,
-        competitors_flag=args.competitors,
         comp_enabled=enabled,
         comp_count=count,
         comp_explicit=explicit,
@@ -98,15 +97,6 @@ class TestVsRoutingWithPlan(unittest.TestCase):
             ["Traeger", "Big Green Egg", "Blackstone", "Napoleon Grills"],
         )
 
-    def test_competitors_n_on_vs_topic_skips_vs_split(self):
-        """Discover-N mode must not rewrite a vs-string into named peers."""
-        topic, enabled, count, explicit = _route(FIVE_WAY, "--competitors", "2")
-        self.assertEqual(topic, FIVE_WAY)
-        self.assertTrue(enabled)
-        self.assertEqual(count, 2)
-        self.assertEqual(explicit, [])
-
-
 class TestEntityCapAlignment(unittest.TestCase):
     def test_comparison_entity_max_matches_competitors_max_plus_main(self):
         self.assertEqual(
@@ -140,7 +130,6 @@ class TestEntityCapAlignment(unittest.TestCase):
         plan = cli.parse_competitors_plan(args.competitors_plan)
         topic, enabled, count, explicit = cli.apply_vs_competitor_routing(
             "Weber grills",
-            competitors_flag=args.competitors,
             comp_enabled=enabled,
             comp_count=count,
             comp_explicit=explicit,
@@ -148,8 +137,7 @@ class TestEntityCapAlignment(unittest.TestCase):
         )
         self.assertTrue(enabled)
         self.assertEqual(explicit, [])
-        # Guard in _main: plan present, no peers, not discover-N
-        self.assertIsNone(args.competitors)
+        # Guard in _main: plan present, no peers
         self.assertTrue(args.competitors_plan)
         self.assertFalse(explicit)
 

@@ -6,20 +6,14 @@ from typing import Any
 
 
 ENDPOINT_OVERRIDE_KEYS = {
-    "BSKY_SEARCH_HOST",
-    "LAST30DAYS_SEARXNG_URL",
-    "LAST30DAYS_YOUTUBE_SSH_HOST",
     "OPENAI_BASE_URL",
     "XAI_BASE_URL",
-    "XIAOHONGSHU_API_BASE",
 }
 
 PROVIDER_CREDENTIALS = {
     "google": "Google/Gemini API key",
     "openai": "OpenAI API key",
     "xai": "xAI API key",
-    "openrouter": "OpenRouter API key",
-    "perplexity": "Perplexity API key",
     "scrapecreators": "ScrapeCreators API key",
     "github": "GitHub token or gh auth",
 }
@@ -93,8 +87,6 @@ def build(
         "google": {"present": bool(providers.get("google")), "label": PROVIDER_CREDENTIALS["google"]},
         "openai": {"present": bool(providers.get("openai")), "label": PROVIDER_CREDENTIALS["openai"]},
         "xai": {"present": bool(providers.get("xai")), "label": PROVIDER_CREDENTIALS["xai"]},
-        "openrouter": {"present": bool(providers.get("openrouter")), "label": PROVIDER_CREDENTIALS["openrouter"]},
-        "perplexity": {"present": bool(providers.get("perplexity")), "label": PROVIDER_CREDENTIALS["perplexity"]},
         "scrapecreators": {
             "present": bool(diagnose.get("has_scrapecreators")),
             "label": PROVIDER_CREDENTIALS["scrapecreators"],
@@ -139,7 +131,6 @@ def build(
         "credentials": credentials,
         "network": {
             "available_sources": list(diagnose.get("available_sources") or []),
-            "native_search": bool(diagnose.get("native_search")),
             "endpoint_overrides": active_endpoint_overrides,
             "ignored_endpoint_overrides": ignored_endpoint_overrides,
         },

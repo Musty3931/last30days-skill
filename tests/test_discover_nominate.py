@@ -70,11 +70,11 @@ def test_nominate_candidates_threads_keyword_gate():
 def test_nominate_candidates_records_source_failure_without_raising():
     """One dead feed is recorded on the bundle as a failure; the surviving feed
     still yields candidates, and the call never raises."""
-    plan = _plan("AI agents", ["reddit", "hackernews"])
+    plan = _plan("AI agents", ["reddit", "digg"])
 
     def fake_fetch(source, plan, *, from_date, to_date, depth, mock, config, keyword_gate=True):
-        if source == "hackernews":
-            raise TimeoutError("hn listing timed out")
+        if source == "digg":
+            raise TimeoutError("digg listing timed out")
         return pipeline._mock_discovery_items(source, plan.domain, to_date), None
 
     with mock.patch.object(pipeline, "_fetch_discovery_source", side_effect=fake_fetch):
@@ -87,6 +87,6 @@ def test_nominate_candidates_records_source_failure_without_raising():
     # Surviving source produced candidates.
     assert bundle.items_by_source.get("reddit")
     # Dead source recorded as a failure, not silently dropped or raised.
-    hackernews = bundle.source_status["hackernews"]
-    assert hackernews.state not in (schema.NO_RESULTS,)
-    assert "ok" != hackernews.state
+    digg_status = bundle.source_status["digg"]
+    assert digg_status.state not in (schema.NO_RESULTS,)
+    assert "ok" != digg_status.state

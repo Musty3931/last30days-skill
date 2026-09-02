@@ -63,11 +63,8 @@ KEYCHAIN_DISABLE_ENV = "LAST30DAYS_SKIP_KEYCHAIN"
 # tests/test_env_keychain.py::test_keychain_keys_match_setup_script.
 KEYCHAIN_KEYS = (
     "OPENAI_API_KEY", "XAI_API_KEY", "GOOGLE_API_KEY", "GEMINI_API_KEY",
-    "GOOGLE_GENAI_API_KEY", "SCRAPECREATORS_API_KEY", "APIFY_API_TOKEN",
-    "AUTH_TOKEN", "CT0", "BSKY_HANDLE", "BSKY_APP_PASSWORD",
-    "TRUTHSOCIAL_TOKEN", "BRAVE_API_KEY", "EXA_API_KEY", "SERPER_API_KEY",
-    "OPENROUTER_API_KEY", "PERPLEXITY_API_KEY", "PARALLEL_API_KEY", "XQUIK_API_KEY",
-    "XIAOHONGSHU_API_BASE", "GITHUB_TOKEN", "BRIGHTDATA_API_KEY",
+    "GOOGLE_GENAI_API_KEY", "SCRAPECREATORS_API_KEY",
+    "AUTH_TOKEN", "CT0", "XQUIK_API_KEY", "GITHUB_TOKEN",
 )
 
 # pass(1) integration: Linux/Unix analog of the Keychain source. Each key in
@@ -87,13 +84,6 @@ AUTH_SOURCE_NONE: AuthSource = "none"
 
 AUTH_STATUS_OK: AuthStatus = "ok"
 AUTH_STATUS_MISSING: AuthStatus = "missing"
-
-XIAOHONGSHU_DEFAULT_API_BASES = (
-    "http://localhost:18060",
-    "http://host.docker.internal:18060",
-)
-XIAOHONGSHU_RESOLVED_API_BASE_KEY = "_XIAOHONGSHU_API_BASE_RESOLVED"
-
 
 @dataclass(frozen=True)
 class OpenAIAuth:
@@ -207,9 +197,8 @@ def load_env_file(path: Path) -> dict[str, str]:
             # Remove quotes if present
             if value and value[0] in ('"', "'") and value[-1] == value[0]:
                 value = value[1:-1]
-            # Empty LAST30DAYS_YT_PLAYER_CLIENT is a persisted disable; other
-            # keys still drop blanks so secrets cannot be set to "".
-            if key and (value or key == 'LAST30DAYS_YT_PLAYER_CLIENT'):
+            # Drop blanks so secrets cannot be set to "".
+            if key and value:
                 env.update({key: value})
     return env
 
@@ -482,7 +471,6 @@ def get_config(policy: ConfigLoadPolicy | None = None) -> dict[str, Any]:
         ('GOOGLE_API_KEY', None),
         ('GEMINI_API_KEY', None),
         ('GOOGLE_GENAI_API_KEY', None),
-        ('XIAOHONGSHU_API_BASE', None),
         ('LAST30DAYS_REASONING_PROVIDER', 'auto'),
         ('LAST30DAYS_PLANNER_MODEL', None),
         ('LAST30DAYS_RERANK_MODEL', None),
@@ -511,12 +499,6 @@ def get_config(policy: ConfigLoadPolicy | None = None) -> dict[str, Any]:
         # degraded (neither ok, no-results, nor skipped-unconfigured). #384.
         ('LAST30DAYS_STRICT_EXIT', None),
         ('LAST30DAYS_MEMORY_DIR', None),
-        # Optional local-only evidence source. Paths are separated with the
-        # platform path separator (":" on macOS/Linux, ";" on Windows).
-        ('LAST30DAYS_CORPUS_DIRS', None),
-        # Corpus evidence is omitted from the stable agent JSON export unless
-        # this explicit privacy opt-in is truthy.
-        ('LAST30DAYS_CORPUS_IN_EXPORT', None),
         ('LAST30DAYS_LIBRARY_OWNER', None),
         ('LAST30DAYS_LIBRARY_CONTEXT', 'on'),
         ('LAST30DAYS_PUBLISH_PASSWORD', None),
@@ -524,57 +506,10 @@ def get_config(policy: ConfigLoadPolicy | None = None) -> dict[str, Any]:
         ('XAI_MODEL_PIN', None),
         ('OPENAI_BASE_URL', None),
         ('XAI_BASE_URL', None),
-        ('OPENROUTER_BASE_URL', None),
         ('SCRAPECREATORS_API_KEY', None),
-        ('APIFY_API_TOKEN', None),
         ('AUTH_TOKEN', None),
         ('CT0', None),
-        ('BSKY_HANDLE', None),
-        ('BSKY_APP_PASSWORD', None),
-        ('BSKY_SEARCH_HOST', None),
-        ('TRUTHSOCIAL_TOKEN', None),
-        ('BRAVE_API_KEY', None),
-        ('EXA_API_KEY', None),
-        ('SERPER_API_KEY', None),
-        ('OPENROUTER_API_KEY', None),
-        ('PERPLEXITY_API_KEY', None),
-        ('LAST30DAYS_PERPLEXITY_MODE', 'agent'),
-        # Legacy Sonar setting. Retain it during migration so existing env
-        # files load, but the Agent adapter does not map it to a dynamic preset.
-        ('LAST30DAYS_PERPLEXITY_MODEL', None),
-        ('LAST30DAYS_PERPLEXITY_AGENT_MODEL', None),
-        ('LAST30DAYS_PERPLEXITY_AGENT_PRESET', None),
-        ('LAST30DAYS_PERPLEXITY_AGENT_MAX_STEPS', None),
-        ('LAST30DAYS_PERPLEXITY_AGENT_MAX_OUTPUT_TOKENS', None),
-        ('LAST30DAYS_PERPLEXITY_AGENT_TIMEOUT_SECONDS', '120'),
-        ('LAST30DAYS_PERPLEXITY_MAX_RESULTS', None),
-        ('LAST30DAYS_PERPLEXITY_SEARCH_CONTEXT_SIZE', None),
-        ('LAST30DAYS_PERPLEXITY_SEARCH_MODE', None),
-        ('LAST30DAYS_PERPLEXITY_DOMAIN_FILTER', None),
-        ('LAST30DAYS_PERPLEXITY_LANGUAGE_FILTER', None),
-        ('LAST30DAYS_PERPLEXITY_COUNTRY', None),
-        ('LAST30DAYS_PERPLEXITY_RECENCY_FILTER', None),
-        ('LAST30DAYS_PERPLEXITY_REASONING_EFFORT', None),
-        ('LAST30DAYS_PERPLEXITY_DEEP_TIMEOUT_SECONDS', '600'),
-        ('PARALLEL_API_KEY', None),
         ('XQUIK_API_KEY', None),
-        # Bright Data CLI. Optional: the CLI normally owns its own auth via
-        # `brightdata login`, so this only matters for users who prefer an
-        # explicit key in a `.env` file or the keychain. Registered here so
-        # those layers reach the gate and the subprocess (-k) alike.
-        ('BRIGHTDATA_API_KEY', None),
-        # Amazon marketplace the amazon source searches. Non-US users point
-        # this at their own storefront (e.g. https://www.amazon.co.uk).
-        ('LAST30DAYS_AMAZON_DOMAIN', 'https://www.amazon.com'),
-        # Host-native search signal: set by the SKILL.md agent-host path when the
-        # invoking runtime has its own (better) web-search tool, so the engine's
-        # keyless search floor stays off there. Defaults unset -> floor allowed.
-        ('LAST30DAYS_NATIVE_SEARCH', None),
-        # Optional SearXNG instance for the keyless-search fallback rung.
-        ('LAST30DAYS_SEARXNG_URL', None),
-        # Truthy -> disable Trustpilot's headless-Chrome WAF-cookie harvest in
-        # automated contexts (cron/CI/eval). Read by trustpilot._harvest_allowed.
-        ('LAST30DAYS_TRUSTPILOT_NO_BROWSER', None),
         ('FROM_BROWSER', None),
         # agentcookie sidecar: soft-dep X cookie source (lib/agentcookie.py),
         # active only on extra hosts (Linux / Mac mini / Darwin sink) or when
@@ -597,38 +532,14 @@ def get_config(policy: ConfigLoadPolicy | None = None) -> dict[str, Any]:
         # Backward compatibility for configs written by the original `eli5 on`
         # follow-up command. New writes use LAST30DAYS_REGISTER=eli5.
         ('ELI5_MODE', None),
-        ('LAST30DAYS_YOUTUBE_SSH_HOST', None),
         ('LAST30DAYS_REPORT_CACHE_TTL_SECONDS', None),
         ('LAST30DAYS_VERIFY_FRESHNESS', None),
-        ('LAST30DAYS_TRANSCRIPT_TIMEOUT', None),
-        ('DEGRADED_TRANSCRIPT_THRESHOLD', None),
         (KEYCHAIN_ALIASES_ENV, None),
-        # Whisper transcription provider for caption-free audio/video. Groq's
-        # free tier is preferred; OPENAI_API_KEY is the paid backstop (already
-        # resolved above via openai_auth).
-        ('GROQ_API_KEY', None),
-        ('LAST30DAYS_YT_SUB_LANGS', 'en,es,pt'),
-        # youtube_yt reads this lazily from os.environ; default android is
-        # applied there when the key is absent. Empty disables.
-        ('LAST30DAYS_YT_PLAYER_CLIENT', None),
-        ('LAST30DAYS_YT_TRANSCRIPT_FAST_TIMEOUT', None),
-        ('LAST30DAYS_YT_SEARCH_TIMEOUT', None),
         ('GITHUB_TOKEN', None),
     ]
 
     for key, default in keys:
-        if key == 'LAST30DAYS_YT_PLAYER_CLIENT':
-            # Empty string is a valid disable; `or` would treat it as unset.
-            if key in os.environ:
-                config[key] = os.environ.get(key)
-            elif key in merged_env:
-                # Mapping lookup via .get; bracket form trips a CRITICAL
-                # scanner false positive on this identifier.
-                config[key] = merged_env.get(key)
-            else:
-                config[key] = default
-        else:
-            config[key] = os.environ.get(key) or merged_env.get(key, default)
+        config[key] = os.environ.get(key) or merged_env.get(key, default)
 
     # Export debug flag to os.environ so log.py's lazy os.environ.get()
     # picks up .env values. setdefault ensures a shell-exported value is
@@ -636,23 +547,11 @@ def get_config(policy: ConfigLoadPolicy | None = None) -> dict[str, Any]:
     if config.get('LAST30DAYS_DEBUG'):
         os.environ.setdefault('LAST30DAYS_DEBUG', config['LAST30DAYS_DEBUG'])
 
-    # youtube_yt reads these tuning knobs lazily from os.environ, so values
+    # http.py reads the keyless reddit rate lazily from os.environ, so a value
     # loaded from .env must be exported into the current engine process.
-    for key in (
-        'LAST30DAYS_YT_SUB_LANGS',
-        'LAST30DAYS_YT_TRANSCRIPT_FAST_TIMEOUT',
-        'LAST30DAYS_YT_SEARCH_TIMEOUT',
-        'LAST30DAYS_REDDIT_KEYLESS_RATE',
-        'LAST30DAYS_YT_PLAYER_CLIENT',
-    ):
-        value = config.get(key)
-        # Empty LAST30DAYS_YT_PLAYER_CLIENT is a valid disable; other knobs
-        # treat empty as unset and keep their code defaults.
-        if key == 'LAST30DAYS_YT_PLAYER_CLIENT':
-            if value is not None:
-                os.environ.setdefault(key, value)
-        elif value:
-            os.environ.setdefault(key, value)
+    keyless_rate = config.get('LAST30DAYS_REDDIT_KEYLESS_RATE')
+    if keyless_rate:
+        os.environ.setdefault('LAST30DAYS_REDDIT_KEYLESS_RATE', keyless_rate)
 
     # Backward-compat: ScrapeCreators' own examples and tutorials use the
     # SCRAPE_CREATORS_API_KEY spelling (with underscore between SCRAPE and
@@ -779,8 +678,8 @@ def _apply_x_pair(config: dict[str, Any], auth_token: str, ct0: str, source: str
 
 def _apply_browser_extract(config: dict[str, Any]) -> None:
     """Run the mainline in-process browser cookie extractor (unchanged from
-    main): fills X (when a browser is opted in via FROM_BROWSER) and non-X
-    cookie domains like truthsocial. Missing keys only; source label ``browser``."""
+    main): fills X cookies when a browser is opted in via FROM_BROWSER.
+    Missing keys only; source label ``browser``."""
     browser_creds = extract_browser_credentials(config)
     for key, value in browser_creds.items():
         if not config.get(key):
@@ -847,11 +746,6 @@ COOKIE_DOMAINS: dict[str, dict[str, Any]] = {
         "domain": ".x.com",
         "cookies": ["auth_token", "ct0"],
         "mapping": {"auth_token": "AUTH_TOKEN", "ct0": "CT0"},
-    },
-    "truthsocial": {
-        "domain": ".truthsocial.com",
-        "cookies": ["_session_id"],
-        "mapping": {"_session_id": "TRUTHSOCIAL_TOKEN"},
     },
 }
 
@@ -1147,153 +1041,6 @@ def x_pending_browser_auth(config: dict[str, Any], local_only: bool = False) -> 
     return False
 
 
-def is_ytdlp_available() -> bool:
-    """Check if yt-dlp is installed for YouTube search."""
-    from . import youtube_yt
-    return youtube_yt.is_ytdlp_installed()
-
-
-def is_youtube_comments_available(config: dict[str, Any]) -> bool:
-    """Check if YouTube comment enrichment is available.
-
-    yt-dlp fetches YouTube comments free and keyless, so when it is installed
-    comments need no credential and no ``INCLUDE_SOURCES`` opt-in — the opt-in
-    only ever existed to gate ScrapeCreators credit spend, and there is none to
-    gate. ``EXCLUDE_SOURCES=youtube_comments`` remains the off-switch.
-
-    Without yt-dlp, the legacy ScrapeCreators path still applies: it requires
-    SCRAPECREATORS_API_KEY AND ``youtube_comments`` in ``INCLUDE_SOURCES``
-    (mirroring ``is_tiktok_comments_available``), bounded by
-    ``enrich_with_comments(max_videos=3)`` at ~3 credits per run.
-    """
-    if 'youtube_comments' in _parse_exclude_sources(config):
-        return False
-    if is_ytdlp_available():
-        return True
-    if not config.get('SCRAPECREATORS_API_KEY'):
-        return False
-    return 'youtube_comments' in _parse_include_sources(config)
-
-
-def is_tiktok_comments_available(config: dict[str, Any]) -> bool:
-    """Check if TikTok comment enrichment is available.
-
-    Requires SCRAPECREATORS_API_KEY AND tiktok_comments in INCLUDE_SOURCES.
-    Mirrors the youtube_comments opt-in pattern.
-    """
-    if not config.get('SCRAPECREATORS_API_KEY'):
-        return False
-    include = _parse_include_sources(config)
-    return 'tiktok_comments' in include
-
-
-def is_instagram_comments_available(config: dict[str, Any]) -> bool:
-    """Check if Instagram comment enrichment is available.
-
-    Requires SCRAPECREATORS_API_KEY AND instagram_comments in INCLUDE_SOURCES.
-    Mirrors the youtube_comments / tiktok_comments opt-in pattern. Comments are
-    fetched via ScrapeCreators (GET /v2/instagram/post/comments) with each
-    comment's ``comment_like_count`` used as its vote for ranking. Part of the
-    default onboarding tier (posts on -> comments on for TikTok/Instagram/YouTube).
-    """
-    if not config.get('SCRAPECREATORS_API_KEY'):
-        return False
-    return 'instagram_comments' in _parse_include_sources(config)
-
-
-def is_youtube_sc_available(config: dict[str, Any]) -> bool:
-    """Check if ScrapeCreators YouTube search fallback is available.
-
-    Used when yt-dlp is not installed or fails.
-    """
-    return bool(config.get('SCRAPECREATORS_API_KEY'))
-
-
-def is_hackernews_available() -> bool:
-    """Check if Hacker News source is available.
-
-    Always returns True - HN uses free Algolia API, no key needed.
-    """
-    return True
-
-
-def is_native_search(config: dict[str, Any]) -> bool:
-    """Whether the invoking host has its own (better) native web search.
-
-    Defined by capability, not host identity: the SKILL.md agent-host path sets
-    ``LAST30DAYS_NATIVE_SEARCH`` when the runtime actually has a native web-search
-    tool (e.g. Claude Code's WebSearch). When true, the engine's keyless search
-    floor is suppressed so a worse free search never preempts the model's own.
-    Defaults False (unset), so headless/cron and hosts without native search fall
-    to the keyless floor.
-    """
-    raw = config.get('LAST30DAYS_NATIVE_SEARCH')
-    if raw is None:
-        return False
-    return str(raw).strip().lower() in ('1', 'true', 'yes', 'on')
-
-
-def keyless_web_allowed(config: dict[str, Any]) -> bool:
-    """Whether the engine may use its keyless web-search floor for this run.
-
-    Allowed only when the host does NOT have native search. Independent of
-    whether a paid key is set (the grounding dispatcher prefers paid first and
-    falls to keyless on empty/error for non-native runs).
-    """
-    return not is_native_search(config)
-
-
-def transcription_providers(config: dict[str, Any]) -> list[tuple[str, str]]:
-    """Ordered (name, api_key) Whisper providers for caption-free transcription.
-
-    Groq (free tier) first, OpenAI (paid) as the backstop. Empty when neither
-    key is set, in which case transcription degrades rather than runs.
-    """
-    providers: list[tuple[str, str]] = []
-    if config.get('GROQ_API_KEY'):
-        providers.append(('groq', config['GROQ_API_KEY']))
-    if config.get('OPENAI_API_KEY'):
-        providers.append(('openai', config['OPENAI_API_KEY']))
-    return providers
-
-
-def is_bluesky_available(config: dict[str, Any]) -> bool:
-    """Check if Bluesky source is available.
-
-    Requires BSKY_HANDLE and BSKY_APP_PASSWORD (app password from bsky.app/settings).
-    """
-    return bool(config.get('BSKY_HANDLE') and config.get('BSKY_APP_PASSWORD'))
-
-
-def is_truthsocial_available(config: dict[str, Any]) -> bool:
-    """Check if Truth Social source is available.
-
-    Requires TRUTHSOCIAL_TOKEN (bearer token from browser dev tools).
-    """
-    return bool(config.get('TRUTHSOCIAL_TOKEN'))
-
-
-def is_polymarket_available() -> bool:
-    """Check if Polymarket source is available.
-
-    Always returns True - Gamma API is free, no key needed.
-    """
-    return True
-
-
-def is_tiktok_available(config: dict[str, Any]) -> bool:
-    """Check if TikTok source is available (ScrapeCreators or legacy Apify).
-
-    Returns True if SCRAPECREATORS_API_KEY or APIFY_API_TOKEN is set.
-    """
-    return bool(config.get('SCRAPECREATORS_API_KEY') or config.get('APIFY_API_TOKEN'))
-
-
-def get_tiktok_token(config: dict[str, Any]) -> str:
-    """Get TikTok API token, preferring ScrapeCreators over legacy Apify."""
-    return config.get('SCRAPECREATORS_API_KEY') or config.get('APIFY_API_TOKEN') or ''
-
-
 def _parse_include_sources(config: dict[str, Any]) -> set[str]:
     """Parse INCLUDE_SOURCES config value into a set of lowercase source names."""
     raw = config.get('INCLUDE_SOURCES') or ''
@@ -1322,107 +1069,6 @@ def is_setup_complete(config: dict[str, Any]) -> bool:
     privates.
     """
     return _truthy(config.get('SETUP_COMPLETE'))
-
-
-def is_threads_available(config: dict[str, Any]) -> bool:
-    """Check if the Threads credential is available.
-
-    Returns True when SCRAPECREATORS_API_KEY is set. This is an availability
-    predicate only: whether Threads is actually *scheduled* is gated in the
-    pipeline's ``available_sources`` by an ``INCLUDE_SOURCES=threads`` opt-in
-    (the onboarding "Everything" tier), so a key alone no longer runs Threads.
-    """
-    return bool(config.get('SCRAPECREATORS_API_KEY'))
-
-
-def is_instagram_available(config: dict[str, Any]) -> bool:
-    """Check if Instagram source is available (ScrapeCreators).
-
-    Returns True if SCRAPECREATORS_API_KEY is set.
-    Instagram uses the same key as TikTok.
-    """
-    return bool(config.get('SCRAPECREATORS_API_KEY'))
-
-
-def get_instagram_token(config: dict[str, Any]) -> str:
-    """Get Instagram API token (same ScrapeCreators key as TikTok)."""
-    return config.get('SCRAPECREATORS_API_KEY') or ''
-
-
-def get_xiaohongshu_api_base(config: dict[str, Any]) -> str:
-    """Get Xiaohongshu HTTP API base URL.
-
-    The availability probe caches the first logged-in local service it finds so
-    the later search request uses the same browser-backed session endpoint.
-    """
-    cached = config.get(XIAOHONGSHU_RESOLVED_API_BASE_KEY)
-    if cached:
-        return str(cached).rstrip("/")
-
-    explicit = config.get("XIAOHONGSHU_API_BASE")
-    if explicit:
-        return str(explicit).rstrip("/")
-
-    return XIAOHONGSHU_DEFAULT_API_BASES[0]
-
-
-def _xiaohongshu_api_base_candidates(config: dict[str, Any]) -> list[str]:
-    explicit = config.get("XIAOHONGSHU_API_BASE")
-    if explicit:
-        return [str(explicit).rstrip("/")]
-
-    candidates: list[str] = []
-    cached = config.get(XIAOHONGSHU_RESOLVED_API_BASE_KEY)
-    if cached:
-        candidates.append(str(cached).rstrip("/"))
-
-    for base in XIAOHONGSHU_DEFAULT_API_BASES:
-        if base not in candidates:
-            candidates.append(base)
-    return candidates
-
-
-def _xiaohongshu_base_logged_in(base: str, http_module: Any) -> bool:
-    # Keep the health probe snappy, but allow one retry for transient hiccups.
-    health = http_module.get(f"{base}/health", timeout=3, retries=2)
-    if not isinstance(health, dict):
-        return False
-    if not health.get("success"):
-        return False
-
-    # Login checks can be slower because some services consult the browser
-    # profile/session, so use a slightly longer timeout than the health probe.
-    login = http_module.get(f"{base}/api/v1/login/status", timeout=8, retries=2)
-    is_logged_in = (
-        login.get("data", {}).get("is_logged_in")
-        if isinstance(login, dict) else False
-    )
-    return bool(is_logged_in)
-
-
-def is_xiaohongshu_available(config: dict[str, Any]) -> bool:
-    """Check whether Xiaohongshu HTTP API is reachable and logged in."""
-    # Import here to avoid heavy imports at module load.
-    from . import http
-
-    for base in _xiaohongshu_api_base_candidates(config):
-        try:
-            if _xiaohongshu_base_logged_in(base, http):
-                config[XIAOHONGSHU_RESOLVED_API_BASE_KEY] = base
-                return True
-        except (OSError, http.HTTPError):
-            continue
-        except Exception as exc:
-            sys.stderr.write(
-                f"[last30days] WARNING: unexpected error checking Xiaohongshu "
-                f"at {base}: {type(exc).__name__}: {exc}\n"
-            )
-            sys.stderr.flush()
-    return False
-
-
-# Backward compat alias
-is_apify_available = is_tiktok_available
 
 
 def get_x_source_status(config: dict[str, Any], probe: bool = False) -> dict[str, Any]:
@@ -1536,22 +1182,6 @@ def get_x_source_status(config: dict[str, Any], probe: bool = False) -> dict[str
         "xquik_status": xquik_status,
         "can_install_bird": bird_status["can_install"],
     }
-
-
-# Pinterest
-def is_pinterest_available(config: dict[str, Any]) -> bool:
-    """Check if Pinterest source is available.
-
-    Returns True when SCRAPECREATORS_API_KEY is set AND 'pinterest' is in
-    INCLUDE_SOURCES (or requested_sources at the pipeline level).  Pinterest
-    is opt-in because not every topic benefits from visual pin results.
-    """
-    return bool(config.get('SCRAPECREATORS_API_KEY'))
-
-
-def get_pinterest_token(config: dict[str, Any]) -> str:
-    """Get Pinterest API token (same ScrapeCreators key as TikTok/Instagram)."""
-    return config.get('SCRAPECREATORS_API_KEY') or ''
 
 
 # Xquik

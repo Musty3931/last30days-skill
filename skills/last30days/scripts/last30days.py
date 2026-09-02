@@ -51,7 +51,7 @@ if os.name == "nt":
 SCRIPT_DIR = Path(__file__).parent.resolve()
 sys.path.insert(0, str(SCRIPT_DIR))
 
-from lib import competitors as competitors_mod, corpus, dates, discovery_handoff, env, freshness, html_render, http, permission_preflight, pipeline, registers, render, schema, ui
+from lib import competitors as competitors_mod, dates, discovery_handoff, env, freshness, html_render, http, permission_preflight, pipeline, registers, render, schema, ui
 
 _child_pids: set[int] = set()
 _child_pids_lock = threading.Lock()
@@ -119,140 +119,6 @@ def resolve_requested_sources(args_search: str | None, config: dict) -> list[str
     return None
 
 
-def add_deep_research_source(
-    requested_sources: list[str] | None,
-) -> list[str] | None:
-    """Add Perplexity without replacing the default-source sentinel.
-
-    ``None`` means that the planner can use the normal configured source set.
-    Deep Research enables Perplexity through ``INCLUDE_SOURCES`` separately, so
-    converting this sentinel to ``["perplexity"]`` would suppress every normal
-    source.
-    """
-    if requested_sources is None:
-        return None
-    if "perplexity" in requested_sources:
-        return requested_sources
-    return [*requested_sources, "perplexity"]
-
-
-def enable_deep_research_source(config: dict) -> None:
-    """Enable the exact Perplexity token or reject a hard exclusion."""
-    excluded = {
-        token.strip().lower()
-        for token in str(config.get("EXCLUDE_SOURCES") or "").split(",")
-        if token.strip()
-    }
-    if "perplexity" in excluded:
-        raise ValueError(
-            "--deep-research conflicts with EXCLUDE_SOURCES=perplexity"
-        )
-
-    include = str(config.get("INCLUDE_SOURCES") or "")
-    tokens = [token.strip() for token in include.split(",") if token.strip()]
-    if "perplexity" not in {token.lower() for token in tokens}:
-        tokens.append("perplexity")
-        config["INCLUDE_SOURCES"] = ",".join(tokens)
-
-
-def plan_has_explicit_trustpilot_domain(comp_plan: dict | None) -> bool:
-    """True when any --competitors-plan entry pins a trustpilot_domain."""
-    if not comp_plan:
-        return False
-    for entry in comp_plan.values():
-        if not isinstance(entry, dict):
-            continue
-        domain = entry.get("trustpilot_domain")
-        if isinstance(domain, str) and domain.strip():
-            return True
-    return False
-
-
-def activate_trustpilot_for_explicit_domain(
-    config: dict,
-    requested_sources: list[str] | None,
-    *,
-    reason: str,
-) -> list[str] | None:
-    """Activate the opt-in Trustpilot source when the user pinned a domain.
-
-    Passing ``--trustpilot-domain`` (or a plan-level ``trustpilot_domain``) is
-    unambiguous intent — silently ignoring it when Trustpilot is not in
-    ``INCLUDE_SOURCES`` / ``--search`` is the #873 failure mode. Auto-resolve
-    hints must not call this helper.
-
-    ``EXCLUDE_SOURCES=trustpilot`` still wins. Mutates ``config`` in place and
-    returns the (possibly extended) ``requested_sources`` list.
-    """
-    excluded = {
-        token.strip().lower()
-        for token in str(config.get("EXCLUDE_SOURCES") or "").split(",")
-        if token.strip()
-    }
-    if "trustpilot" in excluded:
-        sys.stderr.write(
-            f"[Trustpilot] {reason} ignored: trustpilot is in EXCLUDE_SOURCES\n"
-        )
-        return requested_sources
-
-    include = str(config.get("INCLUDE_SOURCES") or "")
-    tokens = [token.strip() for token in include.split(",") if token.strip()]
-    if "trustpilot" not in {token.lower() for token in tokens}:
-        tokens.append("trustpilot")
-        config["INCLUDE_SOURCES"] = ",".join(tokens)
-        sys.stderr.write(
-            f"[Trustpilot] {reason} activated trustpilot source "
-            "(add to INCLUDE_SOURCES permanently to skip this auto-enable)\n"
-        )
-
-    if requested_sources is not None and "trustpilot" not in requested_sources:
-        requested_sources = [*requested_sources, "trustpilot"]
-    return requested_sources
-
-
-def activate_telegram_for_explicit_sources(
-    config: dict,
-    requested_sources: list[str] | None,
-    *,
-    channels: str,
-) -> list[str] | None:
-    """Activate the opt-in Telegram source when the user pinned channel(s).
-
-    Passing ``--telegram-sources`` is unambiguous intent — silently ignoring it
-    when Telegram is not in ``INCLUDE_SOURCES`` / ``--search`` is the same
-    failure mode as #873 (Trustpilot). Auto-activate the source.
-
-    ``EXCLUDE_SOURCES=telegram`` still wins. Mutates ``config`` in place and
-    returns the (possibly extended) ``requested_sources`` list.
-    """
-    excluded = {
-        token.strip().lower()
-        for token in str(config.get("EXCLUDE_SOURCES") or "").split(",")
-        if token.strip()
-    }
-    if "telegram" in excluded:
-        sys.stderr.write(
-            f"[Telegram] --telegram-sources={channels} ignored: telegram is in EXCLUDE_SOURCES\n"
-        )
-        return requested_sources
-
-    config["TELEGRAM_SOURCES"] = channels
-
-    include = str(config.get("INCLUDE_SOURCES") or "")
-    tokens = [token.strip() for token in include.split(",") if token.strip()]
-    if "telegram" not in {token.lower() for token in tokens}:
-        tokens.append("telegram")
-        config["INCLUDE_SOURCES"] = ",".join(tokens)
-        sys.stderr.write(
-            f"[Telegram] --telegram-sources={channels} activated telegram source "
-            "(add to INCLUDE_SOURCES permanently to skip this auto-enable)\n"
-        )
-
-    if requested_sources is not None and "telegram" not in requested_sources:
-        requested_sources = [*requested_sources, "telegram"]
-    return requested_sources
-
-
 def slugify(value: str, max_length: int = 180) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
     if len(slug) > max_length:
@@ -262,20 +128,6 @@ def slugify(value: str, max_length: int = 180) -> str:
         digest = hashlib.sha1(slug.encode("utf-8")).hexdigest()[:10]
         slug = f"{slug[:max_length].rstrip('-')}-{digest}"
     return slug or "last30days"
-
-
-def _report_has_private_corpus(report: schema.Report) -> bool:
-    items_by_source = getattr(report, "items_by_source", {})
-    if isinstance(items_by_source, dict) and items_by_source.get("corpus"):
-        return True
-    candidates = getattr(report, "ranked_candidates", ())
-    if not isinstance(candidates, (list, tuple)):
-        return False
-    return any(
-        candidate.source == "corpus"
-        or any(item.source == "corpus" for item in candidate.source_items)
-        for candidate in candidates
-    )
 
 
 def _ensure_output_directory(path: Path, *, private: bool) -> None:
@@ -335,7 +187,7 @@ def save_output(
             )
         else:
             static_content = render.render_full(report)
-    private_corpus = _report_has_private_corpus(report) or bool(private)
+    private_corpus = bool(private)
     _ensure_output_directory(path, private=private_corpus)
     for candidate in candidates:
         try:
@@ -590,21 +442,14 @@ def _scoped_store_db(args: argparse.Namespace) -> Path | None:
 def persist_report(report: schema.Report, store_db: Path | None = None) -> dict[str, int]:
     import store
 
-    private_corpus = _report_has_private_corpus(report)
     with store.scoped_db(store_db):
-        if private_corpus:
-            store.ensure_private_db_files()
         store.init_db()
-        if private_corpus:
-            store.ensure_private_db_files()
         topic_row = store.add_topic(report.topic)
         topic_id = topic_row["id"]
         source_mode = ",".join(sorted(report.items_by_source)) or "v3"
         run_id = store.record_run(topic_id, source_mode=source_mode, status="running")
         try:
             findings = store.findings_from_report(report)
-            if private_corpus:
-                store.ensure_private_db_files()
             counts = store.store_findings(run_id, topic_id, findings)
             store.update_run(
                 run_id,
@@ -616,9 +461,6 @@ def persist_report(report: schema.Report, store_db: Path | None = None) -> dict[
         except Exception as exc:
             store.update_run(run_id, status="failed", error_message=str(exc)[:500])
             raise
-        finally:
-            if private_corpus:
-                store.ensure_private_db_files()
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -732,18 +574,6 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--no-browser-cookies", action="store_true",
                         help="Disable browser-cookie extraction even when FROM_BROWSER is configured")
     parser.add_argument("--save-dir", help="Optional directory for saving the rendered output")
-    parser.add_argument(
-        "--corpus",
-        action="append",
-        default=[],
-        metavar="DIR",
-        help="Add a local .md/.txt/.pdf directory as a private ranked source (repeatable)",
-    )
-    parser.add_argument(
-        "--corpus-all-time",
-        action="store_true",
-        help="Include matching corpus files older than the research window",
-    )
     parser.add_argument("--output", help="Optional exact file path for saving the rendered output")
     parser.add_argument("--synthesis-file", help="Markdown synthesis to embed in --emit=html output")
     parser.add_argument("--publish-html", action="store_true",
@@ -755,21 +585,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--store", action="store_true", help="Persist ranked findings to the SQLite research store")
     parser.add_argument("--x-handle", help="X handle for targeted supplemental search")
     parser.add_argument("--x-related", help="Comma-separated related X handles (searched with lower weight)")
-    parser.add_argument("--web-backend", default="auto",
-                        choices=["auto", "brave", "exa", "serper", "parallel", "parallel-mcp", "keyless", "none"],
-                        help="Web search backend (default: auto; parallel-mcp explicitly opts into the "
-                             "anonymous hosted MCP; keyless forces the zero-key floor)")
-    parser.add_argument("--deep-research", action="store_true",
-                        help="Use at most one Perplexity Deep Research run. Direct PERPLEXITY_API_KEY uses the Agent API background path; OPENROUTER_API_KEY keeps the synchronous Sonar fallback; cannot be combined with competitor or vs-mode.")
-    parser.add_argument("--hiring-signals", action="store_true",
-                        help="Analyze public jobs/careers postings as evidence-backed company focus signals.")
     parser.add_argument("--plan", help="JSON query plan (skips internal LLM planner). Can be a JSON string or a file path.")
     parser.add_argument("--save-suffix", help="Suffix for saved output filename (e.g., 'gemini' → kanye-west-raw-gemini.md)")
     parser.add_argument("--subreddits", help="Comma-separated broad/category subreddit names to search (e.g., SaaS,Entrepreneur)")
     parser.add_argument("--dedicated-subreddits", help="Comma-separated entity-home subreddit names (e.g., Kanye,WestSubEver). Pulled in full (top+hot+new) and exempt from the relevance floor since the whole sub is the topic.")
-    parser.add_argument("--tiktok-hashtags", help="Comma-separated TikTok hashtags without # (e.g., tella,screenrecording)")
-    parser.add_argument("--tiktok-creators", help="Comma-separated TikTok creator handles (e.g., TellaHQ,taborplace)")
-    parser.add_argument("--ig-creators", help="Comma-separated Instagram creator handles (e.g., tella.tv,laborstories)")
     parser.add_argument(
         "--days",
         "--lookback-days",
@@ -798,65 +617,12 @@ def build_parser() -> argparse.ArgumentParser:
                         help="Override the per-source fetch cap (MAX_SOURCE_FETCHES, default x=2) that limits how many "
                              "subqueries actually fetch a capped source. Raise it so every X subquery in a multi-angle "
                              "--plan runs instead of just the first two. See issue #716.")
-    parser.add_argument("--auto-resolve", action="store_true",
-                        help="Use web search to discover subreddits/handles before planning (for platforms without WebSearch)")
     parser.add_argument("--github-user", help="GitHub username for person-mode search (e.g., steipete)")
     parser.add_argument("--github-repo", help="Comma-separated owner/repo for project-mode search (e.g., openclaw/openclaw,paperclipai/paperclip)")
     parser.add_argument(
-        "--trustpilot-domain",
-        help=(
-            "Trustpilot review-page domain for the topic (e.g., www.thriftbooks.com). "
-            "Used verbatim, bypasses the brand-shape gate, and auto-activates the "
-            "opt-in Trustpilot source for this run (unless EXCLUDE_SOURCES=trustpilot). "
-            "Find the domain with `trustpilot-pp-cli search '<name>'`."
-        ),
-    )
-    parser.add_argument(
-        "--amazon-query",
-        help=(
-            "Product keyword the amazon source searches, when that source is active. "
-            "Defaults to the topic. Supply it whenever the topic is not the product: "
-            "a person topic searches their company's product line "
-            "(--amazon-query='June Oven'), and a brand searches brand-plus-category "
-            "(--amazon-query='Weber grill', not 'Weber' -- a bare brand keyword lands "
-            "on an ad-heavy page that can miss the brand's own bestsellers). "
-            "Requires the brightdata CLI on PATH and logged in."
-        ),
-    )
-    parser.add_argument(
-        "--telegram-sources",
-        help=(
-            "Comma-separated list of public Telegram channel handles or t.me URLs. "
-            "Auto-activates the opt-in Telegram source for this run. "
-            "Accepts: bare handle (aipost), @handle (@aipost), "
-            "t.me URL (https://t.me/aipost), or preview URL (https://t.me/s/aipost). "
-            "Rejects joinchat links and numeric -100 supergroup IDs."
-        ),
-    )
-    parser.add_argument(
-        "--competitors",
-        nargs="?",
-        const=2,
-        type=int,
-        default=None,
-        metavar="N",
-        help="Auto-discover N competitor entities and fan out last30days across all of them as a comparison (default N=2 → 3-way: original + 2 peers; range 1..6). Use --competitors-list to override discovery.",
-    )
-    parser.add_argument(
         "--competitors-list",
         dest="competitors_list",
-        help="Comma-separated competitor entities to skip discovery (e.g., 'Anthropic,xAI,Google Gemini'). Implies --competitors.",
-    )
-    parser.add_argument(
-        "--polymarket-keywords",
-        dest="polymarket_keywords",
-        help=(
-            "Comma-separated keywords that Polymarket market titles must match "
-            "to be included. Use for ambiguous single-token topics like 'Warriors' "
-            "(nba,gsw,golden-state) to filter out Glasgow Warriors rugby, Honor "
-            "of Kings Rogue Warriors, etc. When omitted, Polymarket returns all "
-            "matching markets — so expect cross-entity noise on generic topics."
-        ),
+        help="Comma-separated competitor entities to compare against the topic (e.g., 'Anthropic,xAI,Google Gemini'). Enables comparison mode.",
     )
     parser.add_argument(
         "--competitors-plan",
@@ -865,7 +631,7 @@ def build_parser() -> argparse.ArgumentParser:
             "JSON mapping of per-entity Step 0.55 targeting for competitor / vs-mode "
             "sub-runs. Schema: {entity_name: {x_handle?, x_related?, subreddits?, "
             "github_user?, github_repos?, context?}}. Accepts inline JSON or a file "
-            "path. Implies --competitors. Preferred over --competitors-list when the "
+            "path. Enables comparison mode. Preferred over --competitors-list when the "
             "hosting model has already resolved per-entity handles and subs."
         ),
     )
@@ -903,7 +669,7 @@ def parse_competitors_plan(raw: str | None) -> dict[str, dict]:
         raise SystemExit(2)
     known_fields = {
         "x_handle", "x_related", "subreddits",
-        "github_user", "github_repos", "trustpilot_domain", "context",
+        "github_user", "github_repos", "context",
     }
     normalized: dict[str, dict] = {}
     for entity, entry in parsed.items():
@@ -934,7 +700,7 @@ def subrun_kwargs_for(
 ) -> dict:
     """Build an explicit per-entity kwargs dict for pipeline.run().
 
-    Plan values win over auto_resolve values. Returns keys for all per-entity
+    Plan values win over ``resolved`` defaults. Returns keys for all per-entity
     targeting flags so callers never fall through to closure defaults.
 
     This helper is the single source of truth for sub-run kwargs — main-topic
@@ -969,15 +735,6 @@ def subrun_kwargs_for(
     if isinstance(github_repos, list):
         github_repos = [r.strip() for r in github_repos if r.strip() and "/" in r.strip()] or None
 
-    trustpilot_domain = _choose("trustpilot_domain", "trustpilot_domain")
-    if isinstance(trustpilot_domain, str):
-        trustpilot_domain = trustpilot_domain.strip() or None
-    # Provenance: a plan-supplied domain is user-set (verbatim-final); one that
-    # only came from auto_resolve is a hint that retries via search on a miss.
-    trustpilot_domain_is_hint = bool(
-        trustpilot_domain and not plan_entry.get("trustpilot_domain")
-    )
-
     context = plan_entry.get("context") or resolved.get("context") or ""
 
     return {
@@ -986,8 +743,6 @@ def subrun_kwargs_for(
         "subreddits": subreddits,
         "github_user": github_user,
         "github_repos": github_repos,
-        "trustpilot_domain": trustpilot_domain,
-        "_trustpilot_domain_is_hint": trustpilot_domain_is_hint,
         "_context": context,
     }
 
@@ -1015,7 +770,6 @@ def truncate_comparison_entities(entities: list[str], *, warn: bool = True) -> l
 def apply_vs_competitor_routing(
     topic: str,
     *,
-    competitors_flag: int | None,
     comp_enabled: bool,
     comp_count: int,
     comp_explicit: list[str],
@@ -1025,22 +779,14 @@ def apply_vs_competitor_routing(
 
     Precedence for *who* runs:
       1. ``--competitors-list`` (explicit peers; topic unchanged)
-      2. Pure discover-N (``--competitors`` without list or plan) — topic
-         unchanged, even if it contains ``vs``
-      3. vs-string split (first entity becomes main topic) — used for bare
+      2. vs-string split (first entity becomes main topic) — used for bare
          vs-topics and vs-topic + ``--competitors-plan``
-      4. ``--competitors-plan`` keys as peers when there is no vs-string
-         (including when ``--competitors N`` is also set)
+      3. ``--competitors-plan`` keys as peers when there is no vs-string
     """
     from lib import planner as _planner
 
     if comp_explicit:
         return topic, True, len(comp_explicit), list(comp_explicit)
-
-    # Preserve discover-N semantics: numeric flag without plan/list must not
-    # rewrite a vs-string into named peers.
-    if competitors_flag is not None and not comp_plan:
-        return topic, True, comp_count, []
 
     vs_entities = truncate_comparison_entities(
         _planner._comparison_entities(topic, uncapped=True),
@@ -1074,12 +820,11 @@ def apply_vs_competitor_routing(
 def resolve_competitors_args(args: argparse.Namespace) -> tuple[bool, int, list[str]]:
     """Normalize competitors flags into (enabled, count, explicit_list).
 
-    - (False, 0, []) when neither flag, list, nor plan is set.
+    - (False, 0, []) when neither list nor plan is set.
     - An explicit ``--competitors-list`` always wins; count is derived from list length.
     - ``--competitors-plan`` alone enables mode with an empty peer list; vs-routing
       fills peers from the vs-string or plan keys.
-    - A numeric count outside [1, 6] is clamped with a stderr warning.
-    - count <= 0 (explicit) raises SystemExit(2).
+    - A list longer than COMPETITORS_MAX is clamped with a stderr warning.
     """
     explicit_list: list[str] = []
     list_flag_provided = args.competitors_list is not None
@@ -1093,21 +838,14 @@ def resolve_competitors_args(args: argparse.Namespace) -> tuple[bool, int, list[
             sys.stderr.write("[Competitors] --competitors-list is empty.\n")
             raise SystemExit(2)
 
-    competitors_flag = args.competitors
     list_present = bool(explicit_list)
-    flag_present = competitors_flag is not None
     plan_present = bool(getattr(args, "competitors_plan", None))
 
-    if not list_present and not flag_present and not plan_present:
+    if not list_present and not plan_present:
         return False, 0, []
 
     if list_present:
         count = len(explicit_list)
-        if flag_present and competitors_flag != count:
-            sys.stderr.write(
-                f"[Competitors] --competitors={competitors_flag} ignored; using "
-                f"{count} entries from --competitors-list.\n"
-            )
         if count > COMPETITORS_MAX:
             sys.stderr.write(
                 f"[Competitors] --competitors-list has {count} entries, clamping to {COMPETITORS_MAX}.\n"
@@ -1115,20 +853,6 @@ def resolve_competitors_args(args: argparse.Namespace) -> tuple[bool, int, list[
             explicit_list = explicit_list[:COMPETITORS_MAX]
             count = COMPETITORS_MAX
         return True, count, explicit_list
-
-    if flag_present:
-        count = competitors_flag
-        if count < COMPETITORS_MIN:
-            sys.stderr.write(
-                f"[Competitors] --competitors must be >= {COMPETITORS_MIN} (got {count}).\n"
-            )
-            raise SystemExit(2)
-        if count > COMPETITORS_MAX:
-            sys.stderr.write(
-                f"[Competitors] --competitors={count} exceeds max {COMPETITORS_MAX}; clamping.\n"
-            )
-            count = COMPETITORS_MAX
-        return True, count, []
 
     # plan_present alone: enable; peers filled by apply_vs_competitor_routing.
     return True, 0, []
@@ -1141,13 +865,6 @@ def _missing_sources_for_promo(diag: dict[str, object]) -> str | None:
         missing.append("reddit")
     # X is optional. A successful run without X must reach the research output
     # without an authentication or browser-cookie promo in front of it.
-    # The web promo nudges toward a paid backend for higher-quality web search.
-    # Grounding is now available keyless on non-native hosts, so key the promo on
-    # the absence of a *paid* backend, not on grounding availability. Suppress it
-    # entirely on native-search hosts, where the model's own search is better and
-    # setting a paid engine key would be the wrong advice.
-    if not diag.get("native_web_backend") and not diag.get("native_search"):
-        missing.append("web")
     if not missing:
         return None
     return missing[0]
@@ -1196,19 +913,7 @@ def _show_runtime_ui(
         display_sources=display_sources,
     )
     promo = _missing_sources_for_promo(diag)
-    # The `web` promo nudges users to set BRAVE_API_KEY / SERPER_API_KEY, which
-    # is wrong advice when a hosting reasoning model (Claude Code, Codex,
-    # Hermes, Gemini) is driving — those already have WebSearch and can
-    # pre-resolve Step 0.55 themselves. Suppress the web promo when a hosting
-    # model signal is present (--plan or --competitors-plan was passed).
     if promo:
-        if suppress_web_promo and promo == "web":
-            return
-        if suppress_web_promo and promo == "both":
-            # "both" means reddit + web both missing; still nudge reddit but
-            # skip the web line. show_promo has a per-source variant.
-            progress.show_promo("reddit", diag=diag)
-            return
         progress.show_promo(promo, diag=diag)
 
 
@@ -1248,11 +953,7 @@ def _write_last_run(
             return False
         target = env.CONFIG_DIR
         cached_reports = entity_reports or [(report.topic, report)]
-        has_private_corpus = any(
-            cached_report.items_by_source.get("corpus")
-            for _, cached_report in cached_reports
-        )
-        _ensure_output_directory(target, private=has_private_corpus)
+        _ensure_output_directory(target, private=False)
         counts = {source: len(items) for source, items in report.items_by_source.items()}
         payload = {
             "topic": topic,
@@ -1275,8 +976,6 @@ def _write_last_run(
         }
         report_cache_path = target / "last-report.json"
         report_cache_path.write_text(json.dumps(cache_payload, indent=2))
-        if has_private_corpus:
-            report_cache_path.chmod(0o600)
         return True
     except Exception as exc:
         # Never fatal, but never silent either (#787's lesson): callers that
@@ -1410,21 +1109,8 @@ def _run_cached_freshness(
 
 
 def _drill_config(config: dict[str, object], sources: list[str]) -> dict[str, object]:
-    """Enable configured comment enrichments for a deep follow-up."""
+    """Config copy for a deep follow-up run."""
     drill_config = dict(config)
-    include = {
-        value.strip().lower()
-        for value in str(config.get("INCLUDE_SOURCES") or "").split(",")
-        if value.strip()
-    }
-    comment_flags = {
-        "youtube": "youtube_comments",
-        "tiktok": "tiktok_comments",
-        "instagram": "instagram_comments",
-    }
-    include.update(comment_flags[source] for source in sources if source in comment_flags)
-    if include:
-        drill_config["INCLUDE_SOURCES"] = ",".join(sorted(include))
     drill_config["_drill_mode"] = True
     return drill_config
 
@@ -1481,9 +1167,8 @@ def _run_drill(
     resolved = report.artifacts.get("resolved") or {}
     try:
         drill_report = pipeline.run(
-            # Keep source gating anchored to the cached entity (for example,
-            # StockTwits needs the original cashtag/finance context). The
-            # external drill plan below remains cluster-focused.
+            # Keep source gating anchored to the cached entity; the external
+            # drill plan below remains cluster-focused.
             topic=report.topic,
             config=drill_config,
             depth="deep",
@@ -1497,24 +1182,11 @@ def _run_drill(
                 [value.strip() for value in args.x_related.split(",") if value.strip()]
                 if (args.x_related and "x" in sources) else None
             ),
-            web_backend=args.web_backend,
             external_plan=schema.to_dict(drill_plan),
             subreddits=(
                 ([value.strip().removeprefix("r/") for value in args.subreddits.split(",") if value.strip()]
                  if args.subreddits else list(resolved.get("subreddits") or []) or None)
                 if "reddit" in sources else None
-            ),
-            tiktok_hashtags=(
-                [value.strip().lstrip("#") for value in args.tiktok_hashtags.split(",") if value.strip()]
-                if args.tiktok_hashtags else None
-            ),
-            tiktok_creators=(
-                [value.strip().lstrip("@") for value in args.tiktok_creators.split(",") if value.strip()]
-                if args.tiktok_creators else None
-            ),
-            ig_creators=(
-                [value.strip().lstrip("@") for value in args.ig_creators.split(",") if value.strip()]
-                if args.ig_creators else None
             ),
             lookback_days=lookback_days,
             as_of_date=as_of_date,
@@ -1527,13 +1199,7 @@ def _run_drill(
                  if args.github_repo else list(resolved.get("github_repos") or []) or None)
                 if "github" in sources else None
             ),
-            trustpilot_domain=(
-                (args.trustpilot_domain or resolved.get("trustpilot_domain") or None)
-                if "trustpilot" in sources else None
-            ),
             internal_subrun=True,
-            corpus_dirs=args.corpus,
-            corpus_all_time=args.corpus_all_time,
         )
     except Exception:
         progress.end_processing()
@@ -1903,7 +1569,7 @@ def _resolve_discovery_source_boundary(
     Returns ``(listing_sources, enrichment_boundary)`` - the discovery-capable
     subset for the sweep, and the user's ORIGINAL boundary honored by the
     per-topic research passes (which reach beyond the listing feeds - e.g.
-    Techmeme, arXiv, YouTube, Polymarket); both None mean every available
+    GitHub, arXiv); both None mean every available
     source. Returns None (after writing the exit-2 error) when the configured
     boundary leaves nothing to sweep: silently widening to all feeds would
     query sources the user filtered out.
@@ -2313,7 +1979,6 @@ def _audience_register_for_run(
     topic = " ".join(getattr(args, "topic", [])).strip()
     comparison_topic_requested = bool(
         len(planner._comparison_entities(topic)) >= 2
-        or args.competitors is not None
         or args.competitors_list
         or args.competitors_plan
     )
@@ -2382,11 +2047,7 @@ def _render_save_and_print(
             json_profile=args.json_profile,
             register=audience.name,
         )
-    has_private_corpus = _report_has_private_corpus(report) or bool(
-        entity_reports
-        and any(_report_has_private_corpus(entity) for _label, entity in entity_reports)
-    )
-    private_saved_format = has_private_corpus
+    private_saved_format = False
     publish_companion_paths: list[Path] = []
     if args.output:
         output_path = save_rendered_output(
@@ -2460,7 +2121,7 @@ def _render_save_and_print(
                     suffix=args.save_suffix or "",
                     synthesis_md=synthesis_md,
                     json_profile=args.json_profile,
-                    private=_report_has_private_corpus(entity_report),
+                    private=False,
                 )
                 comparison_peer_paths.append(peer_path)
                 sys.stderr.write(f"[last30days] Saved output to {peer_path}\n")
@@ -2472,37 +2133,7 @@ def _render_save_and_print(
         sys.stderr.flush()
     if args.publish_html:
         try:
-            has_private_corpus = "corpus" in report.source_status or bool(
-                entity_reports
-                and any("corpus" in entity.source_status for _label, entity in entity_reports)
-            )
             publish_rendered = rendered
-            if has_private_corpus:
-                sys.stderr.write(
-                    "[last30days] Excluding local corpus evidence and synthesis from published HTML.\n"
-                )
-                if entity_reports:
-                    publish_rendered = emit_comparison_output(
-                        [
-                            (label, schema.without_sources(entity, {"corpus"}))
-                            for label, entity in entity_reports
-                        ],
-                        "html",
-                        fun_level=fun_level,
-                        save_path=footer_save_path,
-                        synthesis_md=None,
-                        json_profile=args.json_profile,
-                    )
-                else:
-                    publish_rendered = emit_output(
-                        schema.without_sources(report, {"corpus"}),
-                        "html",
-                        fun_level=fun_level,
-                        save_path=footer_save_path,
-                        synthesis_md=None,
-                        json_profile=args.json_profile,
-                        register=audience.name,
-                    )
             publish_result = publish_rendered_html(
                 publish_rendered,
                 password=_publish_password_for_args(args, config),
@@ -2532,7 +2163,7 @@ def _propagate_config_to_environ(config: dict[str, object]) -> None:
     XAI_BASE_URL overrides are silently ignored. This is a no-op for
     keys that are already set in process env.
     """
-    for key in ("OPENAI_BASE_URL", "XAI_BASE_URL", "OPENROUTER_BASE_URL"):
+    for key in ("OPENAI_BASE_URL", "XAI_BASE_URL"):
         val = config.get(key)
         if val and not os.environ.get(key):
             os.environ[key] = val
@@ -2629,8 +2260,8 @@ def _config_policy_for_args(args: argparse.Namespace, topic: str, extra_argv: li
         or is_library_command or is_queue_command or is_cached_verification
     ):
         # doctor is plan-only like --diagnose: it must never read cookies.
-        # Cache-only freshness verification hits only point APIs (Polymarket,
-        # GitHub, StockTwits) - no cookie-backed source, so no Keychain prompt.
+        # Cache-only freshness verification hits only point APIs (GitHub) -
+        # no cookie-backed source, so no Keychain prompt.
         browser_mode = "plan_only"
     elif normalized_topic == "setup":
         browser_mode = "read" if _setup_allows_browser_cookies(args, extra_argv) else "off"
@@ -2866,40 +2497,6 @@ def _run_library_search(
     return 0
 
 
-def _looks_like_entity_topic(topic: str) -> bool:
-    """Whether a topic names a person, company, or product rather than a theme.
-
-    Keys on brevity, not capitalization. People type lowercase: "bentgo",
-    "peter steinberger" and "getenergy.com" are entity searches every bit as
-    much as their title-cased forms, and requiring a capital meant the most
-    common real-world spelling never resolved a handle.
-
-    A short topic is an entity search; a longer one is a theme. "Peter
-    Steinberger", "bentgo" and "getenergy.com" qualify; "best AI coding tools
-    2026" and "how to build agents that scale" do not. Question-shaped topics
-    are themes regardless of length.
-
-    Used only to decide whether resolving an X handle is worth one web search,
-    so a false negative costs the old behavior and a false positive costs a
-    single search.
-    """
-    text = (topic or "").strip()
-    if not text or text.endswith("?"):
-        return False
-    words = [w for w in re.findall(r"[A-Za-z0-9_.@'-]+", text) if w]
-    if not words or len(words) > 4:
-        return False
-    if any(w.startswith("@") for w in words):
-        return True
-    # A theme reads as a phrase built from common words; an entity does not.
-    common = {
-        "best", "top", "how", "why", "what", "when", "vs", "versus", "guide",
-        "tips", "review", "reviews", "news", "latest", "update", "updates",
-        "trends", "tools", "and", "or", "for", "the", "with", "about",
-    }
-    return not any(w.lower() in common for w in words)
-
-
 def main() -> int:
     parser = build_parser()
     # Use parse_known_args so setup sub-flags (--device-auth, --github,
@@ -2936,23 +2533,6 @@ def _main(
     # One memo per command: comparison mode runs pipeline.run per entity in
     # parallel, so the reset must not live inside the pipeline.
     http.reset_reddit_keyless_memo()
-    resolved_corpus_dirs = corpus.resolve_directories(
-        args.corpus, config.get("LAST30DAYS_CORPUS_DIRS")
-    )
-    # EXCLUDE_SOURCES=corpus disables corpus retrieval entirely; the hosted
-    # privacy bypass below must use the same predicate, or hosted users with
-    # configured-but-excluded dirs silently lose the remote backend.
-    excluded_sources = {
-        value.strip().lower()
-        for value in str(config.get("EXCLUDE_SOURCES") or "").split(",")
-        if value.strip()
-    }
-    if "corpus" in excluded_sources:
-        resolved_corpus_dirs = []
-    if resolved_corpus_dirs:
-        config["_CORPUS_DIRS"] = [str(path) for path in resolved_corpus_dirs]
-    if _config_truthy(config.get("LAST30DAYS_CORPUS_IN_EXPORT")):
-        config["_CORPUS_IN_EXPORT"] = True
     _propagate_config_to_environ(config)
 
     # Env-var fallback for --save-dir, mirroring the LAST30DAYS_STORE pattern below.
@@ -2963,13 +2543,6 @@ def _main(
     if args.save_dir is None:
         env_val = os.environ.get("LAST30DAYS_MEMORY_DIR")
         args.save_dir = env_val if env_val is not None else config.get("LAST30DAYS_MEMORY_DIR")
-
-    # Surface SSH-routing config as an env var so library modules (e.g.
-    # youtube_yt) can read it without taking a config dependency. This
-    # routes yt-dlp through `ssh <host>` to bypass YouTube's bot-wall on
-    # datacenter IPs (see lib/youtube_yt.py for details).
-    if config.get("LAST30DAYS_YOUTUBE_SSH_HOST") and "LAST30DAYS_YOUTUBE_SSH_HOST" not in os.environ:
-        os.environ["LAST30DAYS_YOUTUBE_SSH_HOST"] = config["LAST30DAYS_YOUTUBE_SSH_HOST"]
 
     if args.preflight:
         requested_sources = resolve_requested_sources(args.search, config)
@@ -3075,13 +2648,6 @@ def _main(
 
     # Bare --discover (no domain) is global trending, so the dispatch keys on
     # "flag present" (is not None), never on the domain string's truthiness.
-    if args.deep_research and not topic:
-        sys.stderr.write(
-            "[last30days] --deep-research requires a normal positional topic; "
-            "it cannot be combined with discovery, drill, or cached-only modes.\n"
-        )
-        return 2
-
     if args.discover is not None:
         if topic:
             sys.stderr.write(
@@ -3187,12 +2753,6 @@ def _main(
                 for value in args.dedicated_subreddits.split(",")
                 if value.strip()
             ]
-        if args.polymarket_keywords:
-            config["_polymarket_keywords"] = [
-                value.strip().lower()
-                for value in args.polymarket_keywords.split(",")
-                if value.strip()
-            ]
         return _run_drill(args, config)
 
     if args.verify_freshness and not topic:
@@ -3200,41 +2760,6 @@ def _main(
 
     if args.lookback_days is None:
         args.lookback_days = 30
-
-    if args.deep_research and not args.diagnose:
-        from lib import planner as _planner
-
-        if not (
-            config.get("PERPLEXITY_API_KEY")
-            or config.get("OPENROUTER_API_KEY")
-        ):
-            print(
-                "Error: --deep-research requires PERPLEXITY_API_KEY or "
-                "OPENROUTER_API_KEY",
-                file=sys.stderr,
-            )
-            return 1
-        comparison_requested = any(
-            value is not None
-            for value in (
-                args.competitors,
-                args.competitors_list,
-                args.competitors_plan,
-            )
-        ) or len(_planner._comparison_entities(topic, uncapped=True)) >= 2
-        if comparison_requested:
-            sys.stderr.write(
-                "Error: --deep-research cannot be combined with competitor or vs-mode. "
-                "It permits one paid Deep Research run per user action; run each topic "
-                "separately.\n"
-            )
-            return 2
-        config["_deep_research"] = True
-        try:
-            enable_deep_research_source(config)
-        except ValueError as exc:
-            print(f"Error: {exc}", file=sys.stderr)
-            return 2
 
     # Reject a misspelled configured register before remote submission or any
     # local source retrieval. Excluded modes resolve to default and remain
@@ -3245,99 +2770,12 @@ def _main(
         sys.stderr.write(f"[last30days] {exc}\n")
         return 2
 
-    # Remote API path: when BOTH LAST30DAYS_API_KEY and LAST30DAYS_API_BASE are
-    # set (and --mock is not), the search runs through the configured remote API
-    # instead of local sources; no local provider keys are needed (see
-    # lib/hosted.py). With either env var unset, behavior below is byte-identical
-    # to local-only runs - there is no built-in endpoint.
-    if (
-        topic
-        and resolved_corpus_dirs
-        and env.read_secret_env("LAST30DAYS_API_KEY")
-        and os.environ.get("LAST30DAYS_API_BASE")
-    ):
-        sys.stderr.write(
-            "[last30days] Local corpus configured; bypassing the hosted backend so files stay on this machine.\n"
-        )
-    if (
-        topic
-        and not args.diagnose
-        and not args.mock
-        and not args.record_fixtures
-        and env.read_secret_env("LAST30DAYS_API_KEY")
-        and os.environ.get("LAST30DAYS_API_BASE")
-        and not resolved_corpus_dirs
-        and not args.deep_research
-    ):
-        if _freshness_enabled(args, config):
-            if args.verify_freshness is True:
-                sys.stderr.write(
-                    "[last30days] Freshness verification is not supported by the hosted backend; "
-                    "run locally or omit --verify-freshness.\n"
-                )
-                return 2
-            sys.stderr.write(
-                "hosted backend does not support freshness verification; skipping\n"
-            )
-        if args.emit == "json" and args.json_profile == "agent":
-            sys.stderr.write(
-                "[last30days] --json-profile=agent requires the local Report; "
-                "the remote API backend only supports --json-profile=raw.\n"
-            )
-            return 2
-        from lib import hosted
-        depth = "deep" if args.deep else "quick" if args.quick else "default"
-        try:
-            audience = _audience_register_for_run(args, config, None)
-        except ValueError as exc:
-            sys.stderr.write(f"[last30days] {exc}\n")
-            return 2
-        hosted_kwargs = {
-            "emit": args.emit,
-            "save_dir": args.save_dir,
-            "save_suffix": args.save_suffix or "",
-        }
-        if audience.name != "default":
-            hosted_kwargs["register"] = audience.name
-        return hosted.run_hosted(topic, depth, **hosted_kwargs)
-
     requested_sources = resolve_requested_sources(args.search, config)
-    if args.deep_research:
-        requested_sources = add_deep_research_source(requested_sources)
-    # Explicit --trustpilot-domain is user intent: activate the opt-in source
-    # before diagnose/run so the flag cannot silently no-op (#873). Auto-resolve
-    # hints are applied later and must not call this path.
-    cli_trustpilot_domain = (
-        args.trustpilot_domain.strip() if args.trustpilot_domain else ""
-    )
-    if cli_trustpilot_domain:
-        requested_sources = activate_trustpilot_for_explicit_domain(
-            config,
-            requested_sources,
-            reason=f"--trustpilot-domain={cli_trustpilot_domain}",
-        )
-    # Explicit --telegram-sources is user intent: activate the opt-in source
-    # before diagnose/run so the flag cannot silently no-op (same pattern as
-    # Trustpilot #873). Sets TELEGRAM_SOURCES in config for pipeline.
-    cli_telegram_sources = (
-        args.telegram_sources.strip() if args.telegram_sources else ""
-    )
-    if cli_telegram_sources:
-        requested_sources = activate_telegram_for_explicit_sources(
-            config,
-            requested_sources,
-            channels=cli_telegram_sources,
-        )
     diag = pipeline.diagnose(config, requested_sources, safe=args.diagnose)
 
     if args.diagnose:
         print(json.dumps(diag, indent=2, sort_keys=True))
         return 0
-
-    # Competitor sub-runs shallow-copy this config. The shared object makes the
-    # paid Perplexity cap command-wide and thread-safe across that fanout. Keep
-    # this runtime-only object out of the safe diagnose configuration contract.
-    config["_perplexity_paid_budget"] = pipeline.PaidSourceBudget()
 
     if not topic:
         parser.print_usage(sys.stderr)
@@ -3360,11 +2798,7 @@ def _main(
             sys.stderr.write(refuse_msg)
             return 2
 
-    if (
-        args.emit == "html"
-        and synthesis_md is not None
-        and not args.deep_research
-    ):
+    if args.emit == "html" and synthesis_md is not None:
         cached = _load_last_report_cache(
             topic,
             ttl_seconds=_report_cache_ttl_seconds(config),
@@ -3412,9 +2846,6 @@ def _main(
         x_related = [h.strip() for h in args.x_related.split(",") if h.strip()] if args.x_related else None
         subreddits = [s.strip().removeprefix("r/") for s in args.subreddits.split(",") if s.strip()] if args.subreddits else None
         dedicated_subreddits = [s.strip().removeprefix("r/") for s in args.dedicated_subreddits.split(",") if s.strip()] if args.dedicated_subreddits else None
-        tiktok_hashtags = [h.strip().lstrip("#") for h in args.tiktok_hashtags.split(",") if h.strip()] if args.tiktok_hashtags else None
-        tiktok_creators = [c.strip().lstrip("@") for c in args.tiktok_creators.split(",") if c.strip()] if args.tiktok_creators else None
-        ig_creators = [c.strip().lstrip("@") for c in args.ig_creators.split(",") if c.strip()] if args.ig_creators else None
         # Parse external plan if provided via --plan flag
         external_plan = None
         if args.plan:
@@ -3442,88 +2873,15 @@ def _main(
                 sys.stderr.write(f"[Planner] Invalid --plan schema: {exc}.\n")
                 raise SystemExit(2)
 
-        # Auto-resolve: use web search to discover subreddits/handles before planning.
-        # This is the engine-side equivalent of SKILL.md Steps 0.55/0.75 for platforms
-        # without WebSearch (OpenClaw, Codex, raw CLI).
-        repos_from_auto_resolve = False
-        trustpilot_domain_is_hint = False
-        # Resolve automatically for entity-shaped topics even without the flag.
-        # A person or company topic whose handle the user did not supply is the
-        # case where first-party evidence is hardest to protect: the handle is
-        # absent from the topic and may never appear in retrieved mentions, so
-        # nothing downstream can identify the subject's own posts. One web
-        # search closes that. If it returns nothing, pipeline.run skips the X
-        # relevance floor entirely — a noisier report beats losing evidence.
-        # Skipped when a handle was already supplied, when an external plan
-        # owns resolution, or in mock runs.
-        if (
-            not args.auto_resolve
-            and not external_plan
-            and not args.x_handle
-            and not args.mock
-            and _looks_like_entity_topic(topic)
-        ):
-            args.auto_resolve = True
-            sys.stderr.write(
-                "[AutoResolve] entity-shaped topic with no --x-handle; "
-                "resolving the subject's handle so its own posts are not pruned\n"
-            )
-
-        if args.auto_resolve and not external_plan:
-            from lib import resolve
-            resolution = resolve.auto_resolve(topic, config)
-            if resolution.get("subreddits") and not subreddits:
-                subreddits = resolution["subreddits"]
-                sys.stderr.write(f"[AutoResolve] Subreddits: {', '.join(subreddits)}\n")
-            if resolution.get("x_handle") and not args.x_handle:
-                args.x_handle = resolution["x_handle"]
-                sys.stderr.write(f"[AutoResolve] X handle: @{args.x_handle}\n")
-            # Empty x_handle is intentional: do not invent a lexical stand-in.
-            # pipeline.run treats an unidentified subject as "skip the X floor".
-            if resolution.get("github_user") and not args.github_user:
-                args.github_user = resolution["github_user"]
-                sys.stderr.write(f"[AutoResolve] GitHub user: @{args.github_user}\n")
-            if resolution.get("github_repos") and not args.github_repo:
-                args.github_repo = ",".join(resolution["github_repos"])
-                # auto_resolve already canonicalized via canonicalize_github_repos(cap=5);
-                # mark so we don't re-canonicalize below and clobber its relevance order.
-                repos_from_auto_resolve = True
-                sys.stderr.write(f"[AutoResolve] GitHub repos: {args.github_repo}\n")
-            if resolution.get("trustpilot_domain") and not args.trustpilot_domain:
-                # Hint provenance matters: only user-set flags are verbatim-final;
-                # a resolved hint retries via the CLI search when it misses.
-                args.trustpilot_domain = resolution["trustpilot_domain"]
-                trustpilot_domain_is_hint = True
-                sys.stderr.write(f"[AutoResolve] Trustpilot domain: {args.trustpilot_domain} (hint)\n")
-            if resolution.get("context"):
-                # Inject context into external_plan metadata for the planner to use
-                if not external_plan:
-                    external_plan = None  # planner will use its own, but with context
-                # Store context for the planner prompt injection
-                config["_auto_resolve_context"] = resolution["context"]
-                sys.stderr.write(f"[AutoResolve] Context: {resolution['context'][:80]}...\n")
-
         github_user = args.github_user.lstrip("@").lower() if args.github_user else None
         github_repos = [r.strip() for r in args.github_repo.split(",") if r.strip() and "/" in r.strip()] if args.github_repo else None
-        trustpilot_domain = args.trustpilot_domain.strip() if args.trustpilot_domain else None
 
         comp_enabled, comp_count, comp_explicit = resolve_competitors_args(args)
         comp_plan = parse_competitors_plan(args.competitors_plan)
 
-        # Plan-level trustpilot_domain pins are the same user intent as the CLI
-        # flag (already activated above). Auto-resolve hints must not activate.
-        if plan_has_explicit_trustpilot_domain(comp_plan):
-            requested_sources = activate_trustpilot_for_explicit_domain(
-                config,
-                requested_sources,
-                reason="competitors-plan trustpilot_domain",
-            )
-
-        # Only canonicalize when repos came from a user-supplied --github-repo flag.
-        # When repos_from_auto_resolve is True, auto_resolve already ran
-        # canonicalize_github_repos(cap=5) and ranked by relevance; re-running here
-        # with cap=None can re-sort by topic-slug match and lose that ordering.
-        if github_repos and not repos_from_auto_resolve:
+        # Canonicalize user-supplied --github-repo entries (integration repos
+        # collapse onto their canonical product repo).
+        if github_repos:
             from lib import resolve as resolve_lib
             original_github_repos = github_repos[:]
             github_repos = resolve_lib.canonicalize_github_repos(topic, github_repos, cap=None)
@@ -3533,66 +2891,24 @@ def _main(
                     f"{','.join(original_github_repos)} -> {','.join(github_repos)}\n"
                 )
 
-        # Polymarket disambiguation: if user passed --polymarket-keywords,
-        # store on config so the polymarket adapter can filter matches.
-        if args.polymarket_keywords:
-            keywords = [
-                k.strip().lower()
-                for k in args.polymarket_keywords.split(",")
-                if k.strip()
-            ]
-            if keywords:
-                config["_polymarket_keywords"] = keywords
-
-        # Product keyword for the amazon source. Carried on config rather than
-        # threaded through the run signature (the _polymarket_keywords idiom):
-        # it is one optional string consumed in exactly two places.
-        if getattr(args, "amazon_query", None):
-            config["_amazon_query"] = args.amazon_query.strip()
-            # Unlike --trustpilot-domain, this flag deliberately does NOT
-            # auto-activate its source: the lane spends metered credits, so
-            # turning it on stays an explicit request. But silence is the
-            # wrong failure mode -- a model that resolves the keyword and
-            # forgets the --search token would otherwise get no signal at
-            # all that the flag did nothing.
-            _amazon_requested = (
-                (requested_sources and "amazon" in requested_sources)
-                or "amazon" in str(config.get("INCLUDE_SOURCES") or "").lower()
-            )
-            if not _amazon_requested:
-                sys.stderr.write(
-                    "[Amazon] --amazon-query was set but the amazon source was not "
-                    "requested; add it to --search (e.g. --search reddit,x,amazon) "
-                    "or set INCLUDE_SOURCES=amazon. Ignoring the keyword.\n"
-                )
-
         # vs-mode / plan routing: split a vs-topic into main + peers unless
         # discover-N or an explicit --competitors-list already decided who runs.
         topic, comp_enabled, comp_count, comp_explicit = apply_vs_competitor_routing(
             topic,
-            competitors_flag=args.competitors,
             comp_enabled=comp_enabled,
             comp_count=comp_count,
             comp_explicit=comp_explicit,
             comp_plan=comp_plan,
         )
-        if comp_enabled:
-            config["_perplexity_paid_budget"] = pipeline.PaidSourceBudget(
-                owner=topic,
-            )
 
-        # Plan alone with zero peers (empty/invalid JSON object, or all entries
-        # skipped) must not fall through to discover-N with a misleading abort.
-        if (
-            comp_enabled
-            and not comp_explicit
-            and args.competitors is None
-            and args.competitors_plan
-        ):
+        # Comparison mode needs named peers: automatic peer discovery went away
+        # with the web source, so an empty/invalid plan with no vs-topic and no
+        # list cannot proceed.
+        if comp_enabled and not comp_explicit:
             sys.stderr.write(
-                "[Competitors] --competitors-plan has no usable peer entries "
-                "(and the topic is not a vs-comparison). Pass a non-empty plan, "
-                "a vs-topic, --competitors-list, or --competitors N.\n"
+                "[Competitors] No peer entities to compare against. Pass a "
+                "vs-topic ('A vs B'), --competitors-list 'A,B', or a non-empty "
+                "--competitors-plan.\n"
             )
             return 2
 
@@ -3611,23 +2927,14 @@ def _main(
                 mock=args.mock,
                 x_handle=args.x_handle,
                 x_related=x_related,
-                web_backend=args.web_backend,
                 external_plan=external_plan,
                 subreddits=subreddits,
-                tiktok_hashtags=tiktok_hashtags,
-                tiktok_creators=tiktok_creators,
-                ig_creators=ig_creators,
                 lookback_days=args.lookback_days,
                 as_of_date=args.as_of_date,
                 github_user=github_user,
                 github_repos=github_repos,
-                trustpilot_domain=trustpilot_domain,
-                trustpilot_domain_is_hint=trustpilot_domain_is_hint,
                 internal_subrun=comp_enabled,
-                hiring_signals_mode=args.hiring_signals,
                 save_dir=args.save_dir,
-                corpus_dirs=args.corpus,
-                corpus_all_time=args.corpus_all_time,
             )
             r.artifacts["resolved"] = {
                 "entity": topic,
@@ -3635,69 +2942,22 @@ def _main(
                 "subreddits": list(subreddits or []),
                 "github_user": (github_user or ""),
                 "github_repos": list(github_repos or []),
-                "trustpilot_domain": (trustpilot_domain or ""),
-                "context": config.get("_auto_resolve_context", "") or "",
+                "context": config.get("_planner_context", "") or "",
             }
             return r
 
         if comp_enabled:
-            from lib import competitors as competitors_mod
-            from lib import fanout, resolve as resolve_mod
+            from lib import fanout
 
-            if comp_explicit:
-                discovered = comp_explicit
-            else:
-                if not resolve_mod._has_backend(config) and not args.mock:
-                    sys.stderr.write(
-                        "[Competitors] Cannot auto-discover peers without help.\n"
-                        "\n"
-                        "RECOMMENDED PATH (hosting reasoning models — Claude Code, Codex, "
-                        "Hermes, Gemini, any agent with a WebSearch tool): YOU have "
-                        "WebSearch. Use it to run full Step 0.55 per entity, then invoke "
-                        "the engine with a vs-topic plus --competitors-plan:\n"
-                        "  1. WebSearch for '{topic} competitors' or '{topic} alternatives'.\n"
-                        "  2. For each peer, WebSearch for handles/subs/github (Step 0.55).\n"
-                        "  3. Re-invoke: /last30days '{topic} vs {peer1} vs {peer2}' "
-                        "--competitors-plan '{\"Peer1\":{\"x_handle\":\"h1\",\"subreddits\":"
-                        "[\"s1\"],...},\"Peer2\":{...}}'.\n"
-                        "See SKILL.md 'Competitor mode' for the full protocol.\n"
-                        "\n"
-                        "HEADLESS / CRON PATH (no hosting model available): set "
-                        "BRAVE_API_KEY / EXA_API_KEY / SERPER_API_KEY / PARALLEL_API_KEY / "
-                        "PERPLEXITY_API_KEY / OPENROUTER_API_KEY and re-run.\n"
-                        "\n"
-                        "MINIMUM ESCAPE HATCH: pass --competitors-list 'A,B,C' to skip "
-                        "discovery. Without --competitors-plan, peer sub-runs fall back to "
-                        "planner defaults and produce visibly thinner data than the main.\n"
-                    )
-                    return 2
-                discovered = competitors_mod.discover_competitors(
-                    topic, comp_count, config, lookback_days=args.lookback_days,
-                )
-                if not discovered:
-                    sys.stderr.write(
-                        f"[Competitors] No peers discovered for {topic!r}; aborting "
-                        "comparison run. Pass --competitors-list to override.\n"
-                    )
-                    return 2
-
+            discovered = comp_explicit
             sys.stderr.write(
                 f"[Competitors] Comparing: {topic} vs " + " vs ".join(discovered) + "\n"
             )
 
             def _competitor_runner(entity: str) -> schema.Report:
-                # Deep-copy config so per-entity auto_resolve context does not
-                # leak across sub-runs. Each sub-run writes its own
-                # `_auto_resolve_context` into its local config copy.
+                # Shallow-copy config so per-entity planner context does not
+                # leak across sub-runs.
                 entity_config = dict(config)
-                # The Amazon keyword is entity-SPECIFIC, unlike the depth caps
-                # this shallow copy exists to inherit. Leaving the main topic's
-                # keyword in place would search Weber SKUs for a Traeger peer,
-                # render a rival's products as that peer's buyer evidence, and
-                # multiply the metered spend by the number of entities. Drop it
-                # so each peer derives its own keyword from its own topic; a
-                # per-entity keyword can ride in the --competitors-plan entry.
-                entity_config.pop("_amazon_query", None)
                 plan_entry = comp_plan.get(entity.strip().lower(), {})
                 resolved = {
                     "entity": entity,
@@ -3705,35 +2965,8 @@ def _main(
                     "subreddits": [],
                     "github_user": "",
                     "github_repos": [],
-                    "trustpilot_domain": "",
                     "context": "",
                 }
-                # Skip engine-internal auto_resolve when the hosting model
-                # pre-resolved via --competitors-plan (saves a redundant
-                # round-trip and makes per-entity Step 0.55 purely
-                # hosting-model-driven).
-                plan_covers_fully = bool(plan_entry.get("x_handle")) and bool(
-                    plan_entry.get("subreddits")
-                )
-                if (
-                    not args.mock
-                    and not plan_covers_fully
-                    and resolve_mod._has_backend(entity_config)
-                ):
-                    try:
-                        r = resolve_mod.auto_resolve(entity, entity_config)
-                    except Exception as exc:
-                        sys.stderr.write(
-                            f"[Competitors] auto_resolve failed for {entity!r}: "
-                            f"{type(exc).__name__}: {exc}\n"
-                        )
-                        r = {}
-                    resolved["x_handle"] = r.get("x_handle", "") or ""
-                    resolved["subreddits"] = list(r.get("subreddits") or [])
-                    resolved["github_user"] = r.get("github_user", "") or ""
-                    resolved["github_repos"] = list(r.get("github_repos") or [])
-                    resolved["trustpilot_domain"] = r.get("trustpilot_domain", "") or ""
-                    resolved["context"] = r.get("context", "") or ""
                 kwargs = subrun_kwargs_for(entity, plan_entry, resolved=resolved)
                 # Record effective per-entity targeting for the Resolved block.
                 resolved_effective = {
@@ -3742,17 +2975,16 @@ def _main(
                     "subreddits": kwargs["subreddits"] or [],
                     "github_user": kwargs["github_user"] or "",
                     "github_repos": kwargs["github_repos"] or [],
-                    "trustpilot_domain": kwargs["trustpilot_domain"] or "",
                     "context": kwargs["_context"],
                 }
                 if kwargs["_context"]:
-                    entity_config["_auto_resolve_context"] = kwargs["_context"]
+                    entity_config["_planner_context"] = kwargs["_context"]
                 sys.stderr.write(
                     f"[Competitors] {entity}: "
                     f"x=@{resolved_effective['x_handle'] or '-'} "
                     f"subs={len(resolved_effective['subreddits'])} "
                     f"gh={resolved_effective['github_user'] or '-'} "
-                    f"({'plan' if plan_entry else 'auto'})\n"
+                    f"({'plan' if plan_entry else 'defaults'})\n"
                 )
                 report = pipeline.run(
                     topic=entity,
@@ -3765,16 +2997,10 @@ def _main(
                     subreddits=kwargs["subreddits"],
                     github_user=kwargs["github_user"],
                     github_repos=kwargs["github_repos"],
-                    trustpilot_domain=kwargs["trustpilot_domain"],
-                    trustpilot_domain_is_hint=kwargs["_trustpilot_domain_is_hint"],
-                    web_backend=args.web_backend,
                     lookback_days=args.lookback_days,
                     as_of_date=args.as_of_date,
-                    hiring_signals_mode=args.hiring_signals,
                     internal_subrun=True,
                     save_dir=args.save_dir,
-                    corpus_dirs=args.corpus,
-                    corpus_all_time=args.corpus_all_time,
                 )
                 report.artifacts["resolved"] = resolved_effective
                 return report
@@ -3826,52 +3052,19 @@ def _main(
         )
         sys.stderr.flush()
 
-    # Show quality nudge if applicable. Explicit hiring-signal runs are
-    # intentionally jobs-focused, so generic source setup advice is noise.
-    if not args.hiring_signals:
-        try:
-            from lib import quality_nudge
-            from lib import youtube_yt as _youtube_yt
-            # Populate transcript-fetch ratio so quality_nudge can detect the
-            # degraded-YouTube failure mode (videos returned but transcripts
-            # silently failed - typically a stale yt-dlp binary).
-            youtube_items = report.items_by_source.get("youtube") or []
-            _yt_fetch_stats = _youtube_yt.get_transcript_fetch_stats()
-            instagram_items = report.items_by_source.get("instagram") or []
-            research_results = {
-                "active_sources": diag.get("available_sources") or [],
-                "youtube_videos_count": len(youtube_items),
-                "youtube_transcripts_count": sum(
-                    1 for it in youtube_items
-                    if (it.metadata.get("transcript_highlights") or it.metadata.get("transcript_snippet"))
-                ),
-                "youtube_error": report.errors_by_source.get("youtube"),
-                "x_error": report.errors_by_source.get("x"),
-                # Captions-disabled videos can never produce a transcript regardless
-                # of yt-dlp version; subtract them from the degraded-ratio
-                # denominator so a single uploader-disabled video does not trip the
-                # "stale yt-dlp" nudge.
-                "youtube_captions_disabled_count": sum(
-                    1 for it in youtube_items if it.metadata.get("captions_disabled")
-                ),
-                # Actual yt-dlp fetch outcomes for this run. The counts above are
-                # computed from post-pruning items, so they can't tell "fetches
-                # failed (stale binary)" from "fetches succeeded but the videos
-                # were pruned downstream"; the latter was producing false
-                # stale-yt-dlp nudges (#531).
-                "youtube_transcript_fetch_attempts": _yt_fetch_stats["attempts"],
-                "youtube_transcript_fetch_failures": _yt_fetch_stats["failures"],
-                # Track Instagram returned-zero-items so quality_nudge can detect
-                # the silent-failure case (SC configured but the v2 reels endpoint
-                # 500'd through both the original query and the hashtag retry).
-                "instagram_items_count": len(instagram_items),
-            }
-            quality = quality_nudge.compute_quality_score(config, research_results)
-            if quality.get("nudge_text"):
-                sys.stderr.write(f"\n{quality['nudge_text']}\n")
-                sys.stderr.flush()
-        except Exception:
-            pass
+    # Show quality nudge if applicable.
+    try:
+        from lib import quality_nudge
+        research_results = {
+            "active_sources": diag.get("available_sources") or [],
+            "x_error": report.errors_by_source.get("x"),
+        }
+        quality = quality_nudge.compute_quality_score(config, research_results)
+        if quality.get("nudge_text"):
+            sys.stderr.write(f"\n{quality['nudge_text']}\n")
+            sys.stderr.flush()
+    except Exception:
+        pass
 
     # Signal to render_compact whether pre-research flags were supplied.
     # Used to emit a Pre-Research Status warning when the model skipped
@@ -3881,9 +3074,6 @@ def _main(
         or args.github_user
         or args.subreddits
         or args.plan
-        or args.auto_resolve
-        or args.tiktok_creators
-        or args.ig_creators
     )
     report.artifacts["pre_research_flags_present"] = pre_research_flags_present
 

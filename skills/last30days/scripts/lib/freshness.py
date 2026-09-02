@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import hashlib
 import re
-from collections import Counter, defaultdict
+
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Callable
 
-from . import github, grounding, health, polymarket, schema, stocktwits
+from . import github, health, schema
 
 
 @dataclass(frozen=True)
@@ -36,6 +36,37 @@ class RefetchedDatum:
     values: dict[str, Any] | None = None
 
 
+@dataclass(frozen=True)
+class GroundedClaimText:
+    """Candidate text with its exact primary evidence item."""
+
+    candidate_id: str
+    title: str
+    summary: str
+    item: schema.SourceItem
+
+
+def claim_source_map(report: schema.Report) -> dict[str, GroundedClaimText]:
+    """Expose only candidate claims that have a clean primary-item trace.
+
+    Freshness verification deliberately starts here instead of scanning all
+    report prose. A candidate without a primary ``SourceItem`` cannot produce
+    an auditable per-claim verdict.
+    """
+    grounded: dict[str, GroundedClaimText] = {}
+    for candidate in report.ranked_candidates:
+        item = schema.candidate_primary_item(candidate)
+        if item is None:
+            continue
+        grounded[candidate.candidate_id] = GroundedClaimText(
+            candidate_id=candidate.candidate_id,
+            title=candidate.title,
+            summary=candidate.snippet or item.snippet or item.body,
+            item=item,
+        )
+    return grounded
+
+
 Refetcher = Callable[[schema.SourceItem | None, str], RefetchedDatum | dict[str, Any] | Any]
 
 _STATUS_PATTERN = re.compile(
@@ -58,7 +89,7 @@ _OPPOSITE_STATUS = {
     "online": "offline",
     "offline": "online",
 }
-_REFETCHABLE_SOURCES = frozenset({"polymarket", "github", "stocktwits"})
+_REFETCHABLE_SOURCES = frozenset({"github"})
 _USABLE_SOURCE_STATES = frozenset({health.OK, schema.PARTIAL})
 
 
@@ -72,7 +103,7 @@ def _claim_id(candidate_id: str, kind: str, key: str) -> str:
 
 
 def _claim(
-    grounded: grounding.GroundedClaimText,
+    grounded: GroundedClaimText,
     kind: str,
     key: str,
     value: Any,
@@ -97,54 +128,9 @@ def extract_claims(report: schema.Report) -> list[Claim]:
     """Extract only structured numerics/dates and tightly shaped status claims."""
     claims: list[Claim] = []
     item_level_repos: set[str] = set()
-    for grounded in grounding.claim_source_map(report).values():
+    for grounded in claim_source_map(report).values():
         item = grounded.item
-        if item.source == "polymarket":
-            outcome_pairs = item.metadata.get("outcome_prices") or []
-            outcome_counts = Counter(
-                str(pair[0]).strip().casefold()
-                for pair in outcome_pairs
-                if isinstance(pair, (list, tuple)) and len(pair) == 2
-            )
-            seen_outcomes: dict[str, int] = defaultdict(int)
-            for pair in outcome_pairs:
-                if not isinstance(pair, (list, tuple)) or len(pair) != 2:
-                    continue
-                name, value = pair
-                if not isinstance(value, (int, float)) or isinstance(value, bool):
-                    continue
-                key = str(name).strip()
-                if not key:
-                    continue
-                normalized_key = key.casefold()
-                occurrence = seen_outcomes[normalized_key]
-                seen_outcomes[normalized_key] += 1
-                datum_key = (
-                    f"{key}\x1f{occurrence}"
-                    if outcome_counts[normalized_key] > 1
-                    else key
-                )
-                claims.append(
-                    _claim(
-                        grounded,
-                        "polymarket_probability",
-                        datum_key,
-                        float(value),
-                        f"{item.title}: {key} is {float(value) * 100:g}%",
-                    )
-                )
-            end_date = item.metadata.get("end_date")
-            if isinstance(end_date, str) and re.fullmatch(r"\d{4}-\d{2}-\d{2}", end_date):
-                claims.append(
-                    _claim(
-                        grounded,
-                        "polymarket_end_date",
-                        "end_date",
-                        end_date,
-                        f"{item.title} closes {end_date}",
-                    )
-                )
-        elif item.source == "github":
+        if item.source == "github":
             stars = item.engagement.get("stars")
             repo = _github_repo(item)
             if repo and isinstance(stars, (int, float)) and not isinstance(stars, bool):
@@ -156,20 +142,6 @@ def extract_claims(report: schema.Report) -> list[Claim]:
                         "stars",
                         int(stars),
                         f"{repo} has {int(stars):,} GitHub stars",
-                    )
-                )
-        elif item.source == "stocktwits":
-            aggregate = item.metadata.get("sentiment_aggregate") or {}
-            pct = aggregate.get("pct_bullish") if isinstance(aggregate, dict) else None
-            symbol = str(item.metadata.get("symbol") or item.container or "").strip()
-            if symbol and isinstance(pct, (int, float)) and not isinstance(pct, bool):
-                claims.append(
-                    _claim(
-                        grounded,
-                        "stocktwits_bullish_pct",
-                        "pct_bullish",
-                        float(pct),
-                        f"StockTwits ${symbol} tagged sentiment is {float(pct):g}% bullish",
                     )
                 )
 
@@ -211,7 +183,7 @@ def _candidate_star_claims(
     candidates_by_id = {
         candidate.candidate_id: candidate for candidate in report.ranked_candidates
     }
-    for grounded in grounding.claim_source_map(report).values():
+    for grounded in claim_source_map(report).values():
         candidate = candidates_by_id.get(grounded.candidate_id)
         if candidate is None:
             continue
@@ -252,9 +224,7 @@ def _github_repo(item: schema.SourceItem) -> str | None:
 
 def _default_refetchers() -> dict[str, Refetcher]:
     return {
-        "polymarket": polymarket.refetch_datum,
         "github": github.refetch_datum,
-        "stocktwits": stocktwits.refetch_datum,
     }
 
 
@@ -273,16 +243,6 @@ def _coerce_refetched(value: RefetchedDatum | dict[str, Any] | Any, fallback_url
 
 def _format_verdict_value(kind: str, value: Any) -> str:
     """Format a verdict value the way the matching claim text renders it."""
-    if kind == "polymarket_probability":
-        try:
-            return f"{float(value) * 100:g}%"
-        except (TypeError, ValueError):
-            return str(value)
-    if kind == "stocktwits_bullish_pct":
-        try:
-            return f"{float(value):g}%"
-        except (TypeError, ValueError):
-            return str(value)
     if isinstance(value, bool):
         return str(value)
     if isinstance(value, int):
@@ -293,11 +253,6 @@ def _format_verdict_value(kind: str, value: Any) -> str:
 
 
 def _values_match(claim: Claim, current: Any) -> bool:
-    if claim.datum_kind == "polymarket_probability":
-        try:
-            return abs(float(claim.original_value) - float(current)) < 0.005
-        except (TypeError, ValueError):
-            return False
     if isinstance(claim.original_value, (int, float)) and isinstance(current, (int, float)):
         return float(claim.original_value) == float(current)
     return claim.original_value == current
@@ -341,21 +296,7 @@ def _newer_status_contradiction(
 
 def _point_refetch_key(item: schema.SourceItem, claim: Claim) -> tuple[str, ...]:
     """Identify the source snapshot shared by claims in one verification pass."""
-    if claim.source == "polymarket":
-        key = item.metadata.get("event_id") or item.url
-    elif claim.source == "stocktwits":
-        window = item.metadata.get("freshness_window") or {}
-        return tuple(
-            str(value or "").strip().casefold()
-            for value in (
-                claim.source,
-                item.metadata.get("symbol") or item.container or item.url,
-                window.get("depth"),
-                window.get("from_date"),
-                window.get("to_date"),
-            )
-        )
-    elif claim.source == "github":
+    if claim.source == "github":
         key = _github_repo(item) or item.url
     else:
         key = item.item_id
@@ -473,7 +414,7 @@ def verify_report(
         if claim.datum_kind == "github_stars" and claim.datum_key != "stars":
             # Candidate-enrichment star claim: the repo slug in datum_key is
             # the refetch subject. The datum came from post-rerank enrichment,
-            # not the github search source, so it bypasses the grounding-item
+            # not the github search source, so it bypasses the source-item
             # lookup and the per-source outcome gate.
             refetcher = dispatch.get("github")
             if refetcher is None:
@@ -511,7 +452,7 @@ def verify_report(
         item = items.get((claim.source, claim.source_item_id))
         outcome = report.source_status.get(claim.source)
         if item is None:
-            verdicts.append(_unsupported(claim, checked, "Grounding source item is unavailable"))
+            verdicts.append(_unsupported(claim, checked, "Source item is unavailable"))
             continue
         if outcome and outcome.state not in _USABLE_SOURCE_STATES:
             verdicts.append(

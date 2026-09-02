@@ -1,8 +1,8 @@
 """Subprocess helpers: safe timeout + process-group cleanup.
 
-Used by bird_x.py (Node.js Bird search) and youtube_yt.py (yt-dlp search
-and transcript download). Both need the same os.setsid/killpg cleanup
-dance on timeout to avoid orphaning child processes.
+Used by bird_x.py (Node.js Bird search) and the Printing Press CLI adapters
+(digg.py, arxiv.py). All need the same os.setsid/killpg cleanup dance on
+timeout to avoid orphaning child processes.
 """
 
 from __future__ import annotations

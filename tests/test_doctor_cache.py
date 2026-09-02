@@ -42,12 +42,8 @@ BIRD_STATUS_OFF = {
 FAKE_SECRETS = {
     "SCRAPECREATORS_API_KEY": "dummy-sc-secret-000",
     "XAI_API_KEY": "dummy-xai-secret-000",
-    "BRAVE_API_KEY": "dummy-brave-secret-000",
     "AUTH_TOKEN": "dummy-auth-token-secret-000",
     "CT0": "dummy-ct0-secret-000",
-    "BSKY_HANDLE": "dummy.example.social",
-    "BSKY_APP_PASSWORD": "dummy-bsky-secret-000",
-    "TRUTHSOCIAL_TOKEN": "dummy-truth-secret-000",
     "GITHUB_TOKEN": "dummy-github-secret-000",
 }
 
@@ -134,7 +130,7 @@ class _CacheDirCase(unittest.TestCase):
             "setup": {"setup_complete": False, "keys_present": {}},
             "permissions": {"status": "ok"},
             "sources": {
-                "hackernews": {
+                "github": {
                     "tier": "ok", "status": "ok", "mode": "single",
                     "backends": None, "active_backend": None, "fix": "",
                     "requires": "none", "note": marker, "detail": "",
@@ -353,7 +349,7 @@ class DriftedCacheShapes(_CacheDirCase):
     def test_fresh_drifted_report_text_mode_no_crash(self):
         # Exact F3 repro: fresh timestamp, report missing engine_version /
         # config / setup / permissions, record missing tier.
-        self._write_payload({"sources": {"hackernews": {"status": "ok"}}})
+        self._write_payload({"sources": {"github": {"status": "ok"}}})
         rc, out, probe_spy = self.run_doctor(cached=True, emit_json=False)
         self.assertEqual(0, rc, "drifted cache must never crash")
         self.assertTrue(probe_spy.called, "drifted cache must fall through live")
@@ -362,7 +358,7 @@ class DriftedCacheShapes(_CacheDirCase):
     def test_fresh_drifted_report_pre_schema_envelope_no_crash(self):
         # The original repro shape (no schema stamp at all).
         self._write_payload(
-            {"sources": {"hackernews": {"status": "ok"}}}, with_envelope=False
+            {"sources": {"github": {"status": "ok"}}}, with_envelope=False
         )
         rc, out, probe_spy = self.run_doctor(cached=True, emit_json=False)
         self.assertEqual(0, rc)
@@ -380,16 +376,16 @@ class DriftedCacheShapes(_CacheDirCase):
             broken[key] = "not-a-dict"
             drifted.append((f"{key} not a dict", broken))
         broken = json.loads(json.dumps(good))
-        broken["sources"]["hackernews"] = "not-a-record"
+        broken["sources"]["github"] = "not-a-record"
         drifted.append(("record not a dict", broken))
         broken = json.loads(json.dumps(good))
-        broken["sources"]["hackernews"]["tier"] = "sideways"
+        broken["sources"]["github"]["tier"] = "sideways"
         drifted.append(("unknown tier", broken))
         broken = json.loads(json.dumps(good))
-        del broken["sources"]["hackernews"]["tier"]
+        del broken["sources"]["github"]["tier"]
         drifted.append(("missing tier", broken))
         broken = json.loads(json.dumps(good))
-        broken["sources"]["hackernews"]["status"] = 7
+        broken["sources"]["github"]["status"] = 7
         drifted.append(("non-str status", broken))
         for label, report in drifted:
             with self.subTest(drift=label):
@@ -470,7 +466,7 @@ class FingerprintInvalidation(_CacheDirCase):
 
     def test_include_sources_change_invalidates(self):
         self.write_cache(seconds_ago=1)
-        rc, out, probe_spy = self.run_doctor({"INCLUDE_SOURCES": "linkedin"}, cached=True)
+        rc, out, probe_spy = self.run_doctor({"INCLUDE_SOURCES": "digg"}, cached=True)
         self.assertNotIn("cached-sentinel-report", out)
         self.assertTrue(probe_spy.called)
 
@@ -660,7 +656,6 @@ class DoctorSkillContract(unittest.TestCase):
             "LAST30DAYS_DOCTOR_TTL",
             "LAST30DAYS_X_BACKEND",
             "LAST30DAYS_REDDIT_BACKEND",
-            "--web-backend",
         ):
             self.assertIn(needle, config_text, f"CONFIGURATION.md missing: {needle!r}")
 

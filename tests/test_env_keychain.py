@@ -83,11 +83,11 @@ def test_load_keychain_disable_switch_ignores_falsy_values(monkeypatch):
 def test_parse_keychain_aliases_accepts_string_and_object_forms():
     raw = (
         '{"XAI_API_KEY":"existing-xai-api-key",'
-        '"BRAVE_API_KEY":{"account":"keychain-user","service":"existing-brave-api-key"}}'
+        '"XQUIK_API_KEY":{"account":"keychain-user","service":"existing-xquik-api-key"}}'
     )
     assert env._parse_keychain_aliases(raw) == {
         "XAI_API_KEY": [{"service": "existing-xai-api-key", "account": ""}],
-        "BRAVE_API_KEY": [{"service": "existing-brave-api-key", "account": "keychain-user"}],
+        "XQUIK_API_KEY": [{"service": "existing-xquik-api-key", "account": "keychain-user"}],
     }
 
 
@@ -116,16 +116,16 @@ def test_load_keychain_loads_present_keys_skips_missing():
         service = cmd[cmd.index("-s") + 1]
         if service == "last30days-XAI_API_KEY":
             return _run_result(0, "xai-abc\n")
-        if service == "last30days-BRAVE_API_KEY":
-            return _run_result(0, "brv-xyz\n")
+        if service == "last30days-XQUIK_API_KEY":
+            return _run_result(0, "xq-xyz\n")
         return _run_result(44)  # security's "not found" exit code
 
     with mock.patch("platform.system", return_value="Darwin"), \
          mock.patch("shutil.which", return_value="/usr/bin/security"), \
          mock.patch("subprocess.run", side_effect=fake_run):
-        result = env._load_keychain(["XAI_API_KEY", "BRAVE_API_KEY", "OPENAI_API_KEY"])
+        result = env._load_keychain(["XAI_API_KEY", "XQUIK_API_KEY", "OPENAI_API_KEY"])
 
-    assert result == {"XAI_API_KEY": "xai-abc", "BRAVE_API_KEY": "brv-xyz"}
+    assert result == {"XAI_API_KEY": "xai-abc", "XQUIK_API_KEY": "xq-xyz"}
 
 
 def test_load_keychain_uses_alias_when_canonical_missing():
@@ -211,11 +211,8 @@ def clean_env(monkeypatch, tmp_path):
     """Hide every key get_config might touch and point CONFIG_FILE at a
     non-existent path so no real user config bleeds in."""
     for var in [
-        "OPENAI_API_KEY", "XAI_API_KEY", "BRAVE_API_KEY", "AUTH_TOKEN", "CT0",
-        "SCRAPECREATORS_API_KEY", "APIFY_API_TOKEN", "BSKY_HANDLE",
-        "BSKY_APP_PASSWORD", "TRUTHSOCIAL_TOKEN", "EXA_API_KEY",
-        "SERPER_API_KEY", "OPENROUTER_API_KEY", "PERPLEXITY_API_KEY", "PARALLEL_API_KEY",
-        "XQUIK_API_KEY", "GOOGLE_API_KEY", "GEMINI_API_KEY",
+        "OPENAI_API_KEY", "XAI_API_KEY", "AUTH_TOKEN", "CT0",
+        "SCRAPECREATORS_API_KEY", "XQUIK_API_KEY", "GOOGLE_API_KEY", "GEMINI_API_KEY",
         "GOOGLE_GENAI_API_KEY", "INCLUDE_SOURCES", "FROM_BROWSER",
     ]:
         monkeypatch.delenv(var, raising=False)

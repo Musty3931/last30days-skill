@@ -4,13 +4,11 @@
   "generated_at": "2026-07-10T00:00:00Z",
   "window_days": 30,
   "source_status": {
+    "arxiv": "rate-limited",
     "digg": "ok",
     "github": "auth-failed",
-    "grounding": "unreachable",
-    "hackernews": "no-results",
     "reddit": "ok",
-    "x": "ok",
-    "youtube": "rate-limited"
+    "x": "ok"
   },
   "freshness_verdicts": [],
   "clusters": [

@@ -72,12 +72,19 @@ def test_host_web_search_uses_available_capability_not_specific_tool_name():
     assert "Do not fail the skill just because one particular schema lookup or tool name is unavailable" in step0
 
 
-def test_no_host_search_uses_auto_resolve_and_leaves_native_signal_unset():
+def test_no_host_search_runs_engine_as_is_without_removed_web_flags():
+    """Without host web search the model skips Steps 0.55/0.75 and runs the
+    engine as-is. The engine has no web backend in this fork, so the old
+    --auto-resolve flag and LAST30DAYS_NATIVE_SEARCH signal must not be
+    advertised anywhere in the section."""
     step0 = _step0_search_contract()
     assert "If no web-search tool is available in the agent session" in step0
-    assert "--auto-resolve" in step0
-    assert "LAST30DAYS_NATIVE_SEARCH=1" in step0
-    assert "Leave it unset when the agent session has no web-search tool" in step0
+    assert "skip Step 0.55 and Step 0.75 and run the engine command as-is" in step0
+    assert "The engine has no web-search backend of its own" in step0
+    assert "the engine cannot discover them for you" in step0
+    assert "--auto-resolve" not in step0
+    assert "LAST30DAYS_NATIVE_SEARCH" not in step0
+    assert "keyless floor" not in step0
 
 
 def _law8_block() -> str:

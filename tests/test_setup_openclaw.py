@@ -34,7 +34,6 @@ class TestRunOpenclawSetup:
 
         result = setup_wizard.run_openclaw_setup(config)
 
-        assert result["yt_dlp"] is True
         assert result["node"] is True
         assert result["python3"] is True
         assert all(v is False for v in result["keys"].values())
@@ -55,7 +54,6 @@ class TestRunOpenclawSetup:
 
         result = setup_wizard.run_openclaw_setup(config)
 
-        assert result["yt_dlp"] is True
         assert result["node"] is False
         assert result["python3"] is True
 
@@ -66,14 +64,12 @@ class TestRunOpenclawSetup:
         mock_which.return_value = None
         config = {
             "XAI_API_KEY": "xai-abc123",
-            "BRAVE_API_KEY": "brav-xyz",
             "SCRAPECREATORS_API_KEY": "",  # empty = falsy
         }
 
         result = setup_wizard.run_openclaw_setup(config)
 
         assert result["keys"]["xai"] is True
-        assert result["keys"]["brave"] is True
         assert result["keys"]["scrapecreators"] is False
 
     def test_openclaw_metadata_keeps_scrapecreators_optional(self):
@@ -144,7 +140,6 @@ class TestRunOpenclawSetup:
         serialized = json.dumps(result)
         parsed = json.loads(serialized)
 
-        assert parsed["yt_dlp"] is True
         assert parsed["keys"]["xai"] is True
 
     @patch("lib.setup_wizard._install_digg_cli")

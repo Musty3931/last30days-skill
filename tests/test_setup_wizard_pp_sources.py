@@ -1,5 +1,5 @@
 """Tests for setup-wizard auto-install of the default-on Printing Press sources
-(arxiv, techmeme, trustpilot) -- lib/setup_wizard.py."""
+(arxiv) -- lib/setup_wizard.py."""
 
 from __future__ import annotations
 
@@ -24,15 +24,15 @@ def test_already_installed_when_on_path(monkeypatch):
 def test_installed_off_path(monkeypatch, no_off_path):
     monkeypatch.setattr(sw.shutil, "which", lambda name: None)
     monkeypatch.setattr(sw, "_pp_off_path_binary", lambda bin_name: "/home/u/.local/bin/" + bin_name)
-    installed, action, stderr, off = sw._install_pp_cli("techmeme", "techmeme-pp-cli")
+    installed, action, stderr, off = sw._install_pp_cli("arxiv", "arxiv-pp-cli")
     assert installed is False
     assert action == "installed_off_path"
-    assert off.endswith("techmeme-pp-cli")
+    assert off.endswith("arxiv-pp-cli")
 
 
 def test_no_npx(monkeypatch, no_off_path):
     monkeypatch.setattr(sw.shutil, "which", lambda name: None)  # neither bin nor npx
-    installed, action, stderr, off = sw._install_pp_cli("trustpilot", "trustpilot-pp-cli")
+    installed, action, stderr, off = sw._install_pp_cli("arxiv", "arxiv-pp-cli")
     assert installed is False
     assert action == "no_npx"
 
@@ -68,9 +68,9 @@ def test_install_uses_resolved_windows_npx_path(monkeypatch, no_off_path):
     def fake_which(name):
         if name == "npx":
             return windows_npx
-        if name == "techmeme-pp-cli":
+        if name == "arxiv-pp-cli":
             calls["n"] += 1
-            return None if calls["n"] == 1 else r"C:\Users\me\.local\bin\techmeme-pp-cli"
+            return None if calls["n"] == 1 else r"C:\Users\me\.local\bin\arxiv-pp-cli"
         return None
 
     run_calls = []
@@ -81,7 +81,7 @@ def test_install_uses_resolved_windows_npx_path(monkeypatch, no_off_path):
 
     monkeypatch.setattr(sw.shutil, "which", fake_which)
     monkeypatch.setattr(sw.subprocess, "run", fake_run)
-    installed, action, stderr, off = sw._install_pp_cli("techmeme", "techmeme-pp-cli")
+    installed, action, stderr, off = sw._install_pp_cli("arxiv", "arxiv-pp-cli")
     assert installed is True
     assert action == "installed"
     assert run_calls[0][0] == windows_npx
@@ -94,19 +94,17 @@ def test_install_failed_nonzero_rc(monkeypatch, no_off_path):
     monkeypatch.setattr(sw.shutil, "which", fake_which)
     monkeypatch.setattr(sw.subprocess, "run",
                         lambda *a, **k: type("P", (), {"returncode": 1, "stdout": "", "stderr": "boom"})())
-    installed, action, stderr, off = sw._install_pp_cli("techmeme", "techmeme-pp-cli")
+    installed, action, stderr, off = sw._install_pp_cli("arxiv", "arxiv-pp-cli")
     assert installed is False
     assert action == "install_failed"
     assert "boom" in stderr
 
 
-def test_install_default_pp_sources_covers_default_on_pair(monkeypatch):
-    # Only the zero-auth default-on sources are auto-installed. Trustpilot is
-    # opt-in (INCLUDE_SOURCES=trustpilot) and intentionally excluded here.
+def test_install_default_pp_sources_covers_default_on_set(monkeypatch):
+    # Only the zero-auth default-on Printing Press sources are auto-installed.
     monkeypatch.setattr(sw.shutil, "which", lambda name: f"/usr/bin/{name}")
     out = sw.install_default_pp_sources()
-    assert set(out.keys()) == {"arxiv", "techmeme"}
-    assert "trustpilot" not in out
+    assert set(out.keys()) == {"arxiv"}
     for entry in out.values():
         assert entry["action"] == "already_installed"
         assert entry["installed"] is True

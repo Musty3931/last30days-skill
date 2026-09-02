@@ -13,8 +13,8 @@ def _topic(rank: int, name: str, **overrides) -> schema.DiscoveryTopic:
         why_spiking=f"3 evidence items about {name}.",
         momentum="building",
         velocity_score=42.5,
-        sources=["hackernews", "reddit"],
-        engagement_by_source={"hackernews": {"points": 500}},
+        sources=["digg", "reddit"],
+        engagement_by_source={"digg": {"postCount": 500}},
         command=f'/last30days "{name}"',
         evidence_urls=[f"https://example.com/{rank}"],
     )
@@ -30,7 +30,7 @@ def _report(**overrides) -> schema.DiscoveryReport:
         generated_at="2026-07-10T00:00:00+00:00",
         plan=schema.DiscoveryPlan(
             domain="AI agents", category=None, subreddits=["all"],
-            sources=["reddit", "hackernews"],
+            sources=["reddit", "digg"],
         ),
         topics=[_topic(1, "OpenAI Agent SDK")],
         source_status={},
@@ -45,7 +45,7 @@ def test_global_trending_header():
         domain="",
         plan=schema.DiscoveryPlan(
             domain="", category=None, subreddits=["all"],
-            sources=["reddit", "hackernews", "digg"],
+            sources=["reddit", "digg"],
         ),
     )
     rendered = render.render_discovery(report)
@@ -98,9 +98,9 @@ def test_best_community_comment_prefers_platform_normalized_strength():
             ]},
         ),
         schema.SourceItem(
-            item_id="b", source="hackernews", title="t", body="t",
-            url="https://news.ycombinator.com/b", metadata={"top_comments": [
-                {"text": "a modest but thoughtful comment here", "score": 3, "author": "hn_user"},
+            item_id="b", source="digg", title="t", body="t",
+            url="https://di.gg/ai/b", metadata={"top_comments": [
+                {"text": "a modest but thoughtful comment here", "score": 3, "author": "digg_user"},
             ]},
         ),
     ]
@@ -327,7 +327,7 @@ def test_nothing_solid_output_stays_byte_identical():
         "BADGE\n\n"
         "# Trending discovery: AI agents\n\n"
         "Window: 2026-06-10 to 2026-07-10\n"
-        "Feeds: reddit, hackernews\n"
+        "Feeds: reddit, digg\n"
         "Communities: r/all\n\n"
         "**Nothing solid this window.** No topic cleared the confidence "
         "floor - not enough cross-source confirmation or engagement to "

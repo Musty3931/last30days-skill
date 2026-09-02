@@ -344,7 +344,6 @@ def test_drill_applies_config_backed_source_filters_before_dispatch():
     args = parser.parse_args([
         "--drill", "cluster 1",
         "--dedicated-subreddits", "r/OpenClaw, OpenClawDev",
-        "--polymarket-keywords", "API, Policy",
     ])
 
     with mock.patch.object(cli.env, "get_config", return_value={}), \
@@ -353,7 +352,6 @@ def test_drill_applies_config_backed_source_filters_before_dispatch():
 
     drill_config = run_drill.call_args.args[1]
     assert drill_config["_dedicated_subreddits"] == ["OpenClaw", "OpenClawDev"]
-    assert drill_config["_polymarket_keywords"] == ["api", "policy"]
 
 
 def test_drill_inherits_cached_historical_window(tmp_path: Path):
@@ -450,33 +448,6 @@ def test_cli_drill_runs_deep_updates_cache_and_can_chain(tmp_path: Path):
         chained = cli._load_last_report_cache(None)
     assert chained is not None
     assert len(chained[0].artifacts["drill_history"]) == 2
-
-
-def test_drill_plan_does_not_gain_jobs_via_company_topic(monkeypatch):
-    from lib import pipeline, schema
-
-    plan = schema.QueryPlan(
-        intent="general",
-        freshness_mode="balanced_recent",
-        cluster_mode="story",
-        raw_topic="OpenClaw",
-        notes=["drill-mode"],
-        subqueries=[
-            schema.SubQuery(
-                label="drill",
-                search_query="OpenClaw api ban",
-                ranking_query="OpenClaw api ban",
-                sources=["youtube"],
-            )
-        ],
-        source_weights={"youtube": 1.0},
-    )
-    pipeline._ensure_jobs_in_plan(plan, ["youtube", "jobs"], explicit=False, topic="OpenClaw")
-    # Direct call still injects (documenting baseline)...
-    assert "jobs" in plan.source_weights
-    # ...but run()'s drill gate skips the injection entirely for drill plans;
-    # assert the gate condition itself so the contract is pinned.
-    assert "drill-mode" in plan.notes
 
 
 def test_merge_collapses_exact_url_rediscoveries():

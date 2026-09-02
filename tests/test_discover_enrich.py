@@ -158,7 +158,7 @@ def test_enrich_concurrency_capped_by_semaphore():
 
 def test_enrichment_reaches_all_sources_by_default():
     """No user source filter -> sub-runs get requested_sources=None, which is
-    what lets Techmeme, arXiv, YouTube, and Polymarket reach discovery despite
+    what lets GitHub and arXiv reach discovery despite
     having no river feed of their own."""
     seen: dict[str, object] = {}
 
@@ -169,14 +169,13 @@ def test_enrichment_reaches_all_sources_by_default():
     raw = {
         "id": "seed1",
         "title": "AI agents breakthrough sweeps the industry",
-        "url": "https://example.com/seed1",
-        "hn_url": "https://news.ycombinator.com/item?id=1",
-        "author": "example",
+        "url": "https://di.gg/ai/seed1",
+        "tldr": "AI agents breakthrough sweeps the industry",
         "date": "2026-07-09",
-        "engagement": {"points": 900, "comments": 400},
+        "engagement": {"postCount": 900, "uniqueAuthors": 400},
         "relevance": 0.9,
     }
-    with mock.patch.object(pipeline, "available_sources", return_value=["hackernews"]), \
+    with mock.patch.object(pipeline, "available_sources", return_value=["digg"]), \
          mock.patch.object(pipeline, "_fetch_discovery_source", return_value=([raw], None)), \
          mock.patch.object(pipeline, "run", side_effect=fake_run):
         pipeline.run_discover(
@@ -232,10 +231,12 @@ def _seed_item(
     points: int = 300,
     published_at: str = "2026-07-09",
 ) -> schema.SourceItem:
+    # Shapes match rerank._DISCOVERY_ENGAGEMENT_FIELDS per source; a digg item
+    # carrying reddit/HN-style keys would score zero velocity and vanish.
     engagement = (
         {"score": points, "num_comments": 40}
         if source == "reddit"
-        else {"points": points, "comments": 40}
+        else {"postCount": points, "uniqueAuthors": 40}
     )
     return schema.SourceItem(
         item_id=item_id,
@@ -311,14 +312,13 @@ def test_one_shot_discover_enrichment_stays_quick_tier():
     raw = {
         "id": "seed1",
         "title": "AI agents breakthrough sweeps the industry",
-        "url": "https://example.com/seed1",
-        "hn_url": "https://news.ycombinator.com/item?id=1",
-        "author": "example",
+        "url": "https://di.gg/ai/seed1",
+        "tldr": "AI agents breakthrough sweeps the industry",
         "date": "2026-07-09",
-        "engagement": {"points": 900, "comments": 400},
+        "engagement": {"postCount": 900, "uniqueAuthors": 400},
         "relevance": 0.9,
     }
-    with mock.patch.object(pipeline, "available_sources", return_value=["hackernews"]), \
+    with mock.patch.object(pipeline, "available_sources", return_value=["digg"]), \
          mock.patch.object(pipeline, "_fetch_discovery_source", return_value=([raw], None)), \
          mock.patch.object(pipeline, "enrich_nominations", side_effect=_enrich_spy(seen)):
         pipeline.run_discover(
@@ -337,7 +337,7 @@ def test_resume_deep_tier_uses_default_depth_budget_and_workers():
     default/450(default)/4 and scores against the bundle's window/boundary."""
     seen: dict = {}
     bundle = _resume_bundle(
-        [_bundle_row("n1", "Topic A", [_seed_item("a1", "hackernews", "Topic A")])],
+        [_bundle_row("n1", "Topic A", [_seed_item("a1", "digg", "Topic A")])],
         tier="deep", boundary=["reddit"], lookback_days=7,
     )
     with mock.patch.object(pipeline, "enrich_nominations", side_effect=_enrich_spy(seen)):
@@ -355,7 +355,7 @@ def test_resume_shallow_tier_keeps_quick_constants():
     """A shallow-tier bundle enriches with today's one-shot quick constants."""
     seen: dict = {}
     bundle = _resume_bundle(
-        [_bundle_row("n1", "Topic A", [_seed_item("a1", "hackernews", "Topic A")])],
+        [_bundle_row("n1", "Topic A", [_seed_item("a1", "digg", "Topic A")])],
         tier="shallow",
     )
     with mock.patch.object(pipeline, "enrich_nominations", side_effect=_enrich_spy(seen)):
@@ -373,7 +373,7 @@ def test_resume_budget_knob_reads_config_only_never_os_environ(monkeypatch):
     monkeypatch.setenv("LAST30DAYS_ENRICH_BUDGET_SECONDS", "77")
     seen: dict = {}
     bundle = _resume_bundle(
-        [_bundle_row("n1", "Topic A", [_seed_item("a1", "hackernews", "Topic A")])],
+        [_bundle_row("n1", "Topic A", [_seed_item("a1", "digg", "Topic A")])],
     )
     with mock.patch.object(pipeline, "enrich_nominations", side_effect=_enrich_spy(seen)):
         pipeline.run_discover_resume(bundle, {}, config={})
@@ -404,7 +404,7 @@ def test_resume_budget_env_file_seam(tmp_path, monkeypatch):
 
     seen: dict = {}
     bundle = _resume_bundle(
-        [_bundle_row("n1", "Topic A", [_seed_item("a1", "hackernews", "Topic A")])],
+        [_bundle_row("n1", "Topic A", [_seed_item("a1", "digg", "Topic A")])],
     )
     with mock.patch.object(pipeline, "enrich_nominations", side_effect=_enrich_spy(seen)):
         pipeline.run_discover_resume(bundle, {}, config=config)
@@ -527,7 +527,7 @@ def test_host_judged_name_becomes_enrichment_sub_run_topic():
         _bundle_row(
             "n1",
             "Google is updating Gemma 4 chat templates",
-            [_seed_item("hn1", "hackernews",
+            [_seed_item("d1", "digg",
                         "Google is updating Gemma 4 chat templates",
                         points=900)],
         ),

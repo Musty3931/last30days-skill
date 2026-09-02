@@ -107,7 +107,7 @@ def test_module_seam_capture_omits_nested_http_exchanges(tmp_path, monkeypatch):
     monkeypatch.setattr(http.urllib.request, "urlopen", lambda *_args, **_kwargs: _response('{"ok": true}'))
     fixture_dir = tmp_path / "fixture"
     request = {
-        "source": "youtube",
+        "source": "digg",
         "topic": "agents",
         "search_query": "agents",
         "date_range": ["2026-06-10", "2026-07-10"],
@@ -174,12 +174,8 @@ def test_module_seam_records_and_replays_adapter_failures(tmp_path, monkeypatch)
     assert replayed.value.exception_type == "RuntimeError"
 
 
-@pytest.mark.parametrize("source", ["youtube", "digg"])
-def test_post_ranking_cli_enrichment_records_and_replays(
-    tmp_path,
-    monkeypatch,
-    source,
-):
+def test_post_ranking_cli_enrichment_records_and_replays(tmp_path, monkeypatch):
+    source = "digg"
     fixture_dir = tmp_path / source
     item = schema.SourceItem(
         item_id="item-1",
@@ -190,17 +186,11 @@ def test_post_ranking_cli_enrichment_records_and_replays(
         engagement={"postCount": 1} if source == "digg" else {},
         metadata={"clusterUrlId": "cluster-1"} if source == "digg" else {},
     )
-    if source == "youtube":
-        def enrich(items, **_kwargs):
-            items[0].metadata["transcript_snippet"] = "recorded transcript"
+    def enrich(items, **_kwargs):
+        items[0].metadata["posts"] = [{"url": "https://x.com/example/status/1"}]
+        return items
 
-        monkeypatch.setattr(pipeline.youtube_yt, "backfill_transcripts", enrich)
-    else:
-        def enrich(items, **_kwargs):
-            items[0].metadata["posts"] = [{"url": "https://x.com/example/status/1"}]
-            return items
-
-        monkeypatch.setattr(pipeline.digg, "enrich_source_items", enrich)
+    monkeypatch.setattr(pipeline.digg, "enrich_source_items", enrich)
 
     with http.recording_requests(fixture_dir):
         recorded = pipeline._finalize_items_by_source(
@@ -218,8 +208,8 @@ def test_post_ranking_cli_enrichment_records_and_replays(
         metadata={"clusterUrlId": "cluster-1"} if source == "digg" else {},
     )
     monkeypatch.setattr(
-        pipeline.youtube_yt if source == "youtube" else pipeline.digg,
-        "backfill_transcripts" if source == "youtube" else "enrich_source_items",
+        pipeline.digg,
+        "enrich_source_items",
         lambda *_args, **_kwargs: pytest.fail("replay executed CLI enrichment"),
     )
 

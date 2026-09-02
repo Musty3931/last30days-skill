@@ -2,7 +2,7 @@
 
 Chained sources declare their routing once — imported from the definitions
 lib/env.py already owns — and ``backends.resolve`` produces a truthful
-"will use" prediction for alternative chains (X, YouTube, web search) plus
+"will use" prediction for alternative chains (X) plus
 honest conditional wording for Reddit.
 
 Covers the plan's U2 scenarios:
@@ -173,15 +173,6 @@ class TestDescriptorRegistry:
     def test_env_exposes_reddit_pin_constants(self):
         assert env.REDDIT_BACKEND_PIN_VAR == "LAST30DAYS_REDDIT_BACKEND"
         assert env.REDDIT_SC_MIN_ITEMS_VAR == "LAST30DAYS_REDDIT_SC_MIN_ITEMS"
-
-    def test_youtube_and_web_chains_declared_in_order(self):
-        yt = backends.get_descriptor("youtube")
-        assert tuple(s.name for s in yt.backends) == ("yt-dlp", "scrapecreators")
-        web = backends.get_descriptor("web")
-        assert tuple(s.name for s in web.backends) == (
-            "brave", "exa", "serper", "parallel", "keyless",
-        )
-        assert web.pin_flag == "--web-backend"
 
     def test_reddit_is_conditional_and_lanes_are_not_chain_entries(self):
         d = backends.get_descriptor("reddit")
@@ -451,8 +442,6 @@ class TestPaidLaneProbes:
     PAID = [
         ("x", "xai", "XAI_API_KEY"),
         ("x", "xquik", "XQUIK_API_KEY"),
-        ("web", "serper", "SERPER_API_KEY"),
-        ("youtube", "scrapecreators", "SCRAPECREATORS_API_KEY"),
         ("reddit", "scrapecreators", "SCRAPECREATORS_API_KEY"),
     ]
 
@@ -910,113 +899,17 @@ class TestRuntimeXBackendPin:
 
 
 # ---------------------------------------------------------------------------
-# YouTube chain: yt-dlp -> ScrapeCreators
-# ---------------------------------------------------------------------------
-
-class TestYouTubeChain:
-    def test_ytdlp_healthy_wins(self):
-        with mock.patch("lib.health.probe_dependency", _probe_dep()):
-            res = backends.resolve("youtube", {"SCRAPECREATORS_API_KEY": "dummy-key"})
-        assert res.active_backend == "yt-dlp"
-        assert res.tier == backends.TIER_OK
-
-    def test_missing_ytdlp_falls_back_to_sc_key(self):
-        with mock.patch(
-            "lib.health.probe_dependency", _probe_dep({"yt-dlp": health.MISSING}),
-        ):
-            res = backends.resolve("youtube", {"SCRAPECREATORS_API_KEY": "dummy-key"})
-        assert res.active_backend == "scrapecreators"
-        assert res.tier == backends.TIER_OK
-
-    def test_neither_available_error_carries_ytdlp_prescription(self):
-        with mock.patch(
-            "lib.health.probe_dependency", _probe_dep({"yt-dlp": health.MISSING}),
-        ):
-            res = backends.resolve("youtube", {})
-        assert res.active_backend is None
-        assert res.tier == backends.TIER_ERROR
-        assert "yt-dlp" in res.prescription
-
-
-# ---------------------------------------------------------------------------
-# Web search chain: brave -> exa -> serper -> parallel -> keyless floor
-# ---------------------------------------------------------------------------
-
-class TestWebChain:
-    def test_brave_key_predicted_first(self):
-        res = backends.resolve(
-            "web", {"BRAVE_API_KEY": "dummy-key", "EXA_API_KEY": "dummy-key"},
-        )
-        assert res.active_backend == "brave"
-        assert res.tier == backends.TIER_OK
-
-    def test_keyless_floor_is_degraded_warn(self):
-        res = backends.resolve("web", {})
-        assert res.active_backend == "keyless"
-        assert res.tier == backends.TIER_WARN
-
-    def test_native_search_suppresses_keyless_floor(self):
-        res = backends.resolve("web", {"LAST30DAYS_NATIVE_SEARCH": "1"})
-        keyless = next(f for f in res.findings if f.name == "keyless")
-        assert not keyless.usable
-        assert res.active_backend is None
-
-    def test_pin_via_web_backend_flag(self):
-        res = backends.resolve(
-            "web", {"BRAVE_API_KEY": "dummy-key", "EXA_API_KEY": "dummy-key"}, pin="exa",
-        )
-        assert res.active_backend == "exa"
-        assert res.pinned is True
-        assert "pinned" in res.summary
-
-    def test_parity_with_grounding_auto_dispatch(self):
-        """resolve('web').active_backend must match the backend grounding's
-        auto branch actually dispatches to, per config permutation."""
-        from lib import grounding
-
-        def _auto_pick(config):
-            picked = {}
-
-            def rec(label):
-                def f(query, date_range, key, count=5):
-                    picked["backend"] = label
-                    return [], {"label": label}
-                return f
-
-            with mock.patch.object(grounding, "brave_search", rec("brave")), \
-                 mock.patch.object(grounding, "exa_search", rec("exa")), \
-                 mock.patch.object(grounding, "serper_search", rec("serper")), \
-                 mock.patch.object(grounding, "parallel_search", rec("parallel")), \
-                 mock.patch(
-                     "lib.web_search_keyless.keyless_search",
-                     lambda q, dr, cfg: (picked.__setitem__("backend", "keyless") or ([], {})),
-                 ):
-                grounding.web_search("q", ("2026-06-04", "2026-07-04"), config, backend="auto")
-            return picked.get("backend")
-
-        for config in (
-            {"BRAVE_API_KEY": "dummy-key"},
-            {"SERPER_API_KEY": "dummy-key"},
-            {},
-        ):
-            assert backends.resolve("web", config).active_backend == _auto_pick(config)
-
-
-# ---------------------------------------------------------------------------
 # Rendering: prediction reads as will-use, never as past observation
 # ---------------------------------------------------------------------------
 
 class TestSummaryWording:
     def test_alternative_summary_is_will_use(self):
-        res = backends.resolve("web", {"BRAVE_API_KEY": "dummy-key"})
-        assert res.summary.startswith("will use: brave")
+        res = _resolve_x({"XAI_API_KEY": "dummy-key"})
+        assert res.summary.startswith("will use: xai")
         assert "used" not in res.summary.split("will use")[1]
 
     def test_error_summary_names_no_backend(self):
-        with mock.patch(
-            "lib.health.probe_dependency", _probe_dep({"yt-dlp": health.MISSING}),
-        ):
-            res = backends.resolve("youtube", {})
+        res = _resolve_x({})
         assert "will use" not in res.summary
         assert "no usable backend" in res.summary.lower()
 

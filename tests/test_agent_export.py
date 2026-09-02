@@ -146,17 +146,14 @@ def _report() -> schema.Report:
         ranked_candidates=[reddit_candidate, x_candidate, digg_candidate],
         items_by_source={"reddit": [reddit_item], "x": [x_item], "digg": [digg_item]},
         errors_by_source={
-            "youtube": "HTTP 429",
             "github": "HTTP 401",
-            "grounding": "DNS failure",
+            "arxiv": "HTTP 429",
         },
         source_status={
             "reddit": schema.SourceOutcome(source="reddit", state=health.OK, items_returned=1),
             "x": schema.SourceOutcome(source="x", state=health.OK, items_returned=1),
             "digg": schema.SourceOutcome(source="digg", state=health.OK, items_returned=1),
-            "hackernews": schema.SourceOutcome(source="hackernews", state=schema.NO_RESULTS),
-            "youtube": schema.SourceOutcome(source="youtube", state=schema.RATE_LIMITED),
-            "grounding": schema.SourceOutcome(source="grounding", state=schema.UNREACHABLE),
+            "arxiv": schema.SourceOutcome(source="arxiv", state=schema.RATE_LIMITED),
             "github": schema.SourceOutcome(source="github", state=schema.AUTH_FAILED),
         },
     )
@@ -172,13 +169,11 @@ def test_agent_export_maps_per_run_source_outcomes_to_states():
     exported = schema.to_agent_export(_report())
 
     assert exported["source_status"] == {
+        "arxiv": "rate-limited",
         "digg": "ok",
         "github": "auth-failed",
-        "grounding": "unreachable",
-        "hackernews": "no-results",
         "reddit": "ok",
         "x": "ok",
-        "youtube": "rate-limited",
     }
 
 

@@ -1,6 +1,6 @@
 # last30days Skill
 
-Agent Skills package for researching any topic across Reddit, X, YouTube, and web. Installable across Claude Code (most common host), Codex, Cursor, GitHub Copilot, Gemini CLI, Grok (xAI), and 50+ other [Agent Skills](https://agentskills.io) hosts. Python scripts with multi-source search aggregation.
+Agent Skills package for researching any topic across exactly five sources: Reddit, X, GitHub, Digg, and arXiv. This is a personal fork (`Musty3931/last30days-skill`) of `mvanhorn/last30days-skill` with every other upstream source removed. Installable across Claude Code (most common host), Codex, Cursor, GitHub Copilot, Gemini CLI, Grok (xAI), and 50+ other [Agent Skills](https://agentskills.io) hosts. Python scripts with multi-source search aggregation.
 
 ## Structure
 - `skills/last30days/SKILL.md` — canonical skill definition / runtime spec the model reads when the slash command fires
@@ -56,11 +56,12 @@ Agents open most PRs. Follow this so `CHANGELOG.md` stops conflicting and versio
 ## Rules
 - `lib/__init__.py` must be bare package marker (comment only, NO eager imports)
 - One-time setup: `npx skills add . -g -y` copies the skill into `~/.agents/skills/<name>/` (real directory) and, for harnesses that support symlinked skill dirs, drops a per-host symlink pointing at that copy. **Working-tree edits do NOT propagate automatically** — the `~/.agents/skills/<name>/` copy is frozen at install time. To sync after edits, re-run `npx skills add . -g -y`. For live-edit on a dev machine, replace the install copy with a symlink to the working tree: `ln -sfn "$PWD/skills/last30days" ~/.agents/skills/last30days` (run from the repo root).
-- Git remote: origin = public (`mvanhorn/last30days-skill`)
+- Git remote: origin = `Musty3931/last30days-skill` (personal fork); upstream = `mvanhorn/last30days-skill`. Never push to upstream.
+- **Five sources only.** The engine searches Reddit, X (backends: bird/browser cookies, xAI, xurl, xquik, opt-in grok), GitHub, Digg (`digg-pp-cli`), and arXiv (`arxiv-pp-cli`). Do not reintroduce a removed source, a web-search backend, or a flag for one; `build_parser()` in `scripts/last30days.py` is the authoritative flag list and `lib/env.py` the authoritative env-key list. Docs must never advertise a source or key that is not there.
 - Do not reduce `fail_under` in `pyproject.toml` (`[tool.coverage.report]`) without documenting why in the PR. The coverage gate is a floor meant to rise over time, not to be relaxed when new code is under-tested.
 - Every `lib/*.py` call to `log.source_log(...)` must pass `tty_only=False`. The default is `True`, which silently drops every line when stderr isn't a TTY (Claude Code, Codex, CI, captured output) — turning source observability into invisible failure. Enforced by `tests/test_source_log_visibility.py`.
-- **CLI-gated optional sources** (Digg via `digg-pp-cli`, YouTube via `yt-dlp`) activate only when `shutil.which` resolves the binary on the **agent subprocess PATH** — not merely when the file exists on disk. First-run setup installs Digg through `@mvanhorn/printing-press-library` (default `$HOME/.local/bin`); Hermes/OpenClaw gateways often need that directory on PATH. Setup must distinguish PATH-visible installs from off-PATH binaries and must not claim "now active" unless the engine gate would pass. See `docs/solutions/integration-issues/digg-cli-agent-path-setup-wizard.md`.
-- **First-run onboarding is consent-driven, model-led, and host-split.** The setup subprocess does only mechanical work (cookie reads, tool installs, GitHub device-auth, and emitting the engine-owned welcome via `--welcome`) — it cannot prompt, so consent lives in `SKILL.md` Step 0. Two flows avoid model-authored prose that Claude Code folds or the model skips: in the **Modal Flow** the welcome pitch is embedded in the setup modal's question (the AskUserQuestion modal is the only always-fully-visible surface — a separate welcome message or `--welcome` Bash run gets buried behind "ctrl+o to expand"); the **Non-Modal Prose Flow** still uses `last30days.py --welcome` (relayed verbatim) since it has no modal. The GitHub device code is surfaced by a two-command split — `setup --github-start` returns the code fast (foreground, copies to clipboard) and `setup --github-poll` waits for authorization (`setup --github` still chains both for back-compat). Step 0 has TWO branches: a **Claude Code Modal Flow** (the restored v3.0.0 `AskUserQuestion`-driven NUX — welcome, Auto/Manual/Skip, cookie consent, ScrapeCreators offer, `INCLUDE_SOURCES` opt-in, first-topic picker) for hosts with modals, and a **Non-Modal Prose Flow** for hosts without (OpenClaw, Codex, Cursor, Gemini CLI, Grok). Both ask before reading cookies, surface the macOS Full Disk Access fix on permission-denied, and offer the ScrapeCreators GitHub signup (10,000 free calls) on every first run. A successful `setup --github` persists `SCRAPECREATORS_API_KEY` automatically (via `setup_wizard.write_api_key`, 0o600) and masks the key in stdout. Do NOT collapse the modal flow back into a bare silent `setup` call or flatten it to prose-only — the guided modals are the feature (they eroded once and were restored). The onboarding contract is locked by `tests/test_onboarding_contract.py`. The Step 5 source opt-in is two tiers, both comment-enabled: **Recommended** (TikTok + Instagram posts AND top comments, plus YouTube comments — `INCLUDE_SOURCES=tiktok,instagram,youtube_comments,tiktok_comments,instagram_comments`) and **Everything** (also Threads + Pinterest). Comments are on by default (posts on → comments on for all three platforms); **Threads and Pinterest are the only opt-in extras**, appearing only in the Step 5 Everything option, never in the welcome or the Step 4 offer. Instagram comments are fetched via ScrapeCreators (`/v2/instagram/post/comments`, ranked by `comment_like_count`) with full vote-weighting parity to YouTube/TikTok (a dedicated `_instagram_engagement` carve-out, the `_VOTE_LOG_REFERENCE`/label/threshold entries). The cross-platform "Top Community Comments" list (`render._render_top_comments`) selects **round-robin by within-platform rank** (every platform's #1, then #2, then #3) so a viral platform can't crowd out a smaller one, and drops the per-platform absolute floor so a less-watched video's killer low-vote comment still surfaces.
+- **CLI-gated optional sources** (Digg via `digg-pp-cli`, arXiv via `arxiv-pp-cli`) activate only when `shutil.which` resolves the binary on the **agent subprocess PATH** — not merely when the file exists on disk. First-run setup installs both through `@mvanhorn/printing-press-library` (default `$HOME/.local/bin`); Hermes/OpenClaw gateways often need that directory on PATH. Setup must distinguish PATH-visible installs from off-PATH binaries and must not claim "now active" unless the engine gate would pass. See `docs/solutions/integration-issues/digg-cli-agent-path-setup-wizard.md`.
+- **First-run onboarding is consent-driven, model-led, and host-split.** The setup subprocess does only mechanical work (cookie reads, Digg/arXiv CLI installs, GitHub device-auth, and emitting the engine-owned welcome via `--welcome`) — it cannot prompt, so consent lives in `SKILL.md` Step 0. Two flows avoid model-authored prose that Claude Code folds or the model skips: in the **Modal Flow** the welcome pitch is embedded in the setup modal's question (the AskUserQuestion modal is the only always-fully-visible surface — a separate welcome message or `--welcome` Bash run gets buried behind "ctrl+o to expand"); the **Non-Modal Prose Flow** still uses `last30days.py --welcome` (relayed verbatim) since it has no modal. The GitHub device code is surfaced by a two-command split — `setup --github-start` returns the code fast (foreground, copies to clipboard) and `setup --github-poll` waits for authorization (`setup --github` still chains both for back-compat). Step 0 has TWO branches: a **Claude Code Modal Flow** (the restored v3.0.0 `AskUserQuestion`-driven NUX — welcome, Auto/Manual/Skip, cookie consent, ScrapeCreators Reddit-backup offer, first-topic picker) for hosts with modals, and a **Non-Modal Prose Flow** for hosts without (OpenClaw, Codex, Cursor, Gemini CLI, Grok). Both ask before reading cookies, surface the macOS Full Disk Access fix on permission-denied, and offer the ScrapeCreators GitHub signup (10,000 free calls) on every first run. ScrapeCreators has exactly one role in this fork: the Reddit search backup when the free path returns no items (`LAST30DAYS_REDDIT_SC_MIN_ITEMS` / `LAST30DAYS_REDDIT_BACKEND` are the only escalation knobs). There is no `INCLUDE_SOURCES` source-tier step and no Threads/Pinterest/TikTok/Instagram offer anywhere in onboarding. A successful `setup --github` persists `SCRAPECREATORS_API_KEY` automatically (via `setup_wizard.write_api_key`, 0o600) and masks the key in stdout. Do NOT collapse the modal flow back into a bare silent `setup` call or flatten it to prose-only — the guided modals are the feature (they eroded once and were restored). The onboarding contract is locked by `tests/test_onboarding_contract.py`. The cross-platform "Top Community Comments" list (`render._render_top_comments`) selects **round-robin by within-platform rank** (every platform's #1, then #2, then #3) so a viral platform can't crowd out a smaller one.
 
 ## Security hygiene
 - Never commit real API keys, browser cookies, auth tokens, app passwords, access tokens, or `.env` contents.
@@ -68,33 +69,33 @@ Agents open most PRs. Follow this so `CHANGELOG.md` stops conflicting and versio
 - Keep examples safe by redacting secrets and avoiding copy/pasteable live credentials in docs, fixtures, and test data.
 - Do not weaken or disable the advisory security workflow (`.github/workflows/security.yml`) without explaining why in the PR description or review thread.
 
-## Maintaining README translations
+## README
 
-`README.md` is the canonical English README. When changing it, reflect the same substantive updates in `README.fr.md`, `README.de.md`, `README.es.md`, `README.pt-BR.md`, `README.ja.md`, and `README.zh-CN.md`, preserving commands, links, tables, and reciprocal language navigation.
+`README.md` is the only README. The upstream translations (`README.*.md`) were deleted in this fork because they cannot be maintained here; do not recreate them or add a language switcher.
 
 ## Maintaining CONFIGURATION.md
 
-`CONFIGURATION.md` is the user-facing configuration reference — save paths, per-source API keys, web-search backend priority, trend-monitoring stack, per-client install patterns. Distinct from `SKILL.md` (the canonical runtime spec).
+`CONFIGURATION.md` is the user-facing configuration reference — save paths, per-source API keys, X backend priority, trend-monitoring stack, per-client install patterns. Distinct from `SKILL.md` (the canonical runtime spec).
 
 Update `CONFIGURATION.md` when:
 
-- adding a new env var (e.g. `LAST30DAYS_*`, `BSKY_*`, `*_API_KEY`)
-- adding a new CLI flag that affects configuration (e.g. `--store`, `--web-backend`)
+- adding a new env var (e.g. `LAST30DAYS_*`, `*_API_KEY`, `GITHUB_TOKEN`)
+- adding a new CLI flag that affects configuration (e.g. `--store`, `--search`)
 - adding a new per-client install pattern (Claude Code, Gemini, Codex, Cursor, Grok, Hermes…)
 - adding a new optional source that requires its own credential
 - changing the priority order of config layers (per-run flag > env > `.env` file > defaults)
 
-Keep the existing structure organized by how often each layer is touched: per-run flags → env vars / `.env` → optional trend-monitoring stack → per-client patterns. Add new content into the right section rather than appending at the end.
+Keep the existing structure organized by how often each layer is touched: per-run flags → env vars / `.env` → optional trend-monitoring stack → per-client patterns. Never document a source, key, or flag that the engine does not have. Add new content into the right section rather than appending at the end.
 
 When a new config concept lands in `SKILL.md` or `AGENTS.md`, mirror the user-facing knob in `CONFIGURATION.md` so non-agent readers can configure the skill without reverse-engineering it from the runtime spec.
 
 ## Plugin manifests (Grok)
 
-The repo doubles as a native Grok Build plugin via `.grok-plugin/plugin.json` + `.grok-plugin/marketplace.json`. Grok also reads `.claude-plugin/*` for compatibility; the native pair is the first-class lane and what an official xAI marketplace listing points at. The self-hosted catalog uses a bare Git URL source (`{"source":"url","url":"https://github.com/mvanhorn/last30days-skill.git"}`) so `grok plugin marketplace add mvanhorn/last30days-skill` tracks HEAD — not a self-referential local `path: "."` (Grok does not enumerate those). Version lockstep with Claude/Codex/Gemini manifests is enforced by `tests/test_plugin_contract.py`. Validate with `grok plugin validate .`.
+The repo doubles as a native Grok Build plugin via `.grok-plugin/plugin.json` + `.grok-plugin/marketplace.json`. Grok also reads `.claude-plugin/*` for compatibility; the native pair is the first-class lane and what an official xAI marketplace listing points at. The self-hosted catalog uses a bare Git URL source (`{"source":"url","url":"https://github.com/Musty3931/last30days-skill.git"}`) so `grok plugin marketplace add Musty3931/last30days-skill` tracks HEAD — not a self-referential local `path: "."` (Grok does not enumerate those). Version lockstep with Claude/Codex/Gemini manifests is enforced by `tests/test_plugin_contract.py`. Validate with `grok plugin validate .`.
 
 ## Submitting to the xAI plugin marketplace
 
-Getting last30days into xAI's official catalog (`xai-org/plugin-marketplace`) is an outbound PR to *their* repo — an index that only points at our source, so nothing of last30days is vendored there. Do this **after** the change you want to ship has merged to `main`: the entry pins a commit that must already exist.
+(Upstream procedure, kept for reference; this personal fork is not submitted to the xAI catalog.) Getting last30days into xAI's official catalog (`xai-org/plugin-marketplace`) is an outbound PR to *their* repo — an index that only points at our source, so nothing of last30days is vendored there. Do this **after** the change you want to ship has merged to `main`: the entry pins a commit that must already exist.
 
 1. Fork `xai-org/plugin-marketplace` and branch from `main`.
 2. Get the commit to pin — a full 40-char lowercase SHA; a branch, tag, or short SHA is rejected by their validator:
@@ -105,7 +106,7 @@ Getting last30days into xAI's official catalog (`xai-org/plugin-marketplace`) is
    ```json
    {
      "name": "last30days",
-     "description": "Research any topic across Reddit, X, YouTube, TikTok, Instagram, Hacker News, Polymarket, GitHub, and 5+ more sources. AI agent scores by upvotes, likes, and real money - not editors.",
+     "description": "Research any topic across Reddit, X, GitHub, Digg, and arXiv. AI agent scores by upvotes, likes, and stars - not editors.",
      "category": "productivity",
      "source": {
        "source": "url",
@@ -126,7 +127,7 @@ Getting last30days into xAI's official catalog (`xai-org/plugin-marketplace`) is
 
 To roll out a later update in their catalog, bump the pinned `sha` in the existing entry — never open a second, parallel entry.
 
-Do not confuse this with our own `.grok-plugin/marketplace.json`: that file makes this repo directly addable as a Grok marketplace (`grok plugin marketplace add mvanhorn/last30days-skill`) and uses a **bare URL** source (no SHA) so it tracks HEAD; the xAI entry above lives in *their* repo and uses a **remote** source pinned to a SHA.
+Do not confuse this with our own `.grok-plugin/marketplace.json`: that file makes this repo directly addable as a Grok marketplace (`grok plugin marketplace add Musty3931/last30days-skill`) and uses a **bare URL** source (no SHA) so it tracks HEAD; the xAI entry above lives in *their* repo and uses a **remote** source pinned to a SHA.
 
 ## Beta channel
 

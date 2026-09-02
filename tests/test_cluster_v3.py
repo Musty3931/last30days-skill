@@ -35,7 +35,7 @@ class ClusterV3Tests(unittest.TestCase):
         )
         candidates = [
             make_candidate("c1", "reddit", "Docker setup guide", "Step by step setup", 80),
-            make_candidate("c2", "youtube", "Docker install video", "Video walkthrough", 75),
+            make_candidate("c2", "github", "Docker install script", "Repo walkthrough", 75),
         ]
         clusters = cluster.cluster_candidates(candidates, plan)
         self.assertEqual(2, len(clusters))
@@ -54,7 +54,7 @@ class ClusterV3Tests(unittest.TestCase):
         candidates = [
             make_candidate("c1", "reddit", "Open model launch reactions", "People are reacting to the open model launch today.", 88),
             make_candidate("c2", "x", "Open model launch update", "People are reacting to the open model launch today on X.", 84),
-            make_candidate("c3", "youtube", "Different topic", "A separate discussion about hardware benchmarks.", 70),
+            make_candidate("c3", "github", "Different topic", "A separate discussion about hardware benchmarks.", 70),
         ]
         clusters = cluster.cluster_candidates(candidates, plan)
         self.assertEqual(2, len(clusters))
@@ -72,8 +72,8 @@ class TestCrossSourceMerging(unittest.TestCase):
             freshness_mode="strict_recent",
             cluster_mode="story",
             raw_topic="test",
-            subqueries=[schema.SubQuery(label="primary", search_query="test", ranking_query="test", sources=["reddit", "x", "tiktok"])],
-            source_weights={"reddit": 0.5, "x": 0.5, "tiktok": 0.5},
+            subqueries=[schema.SubQuery(label="primary", search_query="test", ranking_query="test", sources=["reddit", "x", "digg"])],
+            source_weights={"reddit": 0.5, "x": 0.5, "digg": 0.5},
         )
 
     def test_same_story_different_phrasing_merges(self):
@@ -81,7 +81,7 @@ class TestCrossSourceMerging(unittest.TestCase):
         candidates = [
             make_candidate("c1", "reddit", "Kanye West to headline all three nights of Wireless Festival 2026", "Big announcement for Wireless.", 80),
             make_candidate("c2", "x", "BREAKING: Kanye West is making his massive UK comeback at Wireless Festival this July", "Ye returns to UK.", 75),
-            make_candidate("c3", "youtube", "Kanye West BULLY Album Review - Knox Hill Reacts", "Full album reaction and breakdown.", 70),
+            make_candidate("c3", "digg", "Kanye West BULLY Album Review - Knox Hill Reacts", "Full album reaction and breakdown.", 70),
         ]
         clusters = cluster.cluster_candidates(candidates, self._plan())
         # c1 and c2 should merge (Kanye + Wireless + Festival overlap), c3 should stay separate
@@ -98,7 +98,7 @@ class TestCrossSourceMerging(unittest.TestCase):
         candidates = [
             make_candidate("c1", "reddit", "Kanye West BULLY Album First Impressions Thread", "What do you think of BULLY?", 80),
             make_candidate("c2", "x", "Kanye West apology for antisemitism in Wall Street Journal ad", "Full page WSJ ad.", 75),
-            make_candidate("c3", "tiktok", "Kanye West Wireless Festival ticket prices breakdown", "How much for Wireless tickets?", 70),
+            make_candidate("c3", "digg", "Kanye West Wireless Festival ticket prices breakdown", "How much for Wireless tickets?", 70),
         ]
         clusters = cluster.cluster_candidates(candidates, self._plan())
         # These are 3 different stories, should remain as 3 clusters
@@ -116,59 +116,6 @@ class TestCrossSourceMerging(unittest.TestCase):
         # since they're both from reddit.
         for cl in clusters:
             self.assertTrue(len(cl.sources) >= 1)  # basic sanity
-
-
-class TestPolymarketIsolation(unittest.TestCase):
-    """Polymarket clusters must not merge with non-Polymarket clusters via entity overlap."""
-
-    def _plan(self):
-        return schema.QueryPlan(
-            intent="breaking_news",
-            freshness_mode="strict_recent",
-            cluster_mode="story",
-            raw_topic="test",
-            subqueries=[schema.SubQuery(label="primary", search_query="test", ranking_query="test", sources=["reddit", "x", "polymarket"])],
-            source_weights={"reddit": 0.5, "x": 0.5, "polymarket": 0.5},
-        )
-
-    def test_polymarket_does_not_merge_into_news_cluster(self):
-        """A Polymarket prediction about Sam Altman should not merge into a news cluster about Sam Altman."""
-        candidates = [
-            make_candidate("c1", "reddit", "Sam Altman personal rivalry with Elon Musk escalates", "The feud between Sam Altman and Elon Musk continues.", 80),
-            make_candidate("c2", "polymarket", "Sam Altman equity stake in OpenAI valued at $500M", "Will Sam Altman receive equity in OpenAI restructuring?", 75),
-        ]
-        clusters = cluster.cluster_candidates(candidates, self._plan())
-        self.assertEqual(2, len(clusters), "Polymarket and news clusters should remain separate")
-        # Each cluster should have exactly one candidate
-        for cl in clusters:
-            self.assertEqual(1, len(cl.candidate_ids))
-
-    def test_two_polymarket_clusters_not_blocked_by_poly_guard(self):
-        """Two Polymarket items about the same topic are not blocked by the Polymarket guard.
-
-        Note: same-source clusters are still blocked by the existing same-source
-        guard, so we verify the poly guard specifically by checking that two
-        polymarket items with high text similarity merge via the greedy pass.
-        """
-        candidates = [
-            make_candidate("c1", "polymarket", "Sam Altman equity stake in OpenAI restructuring", "Will Sam Altman get equity in the OpenAI restructuring deal?", 80),
-            make_candidate("c2", "polymarket", "Sam Altman equity stake in OpenAI restructuring odds", "Will Sam Altman get equity in the OpenAI restructuring deal? Current odds.", 75),
-        ]
-        clusters = cluster.cluster_candidates(candidates, self._plan())
-        # High text similarity means greedy pass merges them
-        self.assertEqual(1, len(clusters))
-        self.assertEqual(2, len(clusters[0].candidate_ids))
-
-    def test_neither_polymarket_still_merges(self):
-        """Non-Polymarket clusters with entity overlap should still merge (existing behavior)."""
-        candidates = [
-            make_candidate("c1", "reddit", "Sam Altman OpenAI restructuring announcement details", "Sam Altman announces major OpenAI restructuring.", 80),
-            make_candidate("c2", "x", "Sam Altman reveals OpenAI restructuring plan for 2026", "Major OpenAI restructuring coming says Sam Altman.", 75),
-        ]
-        clusters = cluster.cluster_candidates(candidates, self._plan())
-        self.assertEqual(1, len(clusters))
-        self.assertEqual(2, len(clusters[0].candidate_ids))
-
 
 class TestStaleClusterDemotion(unittest.TestCase):
     """Stale candidates must never become cluster representatives or titles."""

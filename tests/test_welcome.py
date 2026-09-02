@@ -18,15 +18,9 @@ class TestWelcome(unittest.TestCase):
         for source in (
             "X/Twitter",
             "Reddit",
-            "YouTube",
+            "GitHub",
             "Digg",
             "arXiv",
-            "Techmeme",
-            "StockTwits",
-            "Trustpilot",
-            "Hacker News",
-            "Polymarket",
-            "GitHub",
         ):
             self.assertIn(source, text, source)
 

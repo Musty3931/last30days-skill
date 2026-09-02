@@ -41,7 +41,7 @@ class SubRunIsolationTests(unittest.TestCase):
         competitors: list of entity names to run.
         Returns the list of kwargs dicts pipeline.run was called with.
         """
-        from lib import pipeline, resolve as resolve_mod
+        from lib import pipeline
 
         captured: list[dict] = []
 
@@ -63,7 +63,6 @@ class SubRunIsolationTests(unittest.TestCase):
             pass
         args = _Args()
         args.mock = mock_flag
-        args.web_backend = "auto"
         args.lookback_days = 30
 
         cfg = config or {}
@@ -79,18 +78,6 @@ class SubRunIsolationTests(unittest.TestCase):
                 "github_repos": [],
                 "context": "",
             }
-            if not args.mock and resolve_mod._has_backend(entity_config):
-                try:
-                    r = resolve_mod.auto_resolve(entity, entity_config)
-                except Exception:
-                    r = {}
-                resolved["x_handle"] = r.get("x_handle", "") or ""
-                resolved["subreddits"] = list(r.get("subreddits") or [])
-                resolved["github_user"] = r.get("github_user", "") or ""
-                resolved["github_repos"] = list(r.get("github_repos") or [])
-                resolved["context"] = r.get("context", "") or ""
-                if resolved["context"]:
-                    entity_config["_auto_resolve_context"] = resolved["context"]
             pipeline.run(
                 topic=entity,
                 config=entity_config,
@@ -101,7 +88,6 @@ class SubRunIsolationTests(unittest.TestCase):
                 subreddits=resolved["subreddits"] or None,
                 github_user=resolved["github_user"] or None,
                 github_repos=resolved["github_repos"] or None,
-                web_backend=args.web_backend,
                 lookback_days=args.lookback_days,
                 internal_subrun=True,
             )
@@ -140,50 +126,6 @@ class SubRunIsolationTests(unittest.TestCase):
         captured = self._run_closure(main_flags, ["Drake"])
         self.assertIsNone(captured[0]["github_user"])
         self.assertIsNone(captured[0]["github_repos"])
-
-    def test_auto_resolve_context_does_not_leak_across_peers(self):
-        """Per-entity auto_resolve context must not bleed between sub-runs."""
-        from lib import resolve as resolve_mod
-
-        def fake_resolve(entity, _cfg):
-            per_topic = {
-                "Drake": {"x_handle": "Drake", "subreddits": [], "github_user": "",
-                          "github_repos": [], "context": "Drake ICEMAN rollout",
-                          "category": None, "searches_run": 4},
-                "Kendrick Lamar": {"x_handle": "kendricklamar", "subreddits": [],
-                                   "github_user": "", "github_repos": [],
-                                   "context": "Meet The Grahams revival",
-                                   "category": None, "searches_run": 4},
-            }
-            return per_topic.get(entity, {})
-
-        with mock.patch.object(resolve_mod, "auto_resolve", side_effect=fake_resolve), \
-             mock.patch.object(resolve_mod, "_has_backend", return_value=True):
-            captured = self._run_closure(
-                main_flags={},
-                competitors=["Drake", "Kendrick Lamar"],
-                config={"BRAVE_API_KEY": "test"},
-            )
-
-        by_topic = {kw["topic"]: kw for kw in captured}
-        # Each sub-run's config got its own context string.
-        self.assertEqual(
-            by_topic["Drake"]["config"].get("_auto_resolve_context"),
-            "Drake ICEMAN rollout",
-        )
-        self.assertEqual(
-            by_topic["Kendrick Lamar"]["config"].get("_auto_resolve_context"),
-            "Meet The Grahams revival",
-        )
-        # Cross-entity check: neither config contains the other's context.
-        self.assertNotIn(
-            "Meet The Grahams",
-            by_topic["Drake"]["config"].get("_auto_resolve_context", ""),
-        )
-        self.assertNotIn(
-            "ICEMAN",
-            by_topic["Kendrick Lamar"]["config"].get("_auto_resolve_context", ""),
-        )
 
 if __name__ == "__main__":
     unittest.main()

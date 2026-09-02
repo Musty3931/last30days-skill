@@ -1,16 +1,19 @@
-"""Contract tests for the restored first-run NUX wizard in SKILL.md.
+"""Contract tests for the first-run NUX wizard in SKILL.md (five-source fork).
 
 Step 0 has two branches: a **Claude Code Modal Flow** (AskUserQuestion-driven,
 the restored v3.0.0 NUX) and a **Non-Modal Prose Flow** for hosts without modals
 (OpenClaw, Codex, Cursor, Gemini CLI). These tests assert the structural
 guarantees of both branches, plus the cross-cutting copy rules: the hard
-"Step 0 before Step 1" gate, Digg threaded alongside yt-dlp, the 10,000-free-calls
-credit count, and Threads/Pinterest kept out of the onboarding offers. They read
-SKILL.md as text - the model's runtime contract - matching
-tests/test_runtime_preflight_contract.py.
+"Step 0 before Step 1" gate, Digg threaded alongside arXiv (the only two CLIs
+setup installs), the 10,000-free-calls credit count, ScrapeCreators framed ONLY
+as the Reddit search backup, and every removed source (YouTube, TikTok,
+Instagram, Threads, Pinterest, Hacker News, Polymarket, Techmeme, ...) kept out
+of onboarding entirely. They read SKILL.md as text - the model's runtime
+contract - matching tests/test_runtime_preflight_contract.py.
 
 These lock the flow against silent re-erosion (the failure mode that orphaned the
-wizard in PR #659 and flattened it before this restoration).
+wizard in PR #659 and flattened it before this restoration) and against a
+removed source creeping back into the offers.
 """
 
 import unittest
@@ -20,6 +23,26 @@ from lib import setup_wizard
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILL_MD = ROOT / "skills" / "last30days" / "SKILL.md"
+
+REMOVED_SOURCES = (
+    "YouTube",
+    "yt-dlp",
+    "TikTok",
+    "Instagram",
+    "Threads",
+    "Pinterest",
+    "LinkedIn",
+    "Hacker News",
+    "Polymarket",
+    "Techmeme",
+    "Trustpilot",
+    "Bluesky",
+    "Perplexity",
+    "Xiaohongshu",
+    "DripStack",
+    "Telegram",
+    "INCLUDE_SOURCES=",
+)
 
 
 class TestOnboardingContract(unittest.TestCase):
@@ -76,9 +99,7 @@ class TestOnboardingContract(unittest.TestCase):
         # all resume the deferred offer in the same run after the findings.
         self.assertEqual(
             2,
-            self.modal.count(
-                "then resume Step 4 (and Step 5 if a key is saved) in the same run"
-            ),
+            self.modal.count("then resume Step 4 in the same run"),
         )
         self.assertIn("then resume the deferred onboarding in the same run", self.prose)
         # The resume never turns back into a second X consent ask.
@@ -98,13 +119,12 @@ class TestOnboardingContract(unittest.TestCase):
     # --- Modal flow: the restored NUX, stages in order ---
 
     def test_modal_flow_stage_order(self):
-        """Welcome -> setup modal -> cookie consent -> SC offer -> opt-in -> picker."""
+        """Welcome -> setup modal -> cookie consent -> Reddit-backup offer -> picker."""
         anchors = [
             "Welcome to /last30days!",  # welcome pitch, embedded in the setup modal
             "How would you like to set up?",
             "your browser's x.com cookies",  # cookie-consent modal
-            "Want to add TikTok and Instagram?",  # SC offer
-            "Which ScrapeCreators sources?",  # source opt-in
+            "Want a Reddit backup lane?",  # ScrapeCreators offer
             "What do you want to research first?",  # topic picker
         ]
         idxs = [self.modal.find(a) for a in anchors]
@@ -115,14 +135,16 @@ class TestOnboardingContract(unittest.TestCase):
     def test_modal_uses_askuserquestion(self):
         self.assertIn("AskUserQuestion", self.modal)
 
-    def test_cookie_consent_names_all_installed_clis(self):
+    def test_cookie_consent_names_both_installed_clis(self):
         """The cookie-consent modal must not frame X cookies as instead-of the CLIs,
-        and must name arXiv + Techmeme (not just 'YouTube + Digg') since auto-setup
-        installs all four regardless of the cookie choice."""
+        and must name both Digg and arXiv since auto-setup installs both regardless
+        of the cookie choice. No removed CLI (yt-dlp, Techmeme) may appear."""
         consent = self.modal[self.modal.find("your browser's x.com cookies"):]
         consent = consent[: consent.find("Full Disk Access")]  # bound to the consent modal
-        for cli in ("yt-dlp", "Digg", "arXiv", "Techmeme"):
+        for cli in ("Digg", "arXiv"):
             self.assertIn(cli, consent, cli)
+        for gone in ("yt-dlp", "Techmeme", "YouTube"):
+            self.assertNotIn(gone, consent, gone)
         # The "skip X" option still installs the CLIs (not framed as X-or-CLIs).
         self.assertIn("Skip X - just the CLIs", consent)
 
@@ -183,14 +205,18 @@ class TestOnboardingContract(unittest.TestCase):
     def test_persisted_false_edge_case_documented(self):
         self.assertIn('"persisted": false', self.step0)
 
-    # --- Digg threaded alongside yt-dlp everywhere it appears ---
+    # --- Digg threaded alongside arXiv everywhere it appears ---
 
-    def test_digg_threaded_with_ytdlp(self):
-        self.assertIn("Digg", self.modal)
-        self.assertIn("Digg", self.prose)
-        self.assertIn("Digg", self.manual)
-        # The Auto-setup modal option names every installed CLI, not just two.
-        self.assertIn("yt-dlp (YouTube), Digg, arXiv, Techmeme", self.modal)
+    def test_digg_threaded_with_arxiv(self):
+        for slice_name, slice_text in (
+            ("modal", self.modal),
+            ("prose", self.prose),
+            ("manual", self.manual),
+        ):
+            self.assertIn("Digg", slice_text, slice_name)
+            self.assertIn("arXiv", slice_text, slice_name)
+        # The Auto-setup modal option names both installed CLIs, no more, no less.
+        self.assertIn("Digg and arXiv CLIs", self.modal)
 
     # --- Credit count = 10,000, no conflicting numbers in onboarding ---
 
@@ -201,73 +227,55 @@ class TestOnboardingContract(unittest.TestCase):
         self.assertNotIn("1000 credits", self.step0)
         self.assertNotIn("100 free call", self.step0)
 
-    # --- Threads/Pinterest live ONLY in the Step 5 "Everything" opt-in ---
+    # --- Removed sources stay out of onboarding; no INCLUDE_SOURCES tiers ---
 
-    def _modal_step5(self):
-        start = self.modal.index("**Step 5:")
-        end = self.modal.index("**Step 6:", start)
-        return self.modal[start:end]
+    def test_removed_sources_absent_from_step0_offers(self):
+        """The five-source fork never offers, installs, or tiers a removed source.
+        The one allowed mention is the Manual Setup Guide's explicit 'do not offer'
+        sentence, so the check runs over the modal and prose flows."""
+        for gone in REMOVED_SOURCES:
+            self.assertNotIn(gone, self.modal, gone)
+            self.assertNotIn(gone, self.prose, gone)
 
-    def _modal_before_step5(self):
+    def test_manual_guide_denies_removed_sources_explicitly(self):
+        self.assertIn("There are no other sources.", self.manual)
+        self.assertIn("exactly Reddit, X, GitHub, Digg, and arXiv", self.manual)
+
+    def test_no_source_tier_step(self):
+        """The old Step 5 INCLUDE_SOURCES opt-in (TikTok/Instagram/comments tiers)
+        is gone; Step 5 is now the first-topic picker."""
+        self.assertNotIn("Which ScrapeCreators sources?", self.step0)
+        self.assertNotIn("INCLUDE_SOURCES=", self.step0)
+        step5 = self.modal[self.modal.index("**Step 5:"):]
+        self.assertIn("First-topic picker", step5)
+
+    # --- ScrapeCreators is the Reddit backup lane, nothing more ---
+
+    def _modal_before_picker(self):
         # Welcome (Step 1) through the Step 4 ScrapeCreators offer.
         return self.modal[: self.modal.index("**Step 5:")]
 
-    def test_threads_pinterest_only_in_step5_everything(self):
-        """Threads/Pinterest are offered in the Step 5 Everything tier, and
-
-        must NOT appear in the welcome or the Step 4 offer (where they would
-        read as default-on). They are opt-in via INCLUDE_SOURCES.
-        """
-        step5 = self._modal_step5()
-        self.assertIn("Threads", step5)
-        self.assertIn("Pinterest", step5)
-        before = self._modal_before_step5()
-        self.assertNotIn("Threads", before)
-        self.assertNotIn("Pinterest", before)
-
-    def test_offer_copy_names_comments_and_auto_enrichment(self):
-        """The Step 4 offer states comments are part of the default value and
-        describes the key's real Reddit/YouTube roles (empty-path Reddit
-        search backfill + yt-dlp transcript backstop) — not rate-limit
-        escalation or SC Reddit comment enrichment on the free path."""
-        before = self._modal_before_step5()
-        self.assertIn("comments", before.lower())
+    def test_offer_copy_frames_key_as_empty_only_reddit_backup(self):
+        """The Step 4 offer states Reddit already works free, that the key is the
+        search backup ONLY when the free path returns no items, and never claims
+        rate-limit escalation or comment enrichment."""
+        before = self._modal_before_picker()
         self.assertIn("Reddit", before)
-        self.assertIn("YouTube", before)
-        self.assertIn("10,000 free calls", before)
-        # Empty-only search backup (not transport/rate-limit escalation).
         self.assertIn("returns no items", before)
+        self.assertIn("backup when the free path returns no items", before)
+        self.assertIn("10,000 free calls", before)
         self.assertNotIn("when they hit rate limits", before)
-        # Free-path comments are shreddit; do not claim SC comment preference.
         self.assertNotIn("prefers ScrapeCreators for Reddit", before)
         self.assertNotIn("enriches Reddit comments", before)
+        # The escalation knobs are named but never set on the user's behalf.
+        self.assertIn("LAST30DAYS_REDDIT_SC_MIN_ITEMS", before)
+        self.assertIn("LAST30DAYS_REDDIT_BACKEND=scrapecreators", before)
+        self.assertIn("Never set either on the user's behalf", before)
 
-    def test_step5_does_not_claim_merged_reddit_auto_enrichment(self):
-        """Step 5 must not contradict Step 4 with 'public + ScrapeCreators' merge."""
-        step5 = self._modal_step5()
-        self.assertNotIn("public + ScrapeCreators", step5)
-        self.assertNotIn("Reddit auto-enrichment", step5)
-        self.assertIn("empty-only", step5)
-
-    def test_recommended_tier_writes_comments_by_default(self):
-        """Comments are the DEFAULT: the recommended option enables YouTube +
-        TikTok + Instagram comments (posts on -> comments on)."""
-        step5 = self._modal_step5()
-        self.assertIn(
-            "INCLUDE_SOURCES=tiktok,instagram,youtube_comments,tiktok_comments,instagram_comments",
-            step5,
-        )
-        # There is no posts-only tier.
-        self.assertIn("recommended", step5.lower())
-        self.assertIn("comments", step5.lower())
-
-    def test_everything_tier_writes_full_include_sources(self):
-        """The Everything option persists the full list incl. Threads + Pinterest."""
-        step5 = self._modal_step5()
-        self.assertIn(
-            "INCLUDE_SOURCES=tiktok,instagram,youtube_comments,tiktok_comments,instagram_comments,threads,pinterest",
-            step5,
-        )
+    def test_prose_offer_frames_key_as_reddit_backup(self):
+        offer = self.prose[self.prose.index("ScrapeCreators signup offer"):]
+        self.assertIn("returns no items", offer)
+        self.assertIn("10,000 free calls", offer)
 
     # --- Chrome-first cookie scan (U2/U3) ---
 
@@ -293,10 +301,14 @@ class TestOnboardingContract(unittest.TestCase):
         # The non-modal flow still uses the engine welcome command.
         self.assertIn("last30days.py --welcome", self.prose)
 
-    def test_stocktwits_surfaced_as_conditional(self):
-        """StockTwits is advertised in the engine welcome as a ticker/crypto-gated
-        source (welcome text moved out of SKILL.md into the engine)."""
-        self.assertIn("StockTwits", setup_wizard.render_welcome())
+    def test_engine_welcome_names_the_five_sources_only(self):
+        """The engine-owned welcome (relayed verbatim on prose hosts) names exactly
+        the five sources and none of the removed ones."""
+        welcome = setup_wizard.render_welcome()
+        for source in ("Reddit", "X", "GitHub", "Digg", "arXiv"):
+            self.assertIn(source, welcome, source)
+        for gone in ("YouTube", "TikTok", "Instagram", "Hacker News", "HN", "Polymarket", "Techmeme", "StockTwits"):
+            self.assertNotIn(gone, welcome, gone)
 
     # --- Honest GitHub device-code copy (U4/U7) ---
 
@@ -320,11 +332,10 @@ class TestOnboardingContract(unittest.TestCase):
     # --- Welcome must render before the modal (U1) ---
 
     def test_welcome_pitch_is_in_the_modal_question(self):
-        """The welcome pitch names the core sources inside the modal question, so
+        """The welcome pitch names the five sources inside the modal question, so
         the user sees it without expanding folded tool output. The old skip-prone
         'IMMEDIATELY call AskUserQuestion' wording stays gone."""
-        # Pitch names the core sources right in the modal.
-        for source in ("Reddit", "X,", "YouTube", "TikTok"):
+        for source in ("Reddit", "X,", "GitHub", "Digg", "arXiv"):
             self.assertIn(source, self.modal, source)
         self.assertNotIn("Then IMMEDIATELY call AskUserQuestion", self.modal)
 

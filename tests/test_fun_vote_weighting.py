@@ -68,13 +68,13 @@ def _candidate(
 
 class TestTopCommentVoteSignal:
     def test_cross_platform_comparable(self):
-        """A 66-upvote Reddit comment and a 22,821-like TikTok comment land on a
+        """A 66-upvote Reddit comment and a 22,821-like X comment land on a
         comparable scale -- neither platform dominates by raw count."""
         reddit = _candidate(source="reddit", top_comments=[{"body": "x", "score": 66}])
-        tiktok = _candidate(source="tiktok", top_comments=[{"body": "x", "score": 22821}])
+        x_post = _candidate(source="x", top_comments=[{"body": "x", "score": 22821}])
         rs = signals.top_comment_vote_signal(reddit)
-        ts = signals.top_comment_vote_signal(tiktok)
-        # Both substantial, and TikTok's 22k does not swamp Reddit's 66 by 100x.
+        ts = signals.top_comment_vote_signal(x_post)
+        # Both substantial, and X's 22k does not swamp Reddit's 66 by 100x.
         assert 0.3 < rs < 1.0
         assert 0.3 < ts <= 1.0
         assert ts / max(rs, 1e-9) < 2.5
@@ -92,7 +92,7 @@ class TestTopCommentVoteSignal:
     def test_bounded_zero_to_one(self):
         for score in (1, 100, 6100, 39000, 10_000_000):
             sig = signals.top_comment_vote_signal(
-                _candidate(source="tiktok", top_comments=[{"body": "x", "score": score}])
+                _candidate(source="x", top_comments=[{"body": "x", "score": score}])
             )
             assert 0.0 <= sig <= 1.0
 
@@ -139,7 +139,7 @@ class TestFallbackUsesVoteSignal:
         assert high.fun_score > low.fun_score
 
     def test_fallback_bounded(self):
-        c = _candidate(source="tiktok", top_comments=[{"body": "lol bruh", "score": 10_000_000}])
+        c = _candidate(source="x", top_comments=[{"body": "lol bruh", "score": 10_000_000}])
         _apply_single_fun_fallback(c)
         assert 0.0 <= c.fun_score <= 100.0
 
@@ -166,7 +166,7 @@ class TestBestTakesVoteWeighting:
         """An off-topic-but-viral comment (entity-miss) never reaches Best Takes,
         even with a huge vote count and a high fun_score."""
         offtopic = _candidate(
-            source="youtube", title="JamesMayReactsClip", fun_score=85,
+            source="x", title="JamesMayReactsClip", fun_score=85,
             top_comments=[{"body": "James May is a great man and a true friend", "score": 39000}],
             explanation="fallback-local-score (entity-miss demotion)", final_score=0.0,
         )
@@ -216,7 +216,7 @@ class TestBestTakesVoteWeighting:
         """fun 90 / tiny votes still ranks above fun 55 / max votes at medium."""
         gem = _candidate(source="reddit", title="GhostOfYvonGem", fun_score=90, local_relevance=1.0,
                          top_comments=[{"body": "the ghost of yvon weeps for this funko pop civilization", "score": 26}])
-        viral = _candidate(source="tiktok", title="MidButViral", fun_score=55, local_relevance=1.0,
+        viral = _candidate(source="x", title="MidButViral", fun_score=55, local_relevance=1.0,
                            top_comments=[{"body": "mid but extremely viral comment here", "score": 50000}])
         out = _render([gem, viral])
         assert out.index("GhostOfYvonGem") < out.index("MidButViral")

@@ -43,15 +43,15 @@ def test_load_pass_loads_present_keys_skips_missing():
         path = cmd[-1]  # [pass_bin, "show", "<prefix><key>"]
         if path == "last30days/XAI_API_KEY":
             return _run_result(0, "xai-abc\n")
-        if path == "last30days/BRAVE_API_KEY":
-            return _run_result(0, "brv-xyz\n")
+        if path == "last30days/XQUIK_API_KEY":
+            return _run_result(0, "xq-xyz\n")
         return _run_result(1)  # pass exits non-zero for a missing entry
 
     with mock.patch("shutil.which", return_value="/usr/bin/pass"), \
          mock.patch("subprocess.run", side_effect=fake_run):
-        result = env._load_pass(["XAI_API_KEY", "BRAVE_API_KEY", "OPENAI_API_KEY"], "last30days/")
+        result = env._load_pass(["XAI_API_KEY", "XQUIK_API_KEY", "OPENAI_API_KEY"], "last30days/")
 
-    assert result == {"XAI_API_KEY": "xai-abc", "BRAVE_API_KEY": "brv-xyz"}
+    assert result == {"XAI_API_KEY": "xai-abc", "XQUIK_API_KEY": "xq-xyz"}
 
 
 def test_load_pass_takes_first_line_only():
@@ -99,7 +99,7 @@ def test_load_pass_stops_probing_after_timeout():
 
     with mock.patch("shutil.which", return_value="/usr/bin/pass"), \
          mock.patch("subprocess.run", side_effect=fake_run):
-        result = env._load_pass(["XAI_API_KEY", "BRAVE_API_KEY", "OPENAI_API_KEY"], "last30days/")
+        result = env._load_pass(["XAI_API_KEY", "XQUIK_API_KEY", "OPENAI_API_KEY"], "last30days/")
 
     assert result == {}
     assert calls["n"] == 1  # stopped after the first timeout, didn't probe the rest
@@ -127,11 +127,8 @@ def test_load_pass_honors_prefix():
 @pytest.fixture
 def clean_env(monkeypatch, tmp_path):
     for var in [
-        "OPENAI_API_KEY", "XAI_API_KEY", "BRAVE_API_KEY", "AUTH_TOKEN", "CT0",
-        "SCRAPECREATORS_API_KEY", "APIFY_API_TOKEN", "BSKY_HANDLE",
-        "BSKY_APP_PASSWORD", "TRUTHSOCIAL_TOKEN", "EXA_API_KEY",
-        "SERPER_API_KEY", "OPENROUTER_API_KEY", "PERPLEXITY_API_KEY", "PARALLEL_API_KEY",
-        "XQUIK_API_KEY", "GOOGLE_API_KEY", "GEMINI_API_KEY",
+        "OPENAI_API_KEY", "XAI_API_KEY", "AUTH_TOKEN", "CT0",
+        "SCRAPECREATORS_API_KEY", "XQUIK_API_KEY", "GOOGLE_API_KEY", "GEMINI_API_KEY",
         "GOOGLE_GENAI_API_KEY", "INCLUDE_SOURCES", "FROM_BROWSER",
     ]:
         monkeypatch.delenv(var, raising=False)
@@ -189,7 +186,7 @@ def test_get_config_probes_pass_only_for_missing_keys(clean_env, monkeypatch):
         env.get_config()
 
     assert "XAI_API_KEY" not in seen["keys"]   # already supplied by env
-    assert "BRAVE_API_KEY" in seen["keys"]      # still missing, so probed
+    assert "XQUIK_API_KEY" in seen["keys"]      # still missing, so probed
 
 
 def test_get_config_pass_prefix_resolved_from_config_file(clean_env, tmp_path, monkeypatch):

@@ -53,9 +53,6 @@ def candidate_key(item: schema.SourceItem) -> str:
 _ENRICHMENT_KEYS = (
     "top_comments",
     "comment_insights",
-    "transcript_highlights",
-    "transcript_snippet",
-    "transcript",
 )
 
 

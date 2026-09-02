@@ -13,24 +13,21 @@ from lib import env, html_render, registers, render, schema
 SOURCES = [
     "reddit",
     "github",
-    "youtube",
-    "tiktok",
-    "instagram",
-    "hackernews",
-    "polymarket",
-    "grounding",
     "x",
     "arxiv",
-    "jobs",
-    "bluesky",
+    "digg",
 ]
+
+# Twelve storylines cycling through the five surviving sources, so the
+# per-register cluster budgets (up to 10) still have something to trim.
+FIXTURE_STORYLINE_SOURCES = [SOURCES[i % len(SOURCES)] for i in range(12)]
 
 
 def fixture_report() -> schema.Report:
     candidates: list[schema.Candidate] = []
     clusters: list[schema.Cluster] = []
     items_by_source: dict[str, list[schema.SourceItem]] = {}
-    for index, source in enumerate(SOURCES, start=1):
+    for index, source in enumerate(FIXTURE_STORYLINE_SOURCES, start=1):
         item = schema.SourceItem(
             item_id=f"item-{index}",
             source=source,
@@ -85,7 +82,7 @@ def fixture_report() -> schema.Report:
         )
         candidates.append(candidate)
         clusters.append(cluster)
-        items_by_source[source] = [item]
+        items_by_source.setdefault(source, []).append(item)
 
     return schema.Report(
         topic="audience register research",
@@ -183,7 +180,7 @@ def test_emphasis_weights_promote_audience_specific_sources():
     creator = render.render_compact(report, register="creator")
 
     assert "### 1. github storyline" in dev
-    assert "### 1. tiktok storyline" in creator
+    assert "### 1. x storyline" in creator
 
 
 def test_creator_register_leads_markdown_and_html_with_best_takes():
@@ -206,11 +203,12 @@ def test_default_register_is_byte_identical_when_omitted(monkeypatch):
 
     assert implicit == explicit
     assert hashlib.sha256(implicit.encode()).hexdigest() == (
-        # Hash includes #886's linked evidence URLs, #890's Hacker News
-        # comment-rendering changes, the quiet footer (no outcome text, no
-        # ## Source Errors in compact), and the comments pool reading every
-        # floor-clearing cluster.
-        "81fdfc85643d124f2c06ff0bac8956c30280c652436bc4a58dbfc37718be71e1"
+        # Hash covers the five-source fixture (reddit, github, x, arxiv,
+        # digg cycling through twelve storylines), #886's linked evidence
+        # URLs, the quiet footer (no outcome text, no ## Source Errors in
+        # compact), and the comments pool reading every floor-clearing
+        # cluster.
+        "669983656b6adf208513d3f000e8691560b51f8aaeb22f5f8b2f63c4d32c6dc0"
     )
 
 
@@ -336,8 +334,8 @@ def test_creator_best_takes_honor_source_emphasis():
 
     audience = registers.get_register("creator")
     assert audience.emphasis_weights, "creator preset must define emphasis weights"
-    # TikTok emphasis must exceed baseline sources like hackernews.
-    assert audience.emphasis_for("tiktok") > audience.emphasis_for("hackernews")
+    # X emphasis must exceed baseline sources like github.
+    assert audience.emphasis_for("x") > audience.emphasis_for("github")
 
 
 def test_best_takes_ranking_applies_source_weights():
@@ -358,17 +356,16 @@ def test_best_takes_ranking_applies_source_weights():
             fun_score=80.0,
         )
 
-    hn = candidate("hn1", "hackernews", 80.0)
-    tt = candidate("tt1", "tiktok", 80.0)
-    weights = {"tiktok": 1.5, "hackernews": 1.0}
+    gh = candidate("gh1", "github", 80.0)
+    xp = candidate("x1", "x", 80.0)
+    weights = {"x": 1.5, "github": 1.0}
     lines = render._render_best_takes(
-        [hn, tt], limit=2, threshold=70.0,
+        [gh, xp], limit=2, threshold=70.0,
         source_weight=lambda source: weights.get(source, 1.0),
     )
     body = "\n".join(lines)
-    assert body.index("TikTok") < body.index("Hacker News") or body.index("tiktok") < body.index("hackernews") if "tiktok" in body.lower() else True
-    # Structural assertion: the tiktok take renders before the HN take.
-    tt_pos = body.lower().find("tiktok")
-    hn_pos = body.lower().find("hacker")
-    assert tt_pos != -1 and hn_pos != -1
-    assert tt_pos < hn_pos
+    # Structural assertion: the X take renders before the GitHub take.
+    x_pos = body.find("-- X ")
+    gh_pos = body.find("-- GitHub ")
+    assert x_pos != -1 and gh_pos != -1
+    assert x_pos < gh_pos

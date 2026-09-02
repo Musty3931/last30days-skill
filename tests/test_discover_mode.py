@@ -62,23 +62,23 @@ def _candidate(item: schema.SourceItem) -> schema.Candidate:
 def test_discovery_plan_reuses_category_peer_mapping():
     plan = planner.build_discovery_plan(
         "AI agents",
-        available_sources=["reddit", "hackernews"],
+        available_sources=["reddit", "digg"],
     )
 
     assert plan.category == "ai_agent_framework"
     assert plan.subreddits == ["LangChain", "LocalLLaMA", "AI_Agents", "MachineLearning"]
-    assert plan.sources == ["reddit", "hackernews"]
+    assert plan.sources == ["reddit", "digg"]
 
 
 def test_discovery_plan_keeps_keyless_reddit_for_unknown_domains():
     plan = planner.build_discovery_plan(
         "urban gardening",
-        available_sources=["reddit", "hackernews"],
+        available_sources=["reddit", "digg"],
     )
 
     assert plan.category is None
     assert plan.subreddits == ["all"]
-    assert plan.sources == ["reddit", "hackernews"]
+    assert plan.sources == ["reddit", "digg"]
 
 
 def test_discovery_plan_empty_domain_is_global_trending():
@@ -86,13 +86,13 @@ def test_discovery_plan_empty_domain_is_global_trending():
     nominate stage because its search lane needs a keyword."""
     plan = planner.build_discovery_plan(
         "",
-        available_sources=["reddit", "hackernews", "digg", "x"],
+        available_sources=["reddit", "digg", "x"],
     )
 
     assert plan.domain == ""
     assert plan.category is None
     assert plan.subreddits == ["all"]
-    assert plan.sources == ["reddit", "hackernews", "digg"]
+    assert plan.sources == ["reddit", "digg"]
     assert "x" not in plan.sources
 
 
@@ -104,7 +104,7 @@ def test_global_discovery_disables_keyword_gate():
         seen[plan.domain or "global"] = keyword_gate
         return [], None
 
-    with mock.patch.object(pipeline, "available_sources", return_value=["hackernews"]), \
+    with mock.patch.object(pipeline, "available_sources", return_value=["digg"]), \
          mock.patch.object(pipeline, "_fetch_discovery_source", side_effect=fake_fetch):
         pipeline.run_discover(domain="", config={}, as_of_date="2026-07-10")
         pipeline.run_discover(domain="AI agents", config={}, as_of_date="2026-07-10")
@@ -215,7 +215,7 @@ def test_discovery_renderer_snapshot():
             domain="AI agents",
             category="ai_agent_framework",
             subreddits=["AI_Agents"],
-            sources=["reddit", "hackernews"],
+            sources=["reddit", "digg"],
         ),
         topics=[schema.DiscoveryTopic(
             rank=1,
@@ -223,10 +223,10 @@ def test_discovery_renderer_snapshot():
             why_spiking="Two independent listing items accelerated this week.",
             momentum="new-this-week",
             velocity_score=123.45,
-            sources=["hackernews", "reddit"],
+            sources=["digg", "reddit"],
             engagement_by_source={
                 "reddit": {"score": 120, "num_comments": 30},
-                "hackernews": {"points": 80},
+                "digg": {"postCount": 80},
             },
             command='/last30days "Agent memory protocols"',
         )],
@@ -239,21 +239,25 @@ def test_discovery_renderer_snapshot():
         "BADGE\n\n"
         "# Trending discovery: AI agents\n\n"
         "Window: 2026-06-10 to 2026-07-10\n"
-        "Feeds: reddit, hackernews\n"
+        "Feeds: reddit, digg\n"
         "Communities: r/AI_Agents\n\n"
         "## 1. Agent memory protocols\n\n"
         "**Momentum:** New this week · velocity 123.45\n\n"
         "Two independent listing items accelerated this week.\n\n"
-        "**Evidence:** Reddit: score 120, num comments 30 · Hacker News: points 80\n\n"
+        "**Evidence:** Reddit: score 120, num comments 30 · Digg: postCount 80\n\n"
         "**Research next:** `/last30days \"Agent memory protocols\"`\n"
     )
 
 
 def test_keyless_discovery_degrades_without_digg():
+    """With no digg-pp-cli and no X credentials, reddit is the only keyless
+    listing feed left: the sweep still runs and still hands off topics, but
+    single-source evidence must clear the spike floor, so fewer survive than
+    a corroborated two-feed sweep would surface."""
     def fake_fetch(source, plan, *, from_date, to_date, depth, mock, config, keyword_gate=True):
         return pipeline._mock_discovery_items(source, plan.domain, to_date), None
 
-    with mock.patch.object(pipeline, "available_sources", return_value=["reddit", "hackernews"]), \
+    with mock.patch.object(pipeline, "available_sources", return_value=["reddit"]), \
          mock.patch.object(pipeline, "_fetch_discovery_source", side_effect=fake_fetch):
         report = pipeline.run_discover(
             domain="AI agents",
@@ -261,9 +265,9 @@ def test_keyless_discovery_degrades_without_digg():
             as_of_date="2026-07-10",
         )
 
-    assert 5 <= len(report.topics) <= 10
+    assert report.outcome == "ok"
+    assert 1 <= len(report.topics) <= 10
     assert report.source_status["reddit"].state == "ok"
-    assert report.source_status["hackernews"].state == "ok"
     assert report.source_status["digg"].state == "skipped-unconfigured"
     assert report.source_status["x"].state == "skipped-unconfigured"
     assert all(topic.command.startswith('/last30days "') for topic in report.topics)
@@ -321,7 +325,7 @@ def test_discovery_reads_browser_credentials_and_does_not_schedule_pending_x():
 
     def fake_available_sources(config, requested_sources, *, x_pending=None, local_only=False):
         assert x_pending is False
-        return ["reddit", "hackernews"] + (["x"] if x_pending is not False else [])
+        return ["reddit", "digg"] + (["x"] if x_pending is not False else [])
 
     def fake_fetch(source, plan, *, from_date, to_date, depth, mock, config, keyword_gate=True):
         fetched_sources.append(source)
@@ -368,7 +372,7 @@ def test_listing_failure_is_not_reported_as_clean_no_results():
             return [], "connection timed out"
         return pipeline._mock_discovery_items(source, plan.domain, to_date), None
 
-    with mock.patch.object(pipeline, "available_sources", return_value=["reddit", "hackernews"]), \
+    with mock.patch.object(pipeline, "available_sources", return_value=["reddit", "digg"]), \
          mock.patch.object(pipeline, "_fetch_discovery_source", side_effect=fake_fetch):
         report = pipeline.run_discover(
             domain="AI agents",
@@ -513,7 +517,7 @@ def _discovery_report(topic: schema.DiscoveryTopic) -> schema.DiscoveryReport:
             domain="AI agents",
             category="ai_agent_framework",
             subreddits=["AI_Agents"],
-            sources=["reddit", "hackernews"],
+            sources=["reddit", "digg"],
         ),
         topics=[topic],
     )
@@ -527,7 +531,7 @@ def test_discovery_export_round_trips_angles_and_queue_annotations():
         why_spiking="Two independent listing items accelerated this week.",
         momentum="new-this-week",
         velocity_score=123.45,
-        sources=["hackernews", "reddit"],
+        sources=["digg", "reddit"],
         engagement_by_source={"reddit": {"score": 120, "num_comments": 30}},
         command='/last30days "Agent memory protocols"',
         podcast_angle="Why agent memory is the next context-window fight",
@@ -702,7 +706,7 @@ def test_discovery_filters_incompatible_default_sources_but_rejects_explicit_onl
             "--emit=json",
         ],
         cwd=REPO_ROOT,
-        env={**os.environ, "LAST30DAYS_DEFAULT_SEARCH": "reddit,x,youtube,hn"},
+        env={**os.environ, "LAST30DAYS_DEFAULT_SEARCH": "reddit,x,github"},
         capture_output=True,
         text=True,
         check=False,
@@ -715,7 +719,7 @@ def test_discovery_filters_incompatible_default_sources_but_rejects_explicit_onl
             "skills/last30days/scripts/last30days.py",
             "--discover",
             "AI agents",
-            "--search=youtube",
+            "--search=github",
             "--mock",
         ],
         cwd=REPO_ROOT,
@@ -724,7 +728,7 @@ def test_discovery_filters_incompatible_default_sources_but_rejects_explicit_onl
         check=False,
     )
     assert explicit_result.returncode == 2
-    assert "unsupported: youtube" in explicit_result.stderr
+    assert "unsupported: github" in explicit_result.stderr
 
 
 def test_detect_category_rejects_suffix_false_positives():
@@ -1218,7 +1222,7 @@ def test_discovery_exits_when_configured_sources_have_no_discovery_feed(monkeypa
     """A configured source boundary must hold: never silently widen a sweep
     to feeds the user filtered out."""
     monkeypatch.setattr(
-        cli.env, "get_config", lambda **_kwargs: {"LAST30DAYS_DEFAULT_SEARCH": "youtube"}
+        cli.env, "get_config", lambda **_kwargs: {"LAST30DAYS_DEFAULT_SEARCH": "github"}
     )
     monkeypatch.setattr(sys, "argv", ["last30days.py", "--discover", "AI agents", "--mock"])
     with mock.patch.object(pipeline, "run_discover") as run:
@@ -1452,7 +1456,7 @@ def test_discovery_cli_nominate_only_zero_nominations_nothing_solid(tmp_path, ca
         return [], None
 
     with mock.patch.object(
-        pipeline, "available_sources", return_value=["hackernews"],
+        pipeline, "available_sources", return_value=["digg"],
     ), mock.patch.object(
         pipeline, "_fetch_discovery_source", side_effect=empty_fetch,
     ), mock.patch.object(pipeline, "enrich_nominations") as enrich:
@@ -1553,10 +1557,10 @@ def _rich_enrichment_report(topic: str) -> schema.Report:
             url=f"https://reddit.com/r/x/{slug}", published_at=published,
             engagement={"score": 800, "num_comments": 300}, snippet=topic,
         )],
-        "hackernews": [schema.SourceItem(
-            item_id=f"h-{slug}", source="hackernews", title=topic, body=topic,
+        "digg": [schema.SourceItem(
+            item_id=f"h-{slug}", source="digg", title=topic, body=topic,
             url=f"https://example.com/{slug}", published_at=published,
-            engagement={"points": 400, "comments": 150}, snippet=topic,
+            engagement={"postCount": 400, "uniqueAuthors": 150}, snippet=topic,
         )],
     }
     return schema.Report(
@@ -2363,8 +2367,8 @@ def _degraded_nominate_result() -> pipeline.DiscoverNominateResult:
         name="Agent SDK Wars",
         seed_score=61.0,
         items=[_item(
-            "hn1", "hackernews", "Agent SDK Wars heat up",
-            engagement={"points": 900, "comments": 400},
+            "dg1", "digg", "Agent SDK Wars heat up",
+            engagement={"postCount": 900, "uniqueAuthors": 400},
         )],
         summary="Agent SDK Wars heat up across the listings.",
         junk_shape=False,
@@ -2373,13 +2377,13 @@ def _degraded_nominate_result() -> pipeline.DiscoverNominateResult:
     return pipeline.DiscoverNominateResult(
         plan=schema.DiscoveryPlan(
             domain="AI agents", category=None, subreddits=[],
-            sources=["hackernews"],
+            sources=["digg"],
         ),
         from_date=from_date,
         to_date=to_date,
         source_status={
-            "hackernews": schema.SourceOutcome(
-                source="hackernews", state="ok", items_returned=1,
+            "digg": schema.SourceOutcome(
+                source="digg", state="ok", items_returned=1,
             ),
             "reddit": schema.SourceOutcome(
                 source="reddit", state=schema.UNREACHABLE, detail="dns failure",
@@ -2569,7 +2573,6 @@ def _provider_tripwires() -> list:
             "GeminiClient",
             "OpenAIClient",
             "XAIClient",
-            "OpenRouterClient",
         )
     ]
 

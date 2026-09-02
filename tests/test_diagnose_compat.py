@@ -40,12 +40,7 @@ from unittest import mock
 import last30days as cli
 
 # Source names the engine can emit in available_sources today (v3.10.0).
-KNOWN_SOURCE_NAMES = {
-    "reddit", "x", "youtube", "tiktok", "instagram", "hackernews", "bluesky",
-    "truthsocial", "polymarket", "grounding", "xiaohongshu", "github",
-    "perplexity", "threads", "pinterest", "digg", "jobs", "linkedin",
-    "arxiv", "techmeme", "stocktwits", "trustpilot", "dripstack",
-}
+KNOWN_SOURCE_NAMES = {"reddit", "x", "github", "digg", "arxiv"}
 
 # ---------------------------------------------------------------------------
 # Frozen shapes (exact key sets — additions to legacy JSON are prohibited).
@@ -62,12 +57,8 @@ DIAGNOSE_TOP_KEYS = {
     "xquik_available",
     "xquik_working",
     "xquik_status",
-    "native_web_backend",
-    "native_search",
     "has_scrapecreators",
     "has_github",
-    "brightdata_installed",
-    "brightdata_authenticated",
     "x_pending_browser_auth",
     "available_sources",
     "safe",
@@ -82,12 +73,9 @@ DIAGNOSE_TOP_KEYS = {
     "permission_preflight",
 }
 
-DIAGNOSE_PROVIDERS_KEYS = {"google", "openai", "xai", "openrouter", "perplexity"}
+DIAGNOSE_PROVIDERS_KEYS = {"google", "openai", "xai"}
 DIAGNOSE_BROWSER_COOKIES_KEYS = {"mode", "browsers", "reads_values"}
-DIAGNOSE_EXTERNAL_COMMANDS_KEYS = {
-    "yt-dlp", "digg-pp-cli", "arxiv-pp-cli", "techmeme-pp-cli", "trustpilot-pp-cli",
-    "brightdata", "gh",
-}
+DIAGNOSE_EXTERNAL_COMMANDS_KEYS = {"digg-pp-cli", "arxiv-pp-cli", "gh"}
 DIAGNOSE_CREDENTIAL_DESTINATIONS_KEYS = {"global_env"}
 
 PREFLIGHT_TOP_KEYS = {
@@ -104,11 +92,9 @@ PREFLIGHT_TOP_KEYS = {
 PREFLIGHT_LOCAL_READS_KEYS = {"config_source", "project_config", "browser_cookies"}
 PREFLIGHT_PROJECT_CONFIG_KEYS = {"status", "trusted", "ignored_path", "ignored_keys"}
 PREFLIGHT_BROWSER_COOKIES_KEYS = {"status", "mode", "browsers", "reads_values"}
-PREFLIGHT_CREDENTIALS_KEYS = {
-    "google", "openai", "xai", "openrouter", "perplexity", "scrapecreators", "github",
-}
+PREFLIGHT_CREDENTIALS_KEYS = {"google", "openai", "xai", "scrapecreators", "github"}
 PREFLIGHT_NETWORK_KEYS = {
-    "available_sources", "native_search", "endpoint_overrides", "ignored_endpoint_overrides",
+    "available_sources", "endpoint_overrides", "ignored_endpoint_overrides",
 }
 
 
@@ -119,7 +105,6 @@ FAKE_KEYLESS_CONFIG: dict = {}
 FAKE_KEYED_CONFIG = {
     "SCRAPECREATORS_API_KEY": "dummy-sc-key-not-real-000",
     "XAI_API_KEY": "dummy-xai-key-not-real-000",
-    "BRAVE_API_KEY": "dummy-brave-key-not-real-000",
 }
 
 
@@ -206,12 +191,12 @@ class DiagnoseShapeCompat(unittest.TestCase):
         self.assertIn("available_sources", payload)
         sources = payload["available_sources"]
         self.assertIsInstance(sources, list)
-        self.assertTrue(sources, "available_sources must never be empty (reddit/hn are free)")
+        self.assertTrue(sources, "available_sources must never be empty (reddit/github are free)")
         for name in sources:
             self.assertIsInstance(name, str)
             self.assertIn(name, KNOWN_SOURCE_NAMES)
         # Free sources are always present even in a keyless environment.
-        for free in ("reddit", "hackernews", "polymarket", "github"):
+        for free in ("reddit", "github"):
             self.assertIn(free, sources)
 
 

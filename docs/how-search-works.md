@@ -1,5 +1,7 @@
 # How Reddit & X Search Work in last30days
 
+> **Historical note (fork):** this document describes the original two-source v1/v2 pipeline (OpenAI-driven Reddit discovery plus two X backends). The current engine searches Reddit (free keyless RSS + shreddit, no OpenAI call), X (bird → xAI → xurl → xquik, grok opt-in), GitHub, Digg, and arXiv. Treat the Reddit section below as history; the X section's Bird/xAI mechanics are still broadly accurate. `CONFIGURATION.md` is the current reference.
+
 ## Architecture Overview
 
 ```

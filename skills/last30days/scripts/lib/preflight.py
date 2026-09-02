@@ -83,7 +83,7 @@ def check_class_1_trap(topic: str) -> str | None:
 
     Class 1 is the demographic-shopping keyword trap. The literal phrase
     'birthday gift for 40 year old' is not the vocabulary of actual gift
-    discussions on Reddit, X, or TikTok, so running the engine returns
+    discussions on Reddit or X, so running the engine returns
     low-signal generic posts. Refuse up-front and ask for context.
     """
     if not topic:
@@ -105,7 +105,7 @@ def _refuse_message(topic: str) -> str:
         "pattern (demographic shopping).\n"
         "\n"
         "The literal phrase is not the vocabulary of actual gift discussions "
-        "on Reddit, X, or TikTok. Running the engine will return low-signal "
+        "on Reddit or X. Running the engine will return low-signal "
         "generic posts (the 2026-04-18 validation run returned "
         "r/todayilearned and unrelated drama).\n"
         "\n"

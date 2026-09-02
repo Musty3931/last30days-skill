@@ -7,28 +7,13 @@ from collections.abc import Iterable
 
 from . import dates, relevance, schema
 
-# Editorial signal-to-noise scores. Grounding (Google Search) is 1.0 baseline;
-# social platforms discounted for noise.
+# Editorial signal-to-noise scores on a 1.0 baseline; social platforms are
+# discounted for noise.
 SOURCE_QUALITY = {
-    "xiaohongshu": 0.7,
-    "hackernews": 0.8,
-    "youtube": 0.85,
     "digg": 0.85,
     "arxiv": 0.9,
-    "techmeme": 0.85,
-    "trustpilot": 0.78,
-    # Verified-purchase reviews on a live aggregate rating: high-quality
-    # buyer evidence, a notch above Trustpilot's open review model.
-    "amazon": 0.8,
     "reddit": 0.6,
     "x": 0.68,
-    "bluesky": 0.66,
-    "truthsocial": 0.6,
-    "polymarket": 0.5,
-    "instagram": 0.58,
-    "tiktok": 0.58,
-    "jobs": 0.72,
-    "corpus": 0.75,
 }
 
 
@@ -48,30 +33,12 @@ def local_relevance(
     hashtags = item.metadata.get("hashtags") if isinstance(item.metadata, dict) else None
     score = relevance.token_overlap_relevance(ranking_query, text, hashtags=hashtags)
 
-    # High-engagement YouTube floor: official videos with millions of views
-    # often have titles that don't keyword-match the query (e.g., "YE - FATHER
-    # (feat. TRAVIS SCOTT)" doesn't match "kanye west"). The engagement signals
-    # say "this is important" even when text overlap is weak.
-    if item.source == "youtube" and (item.engagement.get("views") or 0) > 100_000:
-        score = max(score, 0.3)
-
     # Project-mode GitHub floor: items fetched via --github-repo are explicitly
     # requested by the user and relevant by construction. Without this floor,
     # repos with low token diversity (e.g., "openclaw/openclaw" -> 1 unique token)
     # get pruned despite being the primary search target.
     labels = item.metadata.get("labels", []) if isinstance(item.metadata, dict) else []
     if "project-mode" in labels:
-        score = max(score, 0.8)
-
-    # Grounding-exempt floor (currently Amazon): the adapter already gated
-    # these against the model-supplied product keyword before creating them,
-    # so they are relevant by construction. Their text is marketing copy plus
-    # buyer reviews, which rarely repeats the topic phrasing -- a "Weber
-    # Grills" run surfaces a product named "Spirit E-325" whose reviews talk
-    # about searing, not about Weber. Without the floor, correctly-retrieved
-    # evidence gets pruned for failing a keyword match it was never going to
-    # win. Mirrors the project-mode GitHub floor above.
-    if isinstance(item.metadata, dict) and item.metadata.get("grounding_exempt"):
         score = max(score, 0.8)
 
     return score
@@ -116,20 +83,15 @@ def _top_comment_score(item: schema.SourceItem) -> float:
 
 
 # Per-platform log-reference for normalizing a top comment's vote count into a
-# [0,1] signal. Reddit upvotes run in the hundreds-to-thousands; YouTube/TikTok
-# likes run 10-600x higher (and the top end is display-abbreviated: "39K" is
-# stored as 39000). A raw or single-scale log compare would let YouTube/TikTok
-# dominate purely by platform scale, not by being funnier. Each value is the
-# log1p of a "very high" top-comment count for that platform, so dividing a
-# comment's log1p(score) by it yields a comparable cross-platform strength.
+# [0,1] signal. Reddit upvotes run in the hundreds-to-thousands; X likes run
+# higher (and the top end is display-abbreviated: "39K" is stored as 39000). A
+# raw or single-scale log compare would let X dominate purely by platform
+# scale, not by being funnier. Each value is the log1p of a "very high"
+# top-comment count for that platform, so dividing a comment's log1p(score) by
+# it yields a comparable cross-platform strength.
 _VOTE_LOG_REFERENCE: dict[str, float] = {
     "reddit":     7.6,   # ~log1p(2000)
-    "hackernews": 6.2,   # ~log1p(500)
-    "youtube":    10.3,  # ~log1p(30000)
-    "tiktok":     10.3,  # ~log1p(30000)
-    "instagram":  9.2,   # ~log1p(10000)
     "x":          9.2,   # ~log1p(10000)
-    "bluesky":    9.2,   # ~log1p(10000); like X/IG, not the Reddit default
 }
 _VOTE_LOG_REFERENCE_DEFAULT = 7.6
 
@@ -138,7 +100,7 @@ def normalized_comment_vote(source: str, score: "float | int | None") -> float:
     """Normalize a single comment's vote count to [0,1] within its platform.
 
     Same per-platform reference as ``top_comment_vote_signal`` so a 22k-like
-    TikTok comment and a 600-upvote Reddit comment rank on a comparable scale.
+    X comment and a 600-upvote Reddit comment rank on a comparable scale.
     Used to rank the cross-candidate Top Community Comments block.
     """
     base = log1p_safe(score)
@@ -152,7 +114,7 @@ def top_comment_vote_signal(candidate: schema.Candidate) -> float:
     """Strength of a candidate's most-upvoted top comment, as [0,1].
 
     Normalized *within the candidate's platform* (see ``_VOTE_LOG_REFERENCE``)
-    so a 22k-like TikTok comment and a 600-upvote Reddit comment land on a
+    so a 22k-like X comment and a 600-upvote Reddit comment land on a
     comparable scale rather than letting raw counts dominate. Returns 0.0 when
     no top comment carries votes. Used by the fun judge to amplify (never
     drive) crowd-certified comments.
@@ -170,19 +132,11 @@ def top_comment_vote_signal(candidate: schema.Candidate) -> float:
 
 
 # Per-source engagement weights: list of (field_name, weight) tuples.
-# Reddit, YouTube, and TikTok use custom functions because they include
-# a dedicated 10% top-comment-score slot (see _reddit_engagement,
-# _youtube_engagement, _tiktok_engagement).
+# Reddit uses a custom function because it includes a dedicated 10%
+# top-comment-score slot (see _reddit_engagement).
 ENGAGEMENT_WEIGHTS: dict[str, list[tuple[str, float]]] = {
     "x":            [("likes", 0.55), ("reposts", 0.25), ("replies", 0.15), ("quotes", 0.05)],
-    "instagram":    [("views", 0.50), ("likes", 0.30), ("comments", 0.20)],
-    "hackernews":   [("points", 0.55), ("comments", 0.45)],
-    "bluesky":      [("likes", 0.40), ("reposts", 0.30), ("replies", 0.20), ("quotes", 0.10)],
-    "truthsocial":  [("likes", 0.45), ("reposts", 0.30), ("replies", 0.25)],
-    "polymarket":   [("volume", 0.60), ("liquidity", 0.40)],
     "digg":         [("postCount", 0.40), ("uniqueAuthors", 0.30), ("rank_score", 0.30)],
-    "trustpilot":   [("reviews", 1.0)],
-    "amazon":       [("ratings", 1.0)],
 }
 
 
@@ -203,42 +157,6 @@ def _reddit_engagement(item: schema.SourceItem) -> float | None:
     return (0.50 * score) + (0.35 * comments) + (0.05 * (ratio * 10.0)) + (0.10 * top_comment)
 
 
-def _youtube_engagement(item: schema.SourceItem) -> float | None:
-    views = log1p_safe(item.engagement.get("views"))
-    likes = log1p_safe(item.engagement.get("likes"))
-    comments = log1p_safe(item.engagement.get("comments"))
-    top_comment = _top_comment_score(item)
-    if not any([views, likes, comments, top_comment]):
-        return None
-    # Mirrors Reddit: carve out 10% for top-comment signal, keep view-weight
-    # dominant. Without comments, the pre-change weights (0.50/0.35/0.15)
-    # still govern relative ordering.
-    return (0.45 * views) + (0.32 * likes) + (0.13 * comments) + (0.10 * top_comment)
-
-
-def _tiktok_engagement(item: schema.SourceItem) -> float | None:
-    views = log1p_safe(item.engagement.get("views"))
-    likes = log1p_safe(item.engagement.get("likes"))
-    comments = log1p_safe(item.engagement.get("comments"))
-    top_comment = _top_comment_score(item)
-    if not any([views, likes, comments, top_comment]):
-        return None
-    return (0.45 * views) + (0.27 * likes) + (0.18 * comments) + (0.10 * top_comment)
-
-
-def _instagram_engagement(item: schema.SourceItem) -> float | None:
-    # Mirrors _tiktok_engagement: reels are video-shaped, and a highly-liked top
-    # comment carves out 10% of the signal (via comment_like_count -> score) so
-    # crowd-loved IG comments lift their post's ranking like YouTube/TikTok.
-    views = log1p_safe(item.engagement.get("views"))
-    likes = log1p_safe(item.engagement.get("likes"))
-    comments = log1p_safe(item.engagement.get("comments"))
-    top_comment = _top_comment_score(item)
-    if not any([views, likes, comments, top_comment]):
-        return None
-    return (0.45 * views) + (0.27 * likes) + (0.18 * comments) + (0.10 * top_comment)
-
-
 def _generic_engagement(item: schema.SourceItem) -> float | None:
     if not item.engagement:
         return None
@@ -251,12 +169,6 @@ def _generic_engagement(item: schema.SourceItem) -> float | None:
 def engagement_raw(item: schema.SourceItem) -> float | None:
     if item.source == "reddit":
         return _reddit_engagement(item)
-    if item.source == "youtube":
-        return _youtube_engagement(item)
-    if item.source == "tiktok":
-        return _tiktok_engagement(item)
-    if item.source == "instagram":
-        return _instagram_engagement(item)
     weights = ENGAGEMENT_WEIGHTS.get(item.source)
     if weights:
         return _weighted_engagement(item, weights)
@@ -307,28 +219,7 @@ def annotate_stream(
     return sorted(items, key=lambda item: item.local_rank_score or 0, reverse=True)
 
 
-_SOCIAL_SOURCES = {"reddit", "x", "tiktok", "instagram", "bluesky", "truthsocial"}
-
-# Minimum view count for short-video platforms. Items below this floor
-# are typically spam reposts or low-effort clips that add no unique signal.
-_VIDEO_ENGAGEMENT_FLOOR_SOURCES = {"tiktok", "instagram"}
-_VIDEO_ENGAGEMENT_FLOOR_VIEWS = 1000
-
-
-def _passes_engagement_floor(item: schema.SourceItem, sole_source: bool) -> bool:
-    """Check whether a TikTok/Instagram item meets the minimum view floor.
-
-    Items from sources not in _VIDEO_ENGAGEMENT_FLOOR_SOURCES always pass.
-    If the item's source is the *only* source represented in the batch
-    (sole_source=True), all items pass so we never return an empty result
-    for a whole source.
-    """
-    if item.source not in _VIDEO_ENGAGEMENT_FLOOR_SOURCES:
-        return True
-    if sole_source:
-        return True
-    views = item.engagement.get("views") or 0 if item.engagement else 0
-    return views >= _VIDEO_ENGAGEMENT_FLOOR_VIEWS
+_SOCIAL_SOURCES = {"reddit", "x"}
 
 
 def prune_low_relevance(
@@ -342,9 +233,6 @@ def prune_low_relevance(
     threshold because zero engagement on a social platform is a strong noise
     signal.
 
-    TikTok and Instagram items with fewer than 1000 views are pruned
-    (unless they are the only source represented in the batch).
-
     ``first_party_handles`` names accounts this run is explicitly searching
     (the subject of the topic). Their own posts are exempt from the floor: a
     post almost never contains its own author's name, so lexical relevance
@@ -352,7 +240,6 @@ def prune_low_relevance(
     exemption a mixed batch loses them silently, because the ``filtered or
     items`` rescue below only fires when *every* item fails.
     """
-    sources_present = {item.source for item in items}
     first_party = {
         h.strip().lstrip("@").lower()
         for h in (first_party_handles or ())
@@ -365,11 +252,6 @@ def prune_low_relevance(
         return item.author.strip().lstrip("@").lower() in first_party
 
     def passes(item: schema.SourceItem) -> bool:
-        # YouTube items with successfully extracted transcripts should not
-        # be pruned by title-only relevance scoring — the transcript content
-        # already proves substantive topical coverage.
-        if item.source == "youtube" and item.snippet:
-            return True
         # Posts by an account this run is explicitly searching are evidence by
         # provenance, not by lexical overlap with the topic.
         if _is_first_party(item):
@@ -384,9 +266,6 @@ def prune_low_relevance(
         if item.source in _SOCIAL_SOURCES and not engagement_raw(item):
             if rel < minimum * 1.5:
                 return False
-        sole_source = sources_present == {item.source}
-        if not _passes_engagement_floor(item, sole_source):
-            return False
         return True
 
     filtered = [item for item in items if passes(item)]

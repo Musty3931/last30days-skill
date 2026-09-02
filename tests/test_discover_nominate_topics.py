@@ -70,13 +70,13 @@ def _plan(domain: str, sources: list[str]) -> schema.DiscoveryPlan:
 def test_nominations_ranked_by_seed_velocity():
     """A high-engagement recent story outranks a low-engagement one."""
     items = [
-        _item("hot1", "hackernews", "GPT-6 rumors flood the valley",
-              engagement={"points": 900, "num_comments": 400}),
-        _item("cold1", "hackernews", "Minor framework patch notes released",
-              engagement={"points": 3, "num_comments": 1}),
+        _item("hot1", "digg", "GPT-6 rumors flood the valley",
+              engagement={"postCount": 900, "uniqueAuthors": 400}),
+        _item("cold1", "digg", "Minor framework patch notes released",
+              engagement={"postCount": 3, "uniqueAuthors": 1}),
     ]
     nominations = pipeline.nominate_topics(
-        _bundle(items), _query_plan("AI", ["hackernews"]), _plan("AI", ["hackernews"]),
+        _bundle(items), _query_plan("AI", ["digg"]), _plan("AI", ["digg"]),
         from_date="2026-06-10", to_date="2026-07-10", limit=10,
     )
     assert nominations, "expected at least one nomination"
@@ -87,14 +87,14 @@ def test_nominations_ranked_by_seed_velocity():
 def test_nominations_dedupe_names_casefold():
     """Two clusters resolving to the same casefolded name yield one nomination."""
     items = [
-        _item("a1", "hackernews", "OpenAI Agent SDK",
-              engagement={"points": 500, "num_comments": 100}),
+        _item("a1", "digg", "OpenAI Agent SDK",
+              engagement={"postCount": 500, "uniqueAuthors": 100}),
         _item("a2", "reddit", "openai agent sdk",
               engagement={"score": 300, "num_comments": 80}),
     ]
     nominations = pipeline.nominate_topics(
-        _bundle(items), _query_plan("AI agents", ["hackernews", "reddit"]),
-        _plan("AI agents", ["hackernews", "reddit"]),
+        _bundle(items), _query_plan("AI agents", ["digg", "reddit"]),
+        _plan("AI agents", ["digg", "reddit"]),
         from_date="2026-06-10", to_date="2026-07-10", limit=10,
     )
     names = [nomination.name.casefold() for nomination in nominations]
@@ -103,12 +103,12 @@ def test_nominations_dedupe_names_casefold():
 
 def test_fewer_clusters_than_limit_returns_all_without_padding():
     items = [
-        _item("only1", "hackernews", "Quantum breakthrough announced",
-              engagement={"points": 250, "num_comments": 60}),
+        _item("only1", "digg", "Quantum breakthrough announced",
+              engagement={"postCount": 250, "uniqueAuthors": 60}),
     ]
     nominations = pipeline.nominate_topics(
-        _bundle(items), _query_plan("quantum", ["hackernews"]),
-        _plan("quantum", ["hackernews"]),
+        _bundle(items), _query_plan("quantum", ["digg"]),
+        _plan("quantum", ["digg"]),
         from_date="2026-06-10", to_date="2026-07-10", limit=8,
     )
     assert 1 <= len(nominations) < 8
@@ -117,11 +117,11 @@ def test_fewer_clusters_than_limit_returns_all_without_padding():
 def test_zero_velocity_clusters_are_dropped():
     """Items with no engagement produce no nomination at all."""
     items = [
-        _item("dead1", "hackernews", "Silent post nobody engaged with",
-              engagement={"points": 0, "num_comments": 0}),
+        _item("dead1", "digg", "Silent post nobody engaged with",
+              engagement={"postCount": 0, "uniqueAuthors": 0}),
     ]
     nominations = pipeline.nominate_topics(
-        _bundle(items), _query_plan("AI", ["hackernews"]), _plan("AI", ["hackernews"]),
+        _bundle(items), _query_plan("AI", ["digg"]), _plan("AI", ["digg"]),
         from_date="2026-06-10", to_date="2026-07-10", limit=8,
     )
     assert nominations == []
@@ -139,12 +139,12 @@ def test_names_are_short_distilled_topics_not_raw_titles():
     """The nomination's name IS the enrichment search query and the
     /last30days handoff - anecdote/question scaffolding must not leak into it."""
     items = [
-        _item("story1", "hackernews", ANECDOTE_TITLE,
-              engagement={"points": 400, "comments": 100}),
+        _item("story1", "digg", ANECDOTE_TITLE,
+              engagement={"postCount": 400, "uniqueAuthors": 100}),
     ]
     nominations = pipeline.nominate_topics(
-        _bundle(items), _query_plan("AI agents", ["hackernews"]),
-        _plan("AI agents", ["hackernews"]),
+        _bundle(items), _query_plan("AI agents", ["digg"]),
+        _plan("AI agents", ["digg"]),
         from_date="2026-06-10", to_date="2026-07-10", limit=10,
     )
     assert nominations
@@ -158,17 +158,17 @@ def test_no_provider_names_are_distilled_and_deterministic():
     topic_shape.distill_topic_name, junk flags from is_junk_shape, and two
     identical runs produce identical output - no LLM, no randomness."""
     items = [
-        _item("story1", "hackernews", ANECDOTE_TITLE,
-              engagement={"points": 400, "comments": 100}),
-        _item("junk1", "hackernews", HELP_TITLE,
-              engagement={"points": 200, "comments": 50}),
+        _item("story1", "digg", ANECDOTE_TITLE,
+              engagement={"postCount": 400, "uniqueAuthors": 100}),
+        _item("junk1", "digg", HELP_TITLE,
+              engagement={"postCount": 200, "uniqueAuthors": 50}),
     ]
     bundle = _bundle(items)
 
     def run() -> list[pipeline.Nomination]:
         return pipeline.nominate_topics(
-            bundle, _query_plan("AI agents", ["hackernews"]),
-            _plan("AI agents", ["hackernews"]),
+            bundle, _query_plan("AI agents", ["digg"]),
+            _plan("AI agents", ["digg"]),
             from_date="2026-06-10", to_date="2026-07-10", limit=10,
         )
 
@@ -192,11 +192,11 @@ def test_no_provider_names_are_distilled_and_deterministic():
 
 def test_nomination_carries_leader_summary_and_items():
     items = [
-        _item("s1", "hackernews", "Rust rewrite of the Linux scheduler",
-              engagement={"points": 700, "num_comments": 250}),
+        _item("s1", "digg", "Rust rewrite of the Linux scheduler",
+              engagement={"postCount": 700, "uniqueAuthors": 250}),
     ]
     nominations = pipeline.nominate_topics(
-        _bundle(items), _query_plan("Linux", ["hackernews"]), _plan("Linux", ["hackernews"]),
+        _bundle(items), _query_plan("Linux", ["digg"]), _plan("Linux", ["digg"]),
         from_date="2026-06-10", to_date="2026-07-10", limit=8,
     )
     assert nominations
@@ -216,16 +216,16 @@ def test_same_entity_clusters_disambiguate_instead_of_dropping():
     both survive: the later cluster's name gains its strongest non-shared
     entity token."""
     items = [
-        _item("launch1", "hackernews",
+        _item("launch1", "digg",
               "Gemma 4 quietly wrecked every leaderboard chart overnight worldwide",
-              engagement={"points": 300, "comments": 50}),
-        _item("price1", "hackernews",
+              engagement={"postCount": 300, "uniqueAuthors": 50}),
+        _item("price1", "digg",
               "Gemma 4 pricing revolt stuns skeptical enterprise procurement teams",
-              engagement={"points": 200, "comments": 40}),
+              engagement={"postCount": 200, "uniqueAuthors": 40}),
     ]
     nominations = pipeline.nominate_topics(
-        _bundle(items), _query_plan("AI agents", ["hackernews"]),
-        _plan("AI agents", ["hackernews"]),
+        _bundle(items), _query_plan("AI agents", ["digg"]),
+        _plan("AI agents", ["digg"]),
         from_date="2026-06-10", to_date="2026-07-10", limit=10,
     )
 
@@ -246,19 +246,19 @@ def test_third_same_entity_cluster_survives_via_successive_tokens():
     already-disambiguated name, the next distinguishing token is tried instead
     of silently dropping the story."""
     items = [
-        _item("launch1", "hackernews",
+        _item("launch1", "digg",
               "Gemma 4 quietly wrecked every leaderboard chart overnight worldwide",
-              engagement={"points": 300, "comments": 50}),
-        _item("price1", "hackernews",
+              engagement={"postCount": 300, "uniqueAuthors": 50}),
+        _item("price1", "digg",
               "Gemma 4 pricing revolt stuns skeptical enterprise procurement teams",
-              engagement={"points": 200, "comments": 40}),
-        _item("tier1", "hackernews",
+              engagement={"postCount": 200, "uniqueAuthors": 40}),
+        _item("tier1", "digg",
               "Gemma 4 enterprise tier surcharge negotiations remain unresolved today",
-              engagement={"points": 150, "comments": 30}),
+              engagement={"postCount": 150, "uniqueAuthors": 30}),
     ]
     nominations = pipeline.nominate_topics(
-        _bundle(items), _query_plan("AI agents", ["hackernews"]),
-        _plan("AI agents", ["hackernews"]),
+        _bundle(items), _query_plan("AI agents", ["digg"]),
+        _plan("AI agents", ["digg"]),
         from_date="2026-06-10", to_date="2026-07-10", limit=10,
     )
 
@@ -277,8 +277,8 @@ def test_indistinguishable_distinct_representative_clusters_still_dedupe():
     distinguishing entity token anywhere dedupe to one nomination instead of
     crashing or emitting duplicate names."""
     items = [
-        _item("bench1", "hackernews", "Gemma 4 benchmarks",
-              engagement={"points": 300, "comments": 50}),
+        _item("bench1", "digg", "Gemma 4 benchmarks",
+              engagement={"postCount": 300, "uniqueAuthors": 50}),
         _item("bench2", "reddit", "Gemma 4 benchmarks",
               engagement={"score": 200, "num_comments": 40}),
     ]
@@ -296,7 +296,7 @@ def test_indistinguishable_distinct_representative_clusters_still_dedupe():
                 title=primary.title,
                 candidate_ids=[primary.candidate_id],
                 representative_ids=[primary.candidate_id],
-                sources=["hackernews"],
+                sources=["digg"],
                 score=primary.final_score,
             ),
             schema.Cluster(
@@ -312,8 +312,8 @@ def test_indistinguishable_distinct_representative_clusters_still_dedupe():
     with mock.patch.object(pipeline, "cluster_candidates", side_effect=fake_cluster):
         nominations = pipeline.nominate_topics(
             _bundle(items),
-            _query_plan("AI agents", ["hackernews", "reddit"]),
-            _plan("AI agents", ["hackernews", "reddit"]),
+            _query_plan("AI agents", ["digg", "reddit"]),
+            _plan("AI agents", ["digg", "reddit"]),
             from_date="2026-06-10", to_date="2026-07-10", limit=10,
         )
 
@@ -325,8 +325,8 @@ def test_clusters_sharing_a_representative_dedupe_to_one():
     """A name collision between clusters that share a representative candidate
     is the same story twice: the later cluster is dropped, not renamed."""
     items = [
-        _item("bench1", "hackernews", "Gemma 4 benchmarks",
-              engagement={"points": 300, "comments": 50}),
+        _item("bench1", "digg", "Gemma 4 benchmarks",
+              engagement={"postCount": 300, "uniqueAuthors": 50}),
         _item("bench2", "reddit", "gemma 4 benchmarks",
               engagement={"score": 200, "num_comments": 40}),
     ]
@@ -340,7 +340,7 @@ def test_clusters_sharing_a_representative_dedupe_to_one():
                 title=primary.title,
                 candidate_ids=[primary.candidate_id],
                 representative_ids=[primary.candidate_id],
-                sources=["hackernews"],
+                sources=["digg"],
                 score=primary.final_score,
             ),
             schema.Cluster(
@@ -348,7 +348,7 @@ def test_clusters_sharing_a_representative_dedupe_to_one():
                 title=secondary.title,
                 candidate_ids=[secondary.candidate_id, primary.candidate_id],
                 representative_ids=[primary.candidate_id],
-                sources=["hackernews", "reddit"],
+                sources=["digg", "reddit"],
                 score=secondary.final_score,
             ),
         ]
@@ -356,8 +356,8 @@ def test_clusters_sharing_a_representative_dedupe_to_one():
     with mock.patch.object(pipeline, "cluster_candidates", side_effect=fake_cluster):
         nominations = pipeline.nominate_topics(
             _bundle(items),
-            _query_plan("AI agents", ["hackernews", "reddit"]),
-            _plan("AI agents", ["hackernews", "reddit"]),
+            _query_plan("AI agents", ["digg", "reddit"]),
+            _plan("AI agents", ["digg", "reddit"]),
             from_date="2026-06-10", to_date="2026-07-10", limit=10,
         )
 
@@ -372,14 +372,14 @@ def test_nominate_topic_pool_pairs_nominations_with_cluster_ids():
     """The pool variant returns the SAME nominations as nominate_topics, each
     paired with its non-empty, unique source cluster id."""
     items = [
-        _item("hot1", "hackernews", "GPT-6 rumors flood the valley",
-              engagement={"points": 900, "num_comments": 400}),
-        _item("warm1", "hackernews", "Quantum error correction milestone announced",
-              engagement={"points": 250, "num_comments": 60}),
+        _item("hot1", "digg", "GPT-6 rumors flood the valley",
+              engagement={"postCount": 900, "uniqueAuthors": 400}),
+        _item("warm1", "digg", "Quantum error correction milestone announced",
+              engagement={"postCount": 250, "uniqueAuthors": 60}),
     ]
     bundle = _bundle(items)
-    query_plan = _query_plan("AI", ["hackernews"])
-    plan = _plan("AI", ["hackernews"])
+    query_plan = _query_plan("AI", ["digg"])
+    plan = _plan("AI", ["digg"])
     pool = pipeline.nominate_topic_pool(
         bundle, query_plan, plan, from_date="2026-06-10", to_date="2026-07-10", limit=10,
     )
@@ -408,17 +408,17 @@ POOL_TITLES = [
 ]
 
 
-def _hn_raw(item_id: str, title: str, points: int, comments: int, *, date: str = "2026-07-09") -> dict:
+def _digg_raw(item_id: str, title: str, post_count: int, unique_authors: int, *, date: str = "2026-07-09") -> dict:
+    """Raw Digg AI cluster as ``digg.parse_digg_response`` emits it. Digg
+    clusters carry no author, so weighted_rrf's per-author cap never binds and
+    this fixture can overflow the ENRICH_LIMIT cut on cluster count alone."""
     return {
         "id": item_id,
         "title": title,
-        "url": f"https://example.com/{item_id}",
-        "hn_url": f"https://news.ycombinator.com/item?id={item_id}",
-        # Distinct authors: weighted_rrf caps the pool per author, and this
-        # fixture exists to overflow the ENRICH_LIMIT cut, not that cap.
-        "author": f"author-{item_id}",
+        "url": f"https://di.gg/ai/{item_id}",
+        "tldr": title,
         "date": date,
-        "engagement": {"points": points, "comments": comments},
+        "engagement": {"postCount": post_count, "uniqueAuthors": unique_authors},
         "relevance": 0.9,
     }
 
@@ -441,8 +441,8 @@ def _nominate_only(items_by_source: dict[str, list[dict]], **kwargs) -> "pipelin
 
 
 def _full_pool_items() -> dict[str, list[dict]]:
-    return {"hackernews": [
-        _hn_raw(f"hn{index}", title, 900 - index * 40, 120 - index * 5)
+    return {"digg": [
+        _digg_raw(f"dg{index}", title, 900 - index * 40, 120 - index * 5)
         for index, title in enumerate(POOL_TITLES)
     ]}
 
@@ -461,8 +461,8 @@ def test_nominate_only_is_heuristic_deterministic_and_provider_free():
     """Leg 1 never resolves a reasoning provider: names/junk flags are the
     deterministic topic_shape heuristics and two runs agree exactly."""
     items = _full_pool_items()
-    items["hackernews"].append(
-        _hn_raw("junk1", HELP_TITLE, 400, 90)
+    items["digg"].append(
+        _digg_raw("junk1", HELP_TITLE, 400, 90)
     )
     with mock.patch.object(pipeline.providers, "resolve_runtime") as resolve:
         first = _nominate_only(items)
@@ -503,7 +503,7 @@ def test_nominate_only_never_enriches_or_researches():
 
 def test_nominate_only_zero_pool_renders_nothing_solid_brief():
     """An empty sweep short-circuits to the existing nothing-solid brief."""
-    result = _nominate_only({"hackernews": []})
+    result = _nominate_only({"digg": []})
     assert result.pool == []
     report = pipeline.nominate_nothing_solid_report(result)
     assert report.outcome == "nothing-solid"

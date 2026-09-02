@@ -40,8 +40,6 @@ SETUP_BROWSER_COOKIES_CLI = f"{ENGINE_CLI} setup --allow-browser-cookies"
 SETUP_GITHUB_CLI = f"{ENGINE_CLI} setup --github"
 
 # U1 owns these remediation strings; reference them instead of restating.
-_YTDLP_BREW_INSTALL, _YTDLP_BREW_REINSTALL = health.static_prescription("yt-dlp", "brew")
-_YTDLP_PIPX_REINSTALL = health.static_prescription("yt-dlp", "pipx")[1]
 _DIGG_PP_INSTALL_CLI = health.pp_install_cmd("digg")
 
 GENERIC_FIX_NL = "see CONFIGURATION.md for setup options for this source"
@@ -118,30 +116,6 @@ REGISTRY: Dict[Tuple[str, str], Prescription] = dict((
         anchor="api-keys-env",
     ),
     _entry(
-        "bluesky", "app_password_missing",
-        cause="BSKY_HANDLE and/or BSKY_APP_PASSWORD are not set",
-        fix_nl=(
-            "generate an app password at bsky.app/settings/app-passwords and "
-            "add BSKY_HANDLE plus BSKY_APP_PASSWORD to ~/.config/last30days/.env"
-        ),
-        fix_cli="BSKY_HANDLE=<your-handle> BSKY_APP_PASSWORD=<xxxx-xxxx-xxxx-xxxx>",
-        anchor="bluesky-app-password-format-and-search-host",
-    ),
-    _entry(
-        "youtube", "transcription_key_missing",
-        cause=(
-            "no transcription provider key for the caption-free transcript "
-            "backstop (GROQ_API_KEY or OPENAI_API_KEY)"
-        ),
-        fix_nl=(
-            "add a free Groq key from console.groq.com to "
-            "~/.config/last30days/.env so caption-free videos still get "
-            "transcripts (OPENAI_API_KEY also works as the paid backstop)"
-        ),
-        fix_cli="GROQ_API_KEY=<your-groq-key>",
-        anchor="api-keys-env",
-    ),
-    _entry(
         "digg", "pp_cli_missing",
         cause="digg-pp-cli is not installed",
         fix_nl=(
@@ -178,62 +152,6 @@ REGISTRY: Dict[Tuple[str, str], Prescription] = dict((
         fix_cli='export PATH="$HOME/.local/bin:$PATH"',
         anchor="first-run-onboarding",
     ),
-    _entry(
-        "youtube", "ytdlp_missing",
-        cause="yt-dlp is not installed on the agent-subprocess PATH",
-        fix_nl="install yt-dlp to enable the free local YouTube lane",
-        fix_cli=_YTDLP_BREW_INSTALL,
-        alt_cli=("scoop install yt-dlp", "pip install -U yt-dlp"),
-    ),
-    _entry(
-        "youtube", "ytdlp_stale",
-        cause=(
-            "yt-dlp is installed but stale: YouTube's caption format changes "
-            "frequently and old binaries silently fail every transcript"
-        ),
-        fix_nl="update yt-dlp via your package manager",
-        fix_cli="brew upgrade yt-dlp",
-        alt_cli=("scoop update yt-dlp", "pip install -U yt-dlp"),
-    ),
-    _entry(
-        "youtube", "ytdlp_broken",
-        cause=(
-            "yt-dlp resolves on PATH but won't execute (the stale-shim class: "
-            "a wrapper left behind by an interpreter upgrade)"
-        ),
-        fix_nl=(
-            "reinstall yt-dlp so the binary actually executes; a plain "
-            "install reads as a no-op because the broken shim is still present"
-        ),
-        fix_cli=_YTDLP_BREW_REINSTALL,
-        alt_cli=(_YTDLP_PIPX_REINSTALL,),
-    ),
-    _entry(
-        "truthsocial", "token_missing",
-        cause="TRUTHSOCIAL_TOKEN is not set",
-        fix_nl=(
-            "log into truthsocial.com in your browser and let setup read the "
-            "session cookie, or copy the bearer token from your browser's dev "
-            "tools into ~/.config/last30days/.env"
-        ),
-        fix_cli=SETUP_BROWSER_COOKIES_CLI,
-        anchor="api-keys-env",
-    ),
-    _entry(
-        "xiaohongshu", "service_unreachable",
-        cause=(
-            "Xiaohongshu browser-session service is unreachable or not logged "
-            "in; last30days auto-probes http://localhost:18060 and "
-            "http://host.docker.internal:18060 unless XIAOHONGSHU_API_BASE is set"
-        ),
-        fix_nl=(
-            "start a local x-mcp browser plugin or xpzouying/xiaohongshu-mcp "
-            "service that can see your logged-in Xiaohongshu browser session; "
-            "set XIAOHONGSHU_API_BASE only when it runs on a custom host/port"
-        ),
-        fix_cli="XIAOHONGSHU_API_BASE=http://your-host:18060  # only for a custom host; leave unset to auto-probe localhost and host.docker.internal",
-        anchor="api-keys-env",
-    ),
 ))
 
 
@@ -267,10 +185,6 @@ def get(source: str, failure: str) -> Prescription:
 
 def _dependency_failure(probe: health.DependencyProbe) -> Optional[Tuple[str, str]]:
     """Map a failed dependency probe onto a registered (source, failure)."""
-    if probe.name == "yt-dlp":
-        if probe.status == health.MISSING:
-            return ("youtube", "ytdlp_missing")
-        return ("youtube", "ytdlp_broken")  # BROKEN and TIMEOUT: reinstall class
     if probe.name == "digg-pp-cli":
         # health reports off-PATH binaries as MISSING with ``off_path=True``;
         # the distinction only picks cause/NL wording — the probe's own

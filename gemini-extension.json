@@ -1,7 +1,7 @@
 {
   "name": "last30days-skill",
   "version": "3.23.0",
-  "description": "Research a topic from the last 30 days across Reddit, X, YouTube, TikTok, Instagram, Hacker News, Polymarket, and the web.",
+  "description": "Research a topic from the last 30 days across Reddit, X, GitHub, Digg, and arXiv.",
   "settings": [
     {
       "name": "Extension Directory",
@@ -10,45 +10,15 @@
       "sensitive": false
     },
     {
-      "name": "ScrapeCreators API Key",
-      "description": "ScrapeCreators API Key for Reddit, TikTok, and Instagram search (required)",
-      "envVar": "SCRAPECREATORS_API_KEY",
-      "sensitive": true
-    },
-    {
-      "name": "OpenAI API Key",
-      "description": "OpenAI API Key - optional fallback for Reddit discovery",
-      "envVar": "OPENAI_API_KEY",
-      "sensitive": true
-    },
-    {
       "name": "xAI API Key",
       "description": "xAI API Key for X/Twitter search (optional)",
       "envVar": "XAI_API_KEY",
       "sensitive": true
     },
     {
-      "name": "OpenRouter API Key",
-      "description": "OpenRouter API Key (optional)",
-      "envVar": "OPENROUTER_API_KEY",
-      "sensitive": true
-    },
-    {
-      "name": "Parallel AI API Key",
-      "description": "Parallel AI API Key (optional)",
-      "envVar": "PARALLEL_API_KEY",
-      "sensitive": true
-    },
-    {
-      "name": "Brave Search API Key",
-      "description": "Brave Search API Key (optional)",
-      "envVar": "BRAVE_API_KEY",
-      "sensitive": true
-    },
-    {
-      "name": "Apify API Token",
-      "description": "Apify API Token (optional legacy)",
-      "envVar": "APIFY_API_TOKEN",
+      "name": "Xquik API Key",
+      "description": "Xquik API Key for key-based X/Twitter search (optional)",
+      "envVar": "XQUIK_API_KEY",
       "sensitive": true
     },
     {
@@ -61,6 +31,30 @@
       "name": "Twitter CT0",
       "description": "Twitter browser CT0 cookie (optional, pair with AUTH_TOKEN)",
       "envVar": "CT0",
+      "sensitive": true
+    },
+    {
+      "name": "GitHub Token",
+      "description": "GitHub token to raise API rate limits for GitHub search (optional; gh CLI auth also works)",
+      "envVar": "GITHUB_TOKEN",
+      "sensitive": true
+    },
+    {
+      "name": "ScrapeCreators API Key",
+      "description": "ScrapeCreators API Key, used only as the Reddit search backup when the free path returns no items (optional)",
+      "envVar": "SCRAPECREATORS_API_KEY",
+      "sensitive": true
+    },
+    {
+      "name": "OpenAI API Key",
+      "description": "OpenAI API Key - optional reasoning provider for headless planning/reranking",
+      "envVar": "OPENAI_API_KEY",
+      "sensitive": true
+    },
+    {
+      "name": "Gemini API Key",
+      "description": "Gemini API Key - optional reasoning provider for headless planning/reranking",
+      "envVar": "GEMINI_API_KEY",
       "sensitive": true
     }
   ]

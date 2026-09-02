@@ -21,10 +21,6 @@ python3 skills/last30days/scripts/last30days.py "AI coding agents" --emit=json -
 
 The raw profile is intentionally unversioned and may change when pipeline internals change. It preserves the JSON serialization used before the agent profile was introduced.
 
-### Local corpus privacy
-
-Evidence from `--corpus` / `LAST30DAYS_CORPUS_DIRS` is excluded from the versioned agent profile by default. The exclusion removes corpus results, corpus-only clusters, corpus source outcomes, freshness verdicts, and titles derived from a corpus representative. Set `LAST30DAYS_CORPUS_IN_EXPORT=1` only for a run whose JSON is intentionally allowed to contain local file contents. This opt-in does not change the schema shape or version; it permits `source: "corpus"` entries in the existing result fields. The unversioned `raw` profile is a complete local debug dump and may contain corpus paths and text.
-
 ## Discovery export
 
 Discovery mode has a separate versioned contract so its topic results do not change the normal research export:
@@ -34,8 +30,6 @@ python3 skills/last30days/scripts/last30days.py --discover "AI agents" --emit=js
 ```
 
 Its top level contains `schema_version` (`1.1`), `kind` (`"discovery"`), `domain` (`""` for a global no-domain trending run), `generated_at`, `window_days`, `source_status`, `feeds`, `results`, `warnings`, `outcome` (`"ok"`, or `"nothing-solid"` when no topic cleared the confidence floor), and `weak_signal` (the closest sub-floor topic name on a nothing-solid run, else `null`). Each ranked result contains `rank`, `topic`, `why_spiking`, `momentum` (`new-this-week` or `building`), `velocity_score`, `sources`, per-source native `engagement`, a ready-to-run `command`, `evidence_urls`, `top_comment` (the strongest verbatim community comment from the topic's research pass, with attribution; `null` on shallow runs), `corroboration_count` (distinct confirming sources), `podcast_angle` (engine-generated podcast content hook; `null` when no reasoning provider produced one), `x_article_angle` (engine-generated X-article content hook; `null` when no reasoning provider produced one), `previously_surfaced_count` (topic-queue annotation: how many earlier sweeps surfaced this topic; `0` when the queue is off), `last_surfaced` (topic-queue annotation: date the topic last surfaced; `null` when the queue is off), and `covered` (topic-queue annotation: whether the topic was already covered; `false` when the queue is off). The discovery contract follows the same versioning policy below but evolves independently of the normal agent export. `--json-profile=raw` returns the unversioned internal `DiscoveryReport` dataclass instead.
-
-When `LAST30DAYS_API_KEY` and `LAST30DAYS_API_BASE` route a run through a configured remote API, the server does not return the local `Report` needed to build this profile. In that mode, `--json-profile=agent` exits with status 2 instead of emitting a misleading shape; use `--json-profile=raw` to retain the remote backend's existing server-response JSON contract.
 
 ## Top-level fields
 
@@ -92,7 +86,7 @@ Cluster array order is ranking order. A result's `cluster` value is the zero-bas
 | --- | --- | --- |
 | `candidate_id` | string | Stable identifier joining this result to `freshness_verdicts[].candidate_id`. Added in `1.2`. |
 | `title` | string | Result title. |
-| `source` | string | Primary source name, such as `reddit`, `x`, `youtube`, or `grounding`. |
+| `source` | string | Primary source name: one of `reddit`, `x`, `github`, `digg`, or `arxiv`. |
 | `url` | string | Canonical result URL. It may be empty when the provider supplies no link. |
 | `published_at` | string | Primary source item's publication date or timestamp. Omitted when unknown. |
 | `summary` | string | Normalized snippet, with the relevance explanation or body used as fallback. |

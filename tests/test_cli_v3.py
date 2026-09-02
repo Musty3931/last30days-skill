@@ -115,36 +115,15 @@ class CliV3Tests(unittest.TestCase):
 
     def test_parse_search_flag_normalizes_aliases_and_dedupes(self):
         self.assertEqual(
-            ["grounding", "reddit", "hackernews"],
-            cli.parse_search_flag("web, reddit, hn, web"),
+            ["x", "reddit", "github"],
+            cli.parse_search_flag("xquik, reddit, GitHub, x"),
         )
 
-    def test_parse_search_flag_accepts_optional_social_sources(self):
+    def test_parse_search_flag_accepts_cli_gated_sources(self):
         self.assertEqual(
-            ["threads", "pinterest"],
-            cli.parse_search_flag("threads, pinterest"),
+            ["digg", "arxiv"],
+            cli.parse_search_flag("digg, arxiv"),
         )
-
-    def test_explicit_threads_search_uses_scrapecreators_key_without_include_sources(self):
-        available = cli.pipeline.available_sources(
-            {"SCRAPECREATORS_API_KEY": "test-key", "INCLUDE_SOURCES": ""},
-            requested_sources=["threads"],
-        )
-        self.assertIn("threads", available)
-
-    def test_explicit_perplexity_search_uses_openrouter_fallback(self):
-        available = cli.pipeline.available_sources(
-            {"OPENROUTER_API_KEY": "test-key", "INCLUDE_SOURCES": ""},
-            requested_sources=["perplexity"],
-        )
-        self.assertIn("perplexity", available)
-
-    def test_explicit_perplexity_search_uses_direct_key_without_include_sources(self):
-        available = cli.pipeline.available_sources(
-            {"PERPLEXITY_API_KEY": "test-key", "INCLUDE_SOURCES": ""},
-            requested_sources=["perplexity"],
-        )
-        self.assertIn("perplexity", available)
 
     def test_parse_search_flag_rejects_invalid_or_empty_inputs(self):
         with self.assertRaises(SystemExit):
@@ -160,9 +139,9 @@ class CliV3Tests(unittest.TestCase):
 
     def test_resolve_requested_sources_falls_back_to_config_default(self):
         sources = cli.resolve_requested_sources(
-            None, {"LAST30DAYS_DEFAULT_SEARCH": "web, reddit, hn"},
+            None, {"LAST30DAYS_DEFAULT_SEARCH": "xquik, reddit, digg"},
         )
-        self.assertEqual(["grounding", "reddit", "hackernews"], sources)
+        self.assertEqual(["x", "reddit", "digg"], sources)
 
     def test_resolve_requested_sources_none_when_neither_set(self):
         self.assertIsNone(cli.resolve_requested_sources(None, {}))
@@ -180,220 +159,12 @@ class CliV3Tests(unittest.TestCase):
             )
         self.assertIn("LAST30DAYS_DEFAULT_SEARCH", str(exc.exception))
 
-    def test_deep_research_preserves_default_source_selection(self):
-        self.assertIsNone(cli.add_deep_research_source(None))
-
-    def test_deep_research_extends_an_explicit_source_selection(self):
-        self.assertEqual(
-            ["reddit", "perplexity"],
-            cli.add_deep_research_source(["reddit"]),
-        )
-        self.assertEqual(
-            ["reddit", "perplexity"],
-            cli.add_deep_research_source(["reddit", "perplexity"]),
-        )
-
-    def test_deep_research_enables_exact_include_token(self):
-        config = {"INCLUDE_SOURCES": "notperplexity,reddit"}
-
-        cli.enable_deep_research_source(config)
-
-        self.assertEqual(
-            ["notperplexity", "reddit", "perplexity"],
-            config["INCLUDE_SOURCES"].split(","),
-        )
-
-    def test_deep_research_rejects_exact_exclusion(self):
-        config = {"EXCLUDE_SOURCES": "reddit,Perplexity"}
-
-        with self.assertRaisesRegex(
-            ValueError,
-            "conflicts with EXCLUDE_SOURCES=perplexity",
-        ):
-            cli.enable_deep_research_source(config)
-
     def test_build_parser_accepts_days_alias_and_preserves_topic_tokens(self):
         parser = cli.build_parser()
         args, extra = parser.parse_known_args(["--days", "7", "biosecurity", "ai", "agents"])
         self.assertEqual(7, args.lookback_days)
         self.assertEqual(["biosecurity", "ai", "agents"], args.topic)
         self.assertEqual([], extra)
-
-    def test_build_parser_accepts_web_backend_keyless(self):
-        """Regression for #905: CONFIGURATION.md documents --web-backend=keyless
-        to force the zero-key floor, but the choices list rejected it."""
-        parser = cli.build_parser()
-        args, extra = parser.parse_known_args(["--web-backend", "keyless", "biosecurity"])
-        self.assertEqual("keyless", args.web_backend)
-        self.assertEqual([], extra)
-
-    def test_deep_research_help_keeps_openrouter_fallback(self):
-        parser = cli.build_parser()
-        action = next(
-            candidate
-            for candidate in parser._actions
-            if "--deep-research" in candidate.option_strings
-        )
-        self.assertIn("PERPLEXITY_API_KEY", action.help)
-        self.assertIn("OPENROUTER_API_KEY", action.help)
-        self.assertIn("cannot be combined with competitor or vs-mode", action.help)
-
-    def test_deep_research_rejects_modes_without_a_positional_topic(self):
-        for argv in (
-            ["last30days.py", "--discover", "agents", "--deep-research"],
-            ["last30days.py", "--drill", "cluster-1", "--deep-research"],
-        ):
-            with self.subTest(argv=argv), mock.patch.object(
-                cli.env,
-                "get_config",
-                return_value={},
-            ), mock.patch.object(
-                cli,
-                "_run_discover",
-            ) as discover_mock, mock.patch.object(
-                cli,
-                "_run_drill",
-            ) as drill_mock, mock.patch.dict(
-                os.environ,
-                {"LAST30DAYS_SKIP_PREFLIGHT": "1"},
-                clear=False,
-            ), mock.patch.object(sys, "argv", argv):
-                stderr = io.StringIO()
-                with redirect_stderr(stderr):
-                    rc = cli.main()
-
-            self.assertEqual(2, rc)
-            discover_mock.assert_not_called()
-            drill_mock.assert_not_called()
-            self.assertIn("requires a normal positional topic", stderr.getvalue())
-
-    def test_deep_research_rejects_competitor_fanout_before_pipeline_run(self):
-        diag = {
-            "available_sources": ["perplexity"],
-            "providers": {"google": False, "openai": False, "xai": False},
-            "x_backend": None,
-            "bird_installed": True,
-            "bird_authenticated": False,
-            "bird_username": None,
-            "native_web_backend": None,
-        }
-        with mock.patch.object(
-            cli.env,
-            "get_config",
-            return_value={"PERPLEXITY_API_KEY": "pplx-test"},
-        ), mock.patch.object(
-            cli.pipeline,
-            "diagnose",
-            return_value=diag,
-        ) as diagnose_mock, mock.patch.object(
-            cli.pipeline,
-            "run",
-        ) as run_mock, mock.patch.object(
-            cli.ui,
-            "ProgressDisplay",
-            return_value=mock.Mock(),
-        ), mock.patch.object(
-            sys,
-            "argv",
-            [
-                "last30days.py",
-                "Alpha",
-                "vs",
-                "Beta",
-                "--mock",
-                "--deep-research",
-            ],
-        ):
-            stderr = io.StringIO()
-            with redirect_stderr(stderr):
-                rc = cli.main()
-
-        self.assertEqual(2, rc)
-        diagnose_mock.assert_not_called()
-        run_mock.assert_not_called()
-        self.assertIn(
-            "one paid Deep Research run per user action",
-            stderr.getvalue(),
-        )
-
-    def test_openrouter_deep_research_bypasses_hosted_and_adds_source(self):
-        report = self.make_report(topic="why AI safety matters")
-        diag = {
-            "available_sources": ["reddit", "perplexity"],
-            "providers": {"google": False, "openai": False, "xai": False},
-            "x_backend": None,
-            "bird_installed": True,
-            "bird_authenticated": False,
-            "bird_username": None,
-            "native_web_backend": None,
-        }
-        with mock.patch.object(
-            cli.env,
-            "get_config",
-            return_value={"OPENROUTER_API_KEY": "openrouter-test"},
-        ), mock.patch.object(
-            cli.env,
-            "read_secret_env",
-            return_value="hosted-test-key",
-        ), mock.patch.object(
-            cli.pipeline,
-            "diagnose",
-            return_value=diag,
-        ), mock.patch.object(
-            cli.pipeline,
-            "run",
-            return_value=report,
-        ) as run_mock, mock.patch(
-            "lib.hosted.run_hosted",
-        ) as hosted_mock, mock.patch.object(
-            cli.ui,
-            "ProgressDisplay",
-            return_value=mock.Mock(),
-        ), mock.patch.object(
-            cli,
-            "emit_output",
-            return_value="# rendered",
-        ), mock.patch.dict(
-            os.environ,
-            {
-                "LAST30DAYS_API_BASE": "https://hosted.example.test",
-                "LAST30DAYS_SKIP_PREFLIGHT": "1",
-            },
-            clear=False,
-        ), mock.patch.object(
-            sys,
-            "argv",
-            [
-                "last30days.py",
-                "why",
-                "AI",
-                "safety",
-                "matters",
-                "--deep-research",
-                "--search",
-                "reddit",
-            ],
-        ):
-            with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
-                rc = cli.main()
-
-        self.assertEqual(0, rc)
-        hosted_mock.assert_not_called()
-        requested_sources = run_mock.call_args.kwargs["requested_sources"]
-        self.assertEqual(["reddit", "perplexity"], requested_sources)
-        self.assertTrue(run_mock.call_args.kwargs["config"]["_deep_research"])
-
-    def test_build_parser_still_accepts_other_web_backend_values(self):
-        parser = cli.build_parser()
-        for value in ("auto", "brave", "exa", "serper", "parallel", "parallel-mcp", "none"):
-            args, extra = parser.parse_known_args(["--web-backend", value, "biosecurity"])
-            self.assertEqual(value, args.web_backend)
-            self.assertEqual([], extra)
-
-    def test_build_parser_rejects_invalid_web_backend(self):
-        parser = cli.build_parser()
-        with self.assertRaises(SystemExit):
-            parser.parse_known_args(["--web-backend", "bogus", "biosecurity"])
 
     def test_build_parser_accepts_explicit_output_file(self):
         parser = cli.build_parser()
@@ -492,23 +263,15 @@ class CliV3Tests(unittest.TestCase):
     def test_missing_sources_for_promo_treats_x_as_optional(self):
         self.assertEqual(
             "reddit",
-            cli._missing_sources_for_promo({"available_sources": ["youtube"]}),
+            cli._missing_sources_for_promo({"available_sources": ["github"]}),
         )
-        self.assertEqual(
-            "web",
-            cli._missing_sources_for_promo({"available_sources": ["reddit", "x"]}),
-        )
-        # The web promo is satisfied by a paid backend (better web search), not
-        # by the keyless grounding floor — keyless web is always available now.
         self.assertIsNone(
-            cli._missing_sources_for_promo(
-                {"available_sources": ["reddit", "x", "grounding"], "native_web_backend": "brave"}
-            ),
+            cli._missing_sources_for_promo({"available_sources": ["reddit", "x"]}),
         )
 
     def test_optional_x_omission_is_post_result_copy_for_default_runs(self):
         note = cli._optional_x_omission_text(
-            {"available_sources": ["reddit", "youtube", "grounding"]},
+            {"available_sources": ["reddit", "github", "digg"]},
             None,
         )
         self.assertEqual(
@@ -961,148 +724,6 @@ class CliV3Tests(unittest.TestCase):
             f"saw {[c.kwargs.get('github_repos') for c in run_mock.call_args_list]}",
         )
         self.assertIn("[GitHub] Canonicalized repos:", stderr.getvalue())
-
-    def test_main_passes_trustpilot_domain_to_pipeline_run(self):
-        """The user-set flag must reach pipeline.run verbatim with
-        provenance user-set (is_hint False) on the single-topic path."""
-        report = self.make_report()
-        diag = {
-            "available_sources": ["grounding"],
-            "providers": {"google": True, "openai": False, "xai": False},
-            "x_backend": None,
-            "bird_installed": True,
-            "bird_authenticated": False,
-            "bird_username": None,
-            "native_web_backend": "brave",
-        }
-        with mock.patch.object(cli.env, "get_config", return_value={}), \
-             mock.patch.object(cli.pipeline, "diagnose", return_value=diag), \
-             mock.patch.object(cli.pipeline, "run", return_value=report) as run_mock, \
-             mock.patch.object(cli, "emit_output", return_value="# rendered"), \
-             mock.patch.object(sys, "argv", [
-                 "last30days.py",
-                 "ThriftBooks",
-                 "--trustpilot-domain",
-                 "www.thriftbooks.com",
-             ]):
-            stdout = io.StringIO()
-            stderr = io.StringIO()
-            with redirect_stdout(stdout), redirect_stderr(stderr):
-                rc = cli.main()
-        self.assertEqual(0, rc)
-        main_call = next(
-            (c for c in run_mock.call_args_list
-             if c.kwargs.get("trustpilot_domain") == "www.thriftbooks.com"),
-            None,
-        )
-        self.assertIsNotNone(
-            main_call,
-            f"No pipeline.run call carried trustpilot_domain; saw "
-            f"{[c.kwargs.get('trustpilot_domain') for c in run_mock.call_args_list]}",
-        )
-        self.assertFalse(main_call.kwargs.get("trustpilot_domain_is_hint"))
-
-    def test_trustpilot_domain_auto_activates_include_sources(self):
-        """Explicit --trustpilot-domain must activate Trustpilot even when
-        INCLUDE_SOURCES omits it (#873) — otherwise the flag silently no-ops."""
-        report = self.make_report(topic="Weber grills")
-        diag = {
-            "available_sources": ["tiktok", "instagram"],
-            "providers": {"google": True, "openai": False, "xai": False},
-            "x_backend": None,
-            "bird_installed": True,
-            "bird_authenticated": False,
-            "bird_username": None,
-            "native_web_backend": "brave",
-        }
-        config = {"INCLUDE_SOURCES": "tiktok,instagram"}
-        with mock.patch.object(cli.env, "get_config", return_value=config), \
-             mock.patch.object(cli.pipeline, "diagnose", return_value=diag), \
-             mock.patch.object(cli.pipeline, "run", return_value=report) as run_mock, \
-             mock.patch.object(cli, "emit_output", return_value="# rendered"), \
-             mock.patch.object(sys, "argv", [
-                 "last30days.py",
-                 "Weber grills",
-                 "--trustpilot-domain",
-                 "weber.co.uk",
-             ]):
-            stdout = io.StringIO()
-            stderr = io.StringIO()
-            with redirect_stdout(stdout), redirect_stderr(stderr):
-                rc = cli.main()
-        self.assertEqual(0, rc)
-        self.assertIn("trustpilot", config["INCLUDE_SOURCES"].lower())
-        self.assertIn("[Trustpilot] --trustpilot-domain=weber.co.uk activated", stderr.getvalue())
-        main_call = run_mock.call_args_list[0]
-        self.assertEqual(main_call.kwargs.get("trustpilot_domain"), "weber.co.uk")
-
-    def test_trustpilot_domain_auto_activates_with_search_filter(self):
-        """When --search omits trustpilot, the explicit domain flag must still
-        append it to requested_sources so the intersection filter cannot drop it."""
-        report = self.make_report(topic="Weber grills")
-        diag = {
-            "available_sources": ["tiktok", "instagram", "trustpilot"],
-            "providers": {"google": True, "openai": False, "xai": False},
-            "x_backend": None,
-            "bird_installed": True,
-            "bird_authenticated": False,
-            "bird_username": None,
-            "native_web_backend": "brave",
-        }
-        config = {"INCLUDE_SOURCES": "tiktok,instagram"}
-        with mock.patch.object(cli.env, "get_config", return_value=config), \
-             mock.patch.object(cli.pipeline, "diagnose", return_value=diag), \
-             mock.patch.object(cli.pipeline, "run", return_value=report) as run_mock, \
-             mock.patch.object(cli, "emit_output", return_value="# rendered"), \
-             mock.patch.object(sys, "argv", [
-                 "last30days.py",
-                 "Weber grills",
-                 "--search",
-                 "tiktok,instagram",
-                 "--trustpilot-domain",
-                 "weber.co.uk",
-             ]):
-            with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
-                rc = cli.main()
-        self.assertEqual(0, rc)
-        requested = run_mock.call_args_list[0].kwargs.get("requested_sources") or []
-        self.assertIn("trustpilot", requested)
-
-    def test_trustpilot_domain_respects_exclude_sources(self):
-        config = {"INCLUDE_SOURCES": "tiktok", "EXCLUDE_SOURCES": "trustpilot"}
-        requested = cli.activate_trustpilot_for_explicit_domain(
-            config, ["tiktok"], reason="--trustpilot-domain=weber.co.uk",
-        )
-        self.assertEqual(requested, ["tiktok"])
-        self.assertNotIn("trustpilot", config["INCLUDE_SOURCES"].lower())
-
-
-class ActivateTrustpilotHelperTests(unittest.TestCase):
-    def test_plan_has_explicit_trustpilot_domain(self):
-        self.assertTrue(cli.plan_has_explicit_trustpilot_domain({
-            "traeger": {"trustpilot_domain": "traeger.com"},
-        }))
-        self.assertFalse(cli.plan_has_explicit_trustpilot_domain({
-            "traeger": {"x_handle": "Traeger"},
-        }))
-        self.assertFalse(cli.plan_has_explicit_trustpilot_domain(None))
-
-    def test_activate_adds_include_and_requested(self):
-        config = {"INCLUDE_SOURCES": "tiktok,instagram"}
-        requested = cli.activate_trustpilot_for_explicit_domain(
-            config, ["tiktok", "instagram"], reason="--trustpilot-domain=x.com",
-        )
-        self.assertIn("trustpilot", config["INCLUDE_SOURCES"].lower())
-        self.assertEqual(requested, ["tiktok", "instagram", "trustpilot"])
-
-    def test_activate_noop_when_already_present(self):
-        config = {"INCLUDE_SOURCES": "tiktok,trustpilot"}
-        requested = cli.activate_trustpilot_for_explicit_domain(
-            config, ["trustpilot"], reason="--trustpilot-domain=x.com",
-        )
-        self.assertEqual(config["INCLUDE_SOURCES"], "tiktok,trustpilot")
-        self.assertEqual(requested, ["trustpilot"])
-
 
 if __name__ == "__main__":
     unittest.main()

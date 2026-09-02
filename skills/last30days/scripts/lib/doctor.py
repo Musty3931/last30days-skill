@@ -53,7 +53,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
-from . import backends, brightdata, env, health, http, prescriptions
+from . import backends, env, health, http, prescriptions
 from .backends import TIER_ERROR, TIER_OK, TIER_WARN
 
 # Rollup tiers (R1). ok/warn/error are U2's; only "off" is doctor's own.
@@ -100,9 +100,7 @@ AUDIT_GROUPS = (
 
 # Sources that need neither credentials nor a CLI: they always serve, so with
 # no run evidence and no probe they are WORKING, not UNVERIFIED.
-KEYLESS_ALWAYS_ON = frozenset(
-    {"reddit", "hackernews", "polymarket", "github", "library"}
-)
+KEYLESS_ALWAYS_ON = frozenset({"reddit", "github", "library"})
 
 # Fresh-run outcome states -> audit bucket for a tier-ok source. Anything not
 # listed here (error / timeout / rate-limited / auth-failed / unreachable /
@@ -144,31 +142,13 @@ def audit_state(
         return AUDIT_WORKING
     return AUDIT_UNVERIFIED
 
-# Report order: chained sources first, then free, then key-gated/opt-in.
+# Report order: chained sources first, then free, then CLI-gated/opt-in.
 SOURCE_ORDER = (
     "reddit",
     "x",
-    "youtube",
-    "web",
-    "hackernews",
-    "polymarket",
     "github",
     "digg",
-    "techmeme",
     "arxiv",
-    "trustpilot",
-    "amazon",
-    "tiktok",
-    "instagram",
-    "threads",
-    "telegram",
-    "bluesky",
-    "truthsocial",
-    "perplexity",
-    "linkedin",
-    "pinterest",
-    "xiaohongshu",
-    "jobs",
     "library",
 )
 
@@ -178,14 +158,8 @@ SOURCE_ORDER = (
 # listed is keyless - it needs no CLI. gh is OPTIONAL for GitHub (the REST tier
 # works without it), so its absence is a note, never a failure.
 CLI_DEPENDENCIES = {
-    "youtube": "yt-dlp",
     "digg": "digg-pp-cli",
-    "techmeme": "techmeme-pp-cli",
     "arxiv": "arxiv-pp-cli",
-    "trustpilot": "trustpilot-pp-cli",
-    # The only entry that also needs auth; _amazon_record reports the
-    # installed-but-unauthenticated state the shared CLI helper cannot.
-    "amazon": "brightdata",
     "github": "gh",
 }
 _OPTIONAL_CLI_SOURCES = frozenset({"github"})
@@ -195,19 +169,10 @@ KEY_PRESENCE_VARS = (
     "SCRAPECREATORS_API_KEY",
     "XAI_API_KEY",
     "XQUIK_API_KEY",
-    "BRAVE_API_KEY",
-    "EXA_API_KEY",
-    "SERPER_API_KEY",
-    "PARALLEL_API_KEY",
-    "GROQ_API_KEY",
     "OPENAI_API_KEY",
     "GOOGLE_API_KEY",
     "GEMINI_API_KEY",
-    "OPENROUTER_API_KEY",
-    "PERPLEXITY_API_KEY",
     "GITHUB_TOKEN",
-    "TRUTHSOCIAL_TOKEN",
-    "BSKY_APP_PASSWORD",
 )
 
 # Failing statuses ranked most-specific-first for chained rollups: a broken
@@ -267,33 +232,6 @@ def _finding_json(finding: backends.BackendFinding) -> Dict[str, Any]:
     }
 
 
-def _host_native_web_note(config: Dict[str, Any]) -> str:
-    """Doctor-local note when the host's own web search serves this run.
-
-    Keys on LAST30DAYS_NATIVE_SEARCH (via env.is_native_search) AND on
-    CLAUDECODE as a host signal - Claude Code always exposes a web-search tool,
-    but `doctor` run in a plain shell never sees the LAST30DAYS_NATIVE_SEARCH
-    the engine exports only for its own run, so without the CLAUDECODE signal it
-    would mislabel a fine setup as "degraded/keyless". Messaging only: it does
-    not change env.is_native_search or the engine's keyless-floor behavior. The
-    note names the signal actually detected so it never cites an env var the
-    user did not set.
-    """
-    if env.is_native_search(config):
-        return (
-            "host-native search active (LAST30DAYS_NATIVE_SEARCH): the host's "
-            "own web search serves this run; set a web key only if you want "
-            "engine-side web search"
-        )
-    if config.get("CLAUDECODE") or os.environ.get("CLAUDECODE"):
-        return (
-            "host-native web search active (Claude Code): the host's own web "
-            "search serves this run; set a web key only if you want "
-            "engine-side web search"
-        )
-    return ""
-
-
 def _chained_record(source: str, config: Dict[str, Any]) -> Dict[str, Any]:
     descriptor = backends.get_descriptor(source)
     res = backends.resolve(source, config)
@@ -318,22 +256,6 @@ def _chained_record(source: str, config: Dict[str, Any]) -> Dict[str, Any]:
         active = by_name.get(res.active_backend)
         return _record(status=health.OK, note=res.summary,
                        requires=active.requires if active else "", **common)
-
-    # Doctor-local (KTD-3): on a host that brings its own web search, the
-    # engine's web lanes (keyless floor or nothing configured) are intentionally
-    # dormant - report that, not an alarming "degraded/keyless". This must run
-    # before the WARN branch, because the keyless floor resolves to WARN and
-    # would otherwise return first. Messaging only; it never touches
-    # env.is_native_search or the engine's keyless-floor runtime behavior.
-    if source == "web":
-        host_note = _host_native_web_note(config)
-        if host_note:
-            return _record(
-                status="unconfigured",
-                note=host_note,
-                requires=res.findings[0].requires if res.findings else "",
-                **common,
-            )
 
     if res.tier == backends.TIER_WARN:
         active = by_name.get(res.active_backend)
@@ -377,40 +299,6 @@ def _chained_record(source: str, config: Dict[str, Any]) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Single-backend sources
 # ---------------------------------------------------------------------------
-
-def _sc_fix() -> str:
-    return _fix_text(prescriptions.get("scrapecreators", "key_missing"))
-
-
-def _sc_gated_record(config: Dict[str, Any], purpose: str) -> Dict[str, Any]:
-    if config.get("SCRAPECREATORS_API_KEY"):
-        return _record(status=health.OK, requires="SCRAPECREATORS_API_KEY",
-                       detail=f"SCRAPECREATORS_API_KEY present ({purpose})")
-    return _record(status="unconfigured", requires="SCRAPECREATORS_API_KEY",
-                   fix=_sc_fix())
-
-
-def _sc_optin_record(config: Dict[str, Any], source: str, purpose: str) -> Dict[str, Any]:
-    """SC-gated source that ALSO requires an INCLUDE_SOURCES opt-in to run.
-
-    Unlike ``_sc_gated_record`` (used by the on-by-default TikTok/Instagram),
-    a key alone is not enough here: the pipeline only fires this source when it
-    is in INCLUDE_SOURCES. Reporting a bare key as Ready is the Threads
-    false-Ready bug - this mirrors ``_linkedin_record``'s correct gating so
-    doctor and the pipeline cannot disagree.
-    """
-    requires = f"SCRAPECREATORS_API_KEY + INCLUDE_SOURCES={source}"
-    if not config.get("SCRAPECREATORS_API_KEY"):
-        return _record(status="unconfigured", requires=requires, fix=_sc_fix())
-    if source in env.include_sources(config):
-        return _record(status=health.OK, requires=requires,
-                       detail=f"SCRAPECREATORS_API_KEY present ({purpose})")
-    return _record(
-        status="opt-in", requires=requires,
-        fix=f"add {source} to INCLUDE_SOURCES (or request it via --search {source})",
-        note="key present; opt-in, never auto-activates",
-    )
-
 
 def _reddit_record(config):
     return _chained_record("reddit", config)
@@ -514,57 +402,6 @@ def _x_record(config):
     return record
 
 
-def _youtube_record(config):
-    record = _chained_record("youtube", config)
-    if record["status"] != health.OK:
-        return record
-    notes: List[str] = []
-    # yt-dlp already provides search + transcripts. A transcription key only
-    # backfills captions for the occasional caption-free video - an enhancement,
-    # not a sign YouTube is broken.
-    if not env.transcription_providers(config):
-        entry = prescriptions.get("youtube", "transcription_key_missing")
-        notes.append(
-            "search + transcripts work; a transcription key only adds "
-            "captions for caption-free videos"
-        )
-        record["fix"] = _fix_text(entry)
-    # Comment *text* is free via yt-dlp, so this caveat only fires when yt-dlp
-    # is absent and the legacy ScrapeCreators path is the only one left. Never
-    # prescribe a paid key for something the installed toolchain already does.
-    if not env.is_youtube_comments_available(config):
-        notes.append(
-            "comment text needs yt-dlp (free) or a ScrapeCreators key "
-            "+ youtube_comments opt-in"
-        )
-        # Actionable fix, matching the transcription branch. The transcription
-        # fix takes precedence when both caveats fire (one fix line per record).
-        if not record["fix"]:
-            if not config.get("SCRAPECREATORS_API_KEY"):
-                record["fix"] = _sc_fix()
-            else:
-                record["fix"] = (
-                    "add youtube_comments to INCLUDE_SOURCES in "
-                    "~/.config/last30days/.env to enable YouTube comment text"
-                )
-    if notes:
-        joined = "; ".join(notes)
-        record["note"] = (record["note"] + "; " + joined) if record["note"] else joined
-    return record
-
-
-def _web_record(config):
-    return _chained_record("web", config)
-
-
-def _hackernews_record(config):
-    return _record(status=health.OK, requires="none (free Algolia API)")
-
-
-def _polymarket_record(config):
-    return _record(status=health.OK, requires="none (public API)")
-
-
 def _github_record(config):
     authed = bool(config.get("GITHUB_TOKEN") or env.read_secret_env("GITHUB_TOKEN") or shutil.which("gh"))
     detail = (
@@ -608,204 +445,8 @@ def _cli_gated_record(config, cli_name: str, purpose: str):
     return _record(status=probe.status, fix=fix, detail=probe.detail, requires=requires)
 
 
-def _techmeme_record(config):
-    return _cli_gated_record(config, "techmeme-pp-cli", "techmeme")
-
-
 def _arxiv_record(config):
     return _cli_gated_record(config, "arxiv-pp-cli", "arxiv")
-
-
-def _trustpilot_record(config):
-    return _cli_gated_record(config, "trustpilot-pp-cli", "trustpilot")
-
-
-def _amazon_record(config):
-    """Amazon buyer signals: CLI-gated *and* auth-gated.
-
-    Unlike the other CLI-gated sources, a present binary is not enough --
-    the Bright Data CLI owns its own login, so a user can have `brightdata`
-    on PATH and still get nothing. Report those states separately: an
-    unauthenticated install is configured-but-broken (a real fix exists and
-    the user wants to hear it), while a missing binary is just an optional
-    source nobody opted into.
-    """
-    probe = health.probe_dependency(brightdata.CLI_BIN)
-    requires = f"{brightdata.CLI_BIN} on the agent-subprocess PATH, logged in"
-    if probe.ok:
-        if brightdata.has_credentials(config):
-            return _record(status=health.OK, detail=probe.detail, requires=requires)
-        return _record(
-            status="unconfigured",
-            fix="run `brightdata login` to activate the amazon source",
-            detail="brightdata is installed but has no credentials",
-            requires=requires,
-        )
-    entry = prescriptions.for_dependency_probe(probe)
-    fix = _fix_text(entry) if entry else probe.prescription
-    if probe.status == health.MISSING and not probe.off_path:
-        return _record(
-            status="opt-in",
-            fix="npm i -g @brightdata/cli && brightdata login",
-            detail=probe.detail,
-            requires=requires,
-        )
-    return _record(status=probe.status, fix=fix, detail=probe.detail, requires=requires)
-
-
-def _tiktok_record(config):
-    return _sc_gated_record(config, "tiktok")
-
-
-def _instagram_record(config):
-    return _sc_gated_record(config, "instagram")
-
-
-def _threads_record(config):
-    # Threads needs the key AND an INCLUDE_SOURCES=threads opt-in to run, so it
-    # is opt-in-gated (not on-by-default like TikTok/Instagram).
-    return _sc_optin_record(config, "threads", "threads")
-
-
-def _telegram_record(config):
-    # Telegram needs the key AND an INCLUDE_SOURCES=telegram opt-in AND a
-    # channel list (TELEGRAM_SOURCES). Without named channels there is no
-    # discovery endpoint to call.
-    requires = "SCRAPECREATORS_API_KEY + INCLUDE_SOURCES=telegram + TELEGRAM_SOURCES"
-    if not config.get("SCRAPECREATORS_API_KEY"):
-        return _record(status="unconfigured", requires=requires, fix=_sc_fix())
-    from . import telegram
-    channels = telegram._get_channel_sources(config)
-    if "telegram" in env.include_sources(config):
-        if channels:
-            return _record(
-                status=health.OK,
-                requires=requires,
-                detail=f"SCRAPECREATORS_API_KEY present, {len(channels)} channel(s) configured",
-            )
-        return _record(
-            status="unconfigured",
-            requires=requires,
-            fix="set TELEGRAM_SOURCES to a comma-separated list of public channel handles",
-            note="key present and opt-in active, but no channels configured",
-        )
-    return _record(
-        status="opt-in",
-        requires=requires,
-        fix="add telegram to INCLUDE_SOURCES and set TELEGRAM_SOURCES to channel handles",
-        note="key present; opt-in only, channels required",
-    )
-
-
-def _bluesky_record(config):
-    if env.is_bluesky_available(config):
-        return _record(status=health.OK, requires="BSKY_HANDLE + BSKY_APP_PASSWORD")
-    return _record(
-        status="unconfigured",
-        requires="BSKY_HANDLE + BSKY_APP_PASSWORD",
-        fix=_fix_text(prescriptions.get("bluesky", "app_password_missing")),
-    )
-
-
-def _truthsocial_record(config):
-    if env.is_truthsocial_available(config):
-        return _record(status=health.OK, requires="TRUTHSOCIAL_TOKEN")
-    return _record(
-        status="unconfigured",
-        requires="TRUTHSOCIAL_TOKEN",
-        fix=_fix_text(prescriptions.get("truthsocial", "token_missing")),
-    )
-
-
-def _perplexity_record(config):
-    requires = (
-        "PERPLEXITY_API_KEY or OPENROUTER_API_KEY + "
-        "INCLUDE_SOURCES=perplexity"
-    )
-    has_direct_key = bool(config.get("PERPLEXITY_API_KEY"))
-    has_openrouter_key = bool(config.get("OPENROUTER_API_KEY"))
-    has_key = has_direct_key or has_openrouter_key
-    include = env.include_sources(config)
-    if not has_key:
-        return _record(
-            status="unconfigured", requires=requires,
-            fix=(
-                "set PERPLEXITY_API_KEY or OPENROUTER_API_KEY in "
-                "~/.config/last30days/.env, then add perplexity to INCLUDE_SOURCES"
-            ),
-        )
-    if "perplexity" in include:
-        return _record(
-            status=health.OK,
-            requires=requires,
-            note=(
-                "direct Agent/Search APIs"
-                if has_direct_key
-                else "OpenRouter Sonar compatibility fallback"
-            ),
-        )
-    return _record(
-        status="opt-in", requires=requires,
-        fix="add perplexity to INCLUDE_SOURCES (or request it via --search perplexity)",
-        note="key present; source runs only when opted in",
-    )
-
-
-def _linkedin_record(config):
-    requires = "SCRAPECREATORS_API_KEY + INCLUDE_SOURCES=linkedin"
-    if not config.get("SCRAPECREATORS_API_KEY"):
-        return _record(status="unconfigured", requires=requires, fix=_sc_fix())
-    if "linkedin" in env.include_sources(config):
-        return _record(status=health.OK, requires=requires)
-    return _record(
-        status="opt-in", requires=requires,
-        fix="add linkedin to INCLUDE_SOURCES (or request it via --search linkedin)",
-        note="key present; power-user opt-in, never auto-activates",
-    )
-
-
-def _pinterest_record(config):
-    requires = "SCRAPECREATORS_API_KEY; requested-only (--search pinterest)"
-    if not config.get("SCRAPECREATORS_API_KEY"):
-        return _record(status="unconfigured", requires=requires, fix=_sc_fix())
-    return _record(
-        status="opt-in", requires=requires,
-        fix="request it explicitly via --search pinterest (or INCLUDE_SOURCES)",
-        note="key present; runs only when requested",
-    )
-
-
-def _xiaohongshu_record(config):
-    requires = (
-        "logged-in Xiaohongshu browser-session service; requested-only "
-        "(--search xhs)"
-    )
-    entry = prescriptions.get("xiaohongshu", "service_unreachable")
-    if config.get("XIAOHONGSHU_API_BASE"):
-        return _record(
-            status=health.OK, requires=requires,
-            note=(
-                "XIAOHONGSHU_API_BASE configured; service reachability is not "
-                "probed (doctor makes no network calls)"
-            ),
-        )
-    return _record(
-        status="opt-in",
-        requires=requires,
-        fix=_fix_text(entry),
-        note=(
-            "auto-probes http://localhost:18060 first, then "
-            "http://host.docker.internal:18060"
-        ),
-    )
-
-
-def _jobs_record(config):
-    return _record(
-        status="opt-in",
-        requires="none; activates for company topics or --hiring-signals",
-        note="on-demand source: no configuration needed",
-    )
 
 
 def _count_saved_briefs(memory_dir) -> int:
@@ -863,27 +504,9 @@ def _library_record(config):
 _SOURCE_BUILDERS: Dict[str, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
     "reddit": _reddit_record,
     "x": _x_record,
-    "youtube": _youtube_record,
-    "web": _web_record,
-    "hackernews": _hackernews_record,
-    "polymarket": _polymarket_record,
     "github": _github_record,
     "digg": _digg_record,
-    "techmeme": _techmeme_record,
     "arxiv": _arxiv_record,
-    "trustpilot": _trustpilot_record,
-    "amazon": _amazon_record,
-    "tiktok": _tiktok_record,
-    "instagram": _instagram_record,
-    "threads": _threads_record,
-    "telegram": _telegram_record,
-    "bluesky": _bluesky_record,
-    "truthsocial": _truthsocial_record,
-    "perplexity": _perplexity_record,
-    "linkedin": _linkedin_record,
-    "pinterest": _pinterest_record,
-    "xiaohongshu": _xiaohongshu_record,
-    "jobs": _jobs_record,
     "library": _library_record,
 }
 
@@ -972,31 +595,23 @@ def load_run_evidence(
 
 
 # ---------------------------------------------------------------------------
-# Backup + comment sub-lanes (U7 / R8, R9)
+# Backup sub-lanes (U7 / R8, R9)
 #
-# Backups (Reddit's SC backfill, YouTube's SC transcript/search backstop, X's
-# cookie-vs-key dual path) and comment lanes (youtube/tiktok/instagram) are not
+# Backups (Reddit's SC backfill, X's cookie-vs-key dual path) are not
 # independent sources - they are capabilities of their parent. doctor surfaces
-# them as indented sub-lines so "is a backup armed when yt-dlp is rate-limited?"
+# them as indented sub-lines so "is a backup armed when the free path fails?"
 # is answerable at a glance without inventing fake sources.
 # ---------------------------------------------------------------------------
 
-def _sub_lanes_for(source: str, config: Dict[str, Any]):
-    """Return (backups, comments) metadata for a source, or ([], None)."""
+def _sub_lanes_for(source: str, config: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Return backup-lane metadata for a source, or []."""
     backups: List[Dict[str, Any]] = []
-    comments: Optional[Dict[str, Any]] = None
     has_sc = bool(config.get("SCRAPECREATORS_API_KEY"))
     if source == "reddit":
         backups.append({
             "name": "ScrapeCreators backfill", "armed": has_sc,
             "note": "fills in when the free public path returns nothing",
         })
-    elif source == "youtube":
-        backups.append({
-            "name": "ScrapeCreators transcript/search backstop", "armed": has_sc,
-            "note": "used when yt-dlp is rate-limited or bot-gated",
-        })
-        comments = {"enabled": bool(env.is_youtube_comments_available(config))}
     elif source == "x":
         has_key = bool(config.get("XAI_API_KEY") or config.get("XQUIK_API_KEY"))
         cookie = bool(env.x_pending_browser_auth(config, local_only=True))
@@ -1010,11 +625,7 @@ def _sub_lanes_for(source: str, config: Dict[str, Any]):
         else:
             note = "no auth path armed"
         backups.append({"name": "X auth path", "armed": has_key or cookie, "note": note})
-    elif source == "tiktok":
-        comments = {"enabled": bool(env.is_tiktok_comments_available(config))}
-    elif source == "instagram":
-        comments = {"enabled": bool(env.is_instagram_comments_available(config))}
-    return backups, comments
+    return backups
 
 
 # ---------------------------------------------------------------------------
@@ -1038,9 +649,6 @@ def _setup_block(config: Dict[str, Any]) -> Dict[str, Any]:
     keys_present = {var: bool(config.get(var)) for var in KEY_PRESENCE_VARS}
     keys_present["x_browser_cookies"] = bool(
         config.get("AUTH_TOKEN") and config.get("CT0")
-    )
-    keys_present["bluesky_app_password"] = bool(
-        config.get("BSKY_HANDLE") and config.get("BSKY_APP_PASSWORD")
     )
     return {
         "setup_complete": env.is_setup_complete(config),
@@ -1109,13 +717,11 @@ def build_report(config: Dict[str, Any]) -> Dict[str, Any]:
             "optional": source in _OPTIONAL_CLI_SOURCES,
         }
 
-    # U7: attach backup + comment sub-lanes to their parent source.
+    # U7: attach backup sub-lanes to their parent source.
     for source, record in sources.items():
-        backups, comments = _sub_lanes_for(source, config)
+        backups = _sub_lanes_for(source, config)
         if backups:
             record["backups"] = backups
-        if comments is not None:
-            record["comments"] = comments
 
     # Sequential on purpose: the permission preflight composes pipeline
     # diagnostics and must not race the source builders.
@@ -1201,11 +807,11 @@ def _audit_source_line(name: str, record: Dict[str, Any], state: str) -> str:
     if evidence:
         parts.append(evidence)
     # fix is only ever populated when there is something actionable, so
-    # render it whenever present — an ok-tier record can carry one (the
-    # youtube transcription-key note) and must not lose it in text mode.
+    # render it whenever present — an ok-tier record can carry one and must
+    # not lose it in text mode.
     if record.get("fix"):
         parts.append(f"; fix: {record['fix']}")
-    # Backup / comment sub-lanes render on their own indented lines (U7),
+    # Backup sub-lanes render on their own indented lines (U7),
     # after the primary line (with its fix) is complete.
     for sub in _sub_lane_lines(record):
         parts.append("\n" + sub)
@@ -1213,16 +819,12 @@ def _audit_source_line(name: str, record: Dict[str, Any], state: str) -> str:
 
 
 def _sub_lane_lines(record: Dict[str, Any]) -> List[str]:
-    """Indented backup/comment sub-lane lines under a source (R8, R9)."""
+    """Indented backup sub-lane lines under a source (R8, R9)."""
     lines: List[str] = []
     for backup in record.get("backups") or []:
         state = "armed" if backup.get("armed") else "off"
         note = f" - {backup['note']}" if backup.get("note") else ""
         lines.append(f"      backup: {backup['name']} — {state}{note}")
-    comments = record.get("comments")
-    if comments is not None:
-        state = "on" if comments.get("enabled") else "off"
-        lines.append(f"      comments: {state}")
     return lines
 
 
@@ -1251,7 +853,7 @@ def _cli_health_lines(report: Dict[str, Any]) -> List[str]:
     return (
         ["CLI health (downloaded binaries):"]
         + rows
-        + ["  · Reddit, Hacker News, Polymarket need no CLI (keyless)"]
+        + ["  · Reddit needs no CLI (keyless)"]
     )
 
 
@@ -1465,7 +1067,7 @@ DEFAULT_CACHE_TTL_SECONDS = 900
 # carries no secrets by design (key presence is booleans only); this belt-and-
 # suspenders check refuses to persist the cache if a seeded value ever leaks.
 _SECRET_CONFIG_VARS = KEY_PRESENCE_VARS + (
-    "AUTH_TOKEN", "CT0", "APIFY_API_TOKEN", "GOOGLE_GENAI_API_KEY",
+    "AUTH_TOKEN", "CT0", "GOOGLE_GENAI_API_KEY",
 )
 
 # Backend pin vars folded into the config fingerprint. Pin values are
@@ -1624,11 +1226,10 @@ def _write_cache(report: Dict[str, Any], config: Dict[str, Any]) -> bool:
 # When there is no fresh run to learn from (or on explicit --probe), doctor
 # runs a BOUNDED live test so WORKING is verified, not guessed. Scope is
 # deliberate: free HTTP endpoints + keyless CLIs only. Credit-gated /
-# session-gated sources (x, tiktok, instagram, threads, ...) are NOT
-# live-probed - a health check must never spend ScrapeCreators credits or trip
-# auth rate limits; they stay UNVERIFIED with that noted. Every probe is capped
-# by a per-source deadline so a single slow source (YouTube's 120s search) can
-# never hang doctor.
+# session-gated sources (x) are NOT live-probed - a health check must never
+# spend ScrapeCreators credits or trip auth rate limits; they stay UNVERIFIED
+# with that noted. Every probe is capped by a per-source deadline so a single
+# slow source can never hang doctor.
 # ---------------------------------------------------------------------------
 
 # Free, keyless liveness endpoints (reachability check, tiny payload).
@@ -1638,8 +1239,6 @@ _HTTP_PROBE_URLS = {
     # docstring) and no lane requests it any more, so probing it measured an
     # endpoint the engine had already abandoned.
     "reddit": "https://www.reddit.com/search.rss?q=test&sort=relevance&t=month",
-    "hackernews": "https://hn.algolia.com/api/v1/search?query=test&hitsPerPage=1",
-    "polymarket": "https://gamma-api.polymarket.com/events?limit=1",
     "github": "https://api.github.com/rate_limit",
 }
 
@@ -1840,8 +1439,8 @@ def run(
         probeable = _probeable_sources()
         sys.stderr.write(
             f"[last30days] doctor live probe: checking {len(probeable)} free/CLI "
-            f"sources ({timeout}s each; no credit-gated sources - x/tiktok/"
-            f"instagram/threads stay unverified)\n"
+            f"sources ({timeout}s each; no credit-gated sources - x stays "
+            f"unverified)\n"
         )
         sys.stderr.flush()
         try:

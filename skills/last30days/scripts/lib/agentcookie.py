@@ -9,7 +9,7 @@ Deliberate constraints (see docs/plans/2026-08-31 X plan):
 
 * **Soft dependency.** Activation is gated on ``shutil.which("agentcookie")``
   resolving on the agent subprocess PATH, exactly like the other CLI-gated
-  optional sources (Digg, yt-dlp). A binary that is absent is not an error.
+  optional sources (Digg, arXiv). A binary that is absent is not an error.
 * **``AGENTCOOKIE=off`` disables it** regardless of PATH.
 * **Independent of ``FROM_BROWSER``.** Reading the sidecar is not a browser
   extraction, so it runs even when ``FROM_BROWSER`` is unset (the state in

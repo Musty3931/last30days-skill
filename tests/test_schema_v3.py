@@ -20,20 +20,20 @@ class SchemaV3Tests(unittest.TestCase):
                 freshness_mode="strict_recent",
                 cluster_mode="story",
                 raw_topic="test topic",
-                subqueries=[schema.SubQuery(label="primary", search_query="test topic", ranking_query="What happened with test topic?", sources=["grounding"])],
-                source_weights={"grounding": 1.0},
+                subqueries=[schema.SubQuery(label="primary", search_query="test topic", ranking_query="What happened with test topic?", sources=["x"])],
+                source_weights={"x": 1.0},
             ),
-            clusters=[schema.Cluster(cluster_id="cluster-1", title="Title", candidate_ids=["c1"], representative_ids=["c1"], sources=["grounding"], score=90)],
+            clusters=[schema.Cluster(cluster_id="cluster-1", title="Title", candidate_ids=["c1"], representative_ids=["c1"], sources=["x"], score=90)],
             ranked_candidates=[schema.Candidate(
                 candidate_id="c1",
                 item_id="i1",
-                source="grounding",
-                sources=["grounding", "reddit"],
+                source="x",
+                sources=["x", "reddit"],
                 title="Title",
                 url="https://example.com",
                 snippet="Snippet",
                 subquery_labels=["primary"],
-                native_ranks={"primary:grounding": 1},
+                native_ranks={"primary:x": 1},
                 local_relevance=0.8,
                 freshness=90,
                 engagement=None,
@@ -42,20 +42,20 @@ class SchemaV3Tests(unittest.TestCase):
                 rerank_score=91,
                 final_score=90,
                 source_items=[
-                    schema.SourceItem(item_id="i1", source="grounding", title="Title", body="Body", url="https://example.com", published_at="2026-03-16")
+                    schema.SourceItem(item_id="i1", source="x", title="Title", body="Body", url="https://example.com", published_at="2026-03-16")
                 ],
             )],
-            items_by_source={"grounding": [schema.SourceItem(item_id="i1", source="grounding", title="Title", body="Body", url="https://example.com")]},
+            items_by_source={"x": [schema.SourceItem(item_id="i1", source="x", title="Title", body="Body", url="https://example.com")]},
             errors_by_source={},
             warnings=["warning"],
-            artifacts={"grounding": []},
+            artifacts={"x": []},
         )
         restored = schema.report_from_dict(schema.to_dict(report))
         self.assertEqual(report.topic, restored.topic)
         self.assertEqual(report.provider_runtime.planner_model, restored.provider_runtime.planner_model)
         self.assertEqual(report.ranked_candidates[0].candidate_id, restored.ranked_candidates[0].candidate_id)
         self.assertEqual(report.ranked_candidates[0].sources, restored.ranked_candidates[0].sources)
-        self.assertEqual(report.items_by_source["grounding"][0].title, restored.items_by_source["grounding"][0].title)
+        self.assertEqual(report.items_by_source["x"][0].title, restored.items_by_source["x"][0].title)
 
     def test_source_item_from_dict_preserves_zero_valued_signals(self):
         item = schema.source_item_from_dict(

@@ -26,7 +26,7 @@ import sys
 import unittest
 from unittest.mock import patch
 
-from lib import bluesky, perplexity
+from lib import arxiv, digg
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 LIB_DIR = REPO_ROOT / "skills" / "last30days" / "scripts" / "lib"
@@ -104,8 +104,8 @@ class _NonTTYStringIO(io.StringIO):
         return False
 
 
-class PerplexityAndBlueskyVisibilityTests(unittest.TestCase):
-    """Targeted regression tests for the two original bug instances.
+class DiggAndArxivVisibilityTests(unittest.TestCase):
+    """Targeted regression tests on two CLI-backed source modules.
 
     Kept alongside the convention test so a future refactor of either
     module immediately surfaces a regression if the opt-out is dropped.
@@ -117,13 +117,13 @@ class PerplexityAndBlueskyVisibilityTests(unittest.TestCase):
             log_callable("visibility probe")
         return fake_stderr.getvalue()
 
-    def test_perplexity_log_visible_under_non_tty(self):
-        out = self._captured_stderr_under_non_tty(perplexity._log)
-        self.assertIn("[Perplexity] visibility probe", out)
+    def test_digg_log_visible_under_non_tty(self):
+        out = self._captured_stderr_under_non_tty(digg._log)
+        self.assertIn("[Digg] visibility probe", out)
 
-    def test_bluesky_log_visible_under_non_tty(self):
-        out = self._captured_stderr_under_non_tty(bluesky._log)
-        self.assertIn("[Bluesky] visibility probe", out)
+    def test_arxiv_log_visible_under_non_tty(self):
+        out = self._captured_stderr_under_non_tty(arxiv._log)
+        self.assertIn("[arXiv] visibility probe", out)
 
 
 if __name__ == "__main__":

@@ -291,7 +291,7 @@ class TestTrimSubqueriesForDepth(unittest.TestCase):
     def _sq(self, label: str = "primary", sources: list[str] = None) -> schema.SubQuery:
         return schema.SubQuery(
             label=label, search_query="test", ranking_query="test?",
-            sources=sources or ["reddit", "x", "grounding", "youtube", "hackernews", "polymarket"],
+            sources=sources or ["reddit", "x", "github", "digg", "arxiv"],
             weight=1.0,
         )
 
@@ -301,14 +301,14 @@ class TestTrimSubqueriesForDepth(unittest.TestCase):
         self.assertLessEqual(len(result[0].sources), 2)
 
     def test_default_comparison_expands_via_capabilities(self):
-        available = ["reddit", "x", "grounding", "youtube", "hackernews", "tiktok", "instagram"]
+        available = ["reddit", "x", "github", "digg", "arxiv"]
         sqs = [self._sq(sources=available)]
         result = planner._trim_subqueries_for_depth(sqs, "comparison", "default", available)
         # Comparison should use all capability-matched sources, not top-3
         self.assertGreater(len(result[0].sources), 3)
 
     def test_deep_expands_via_capabilities(self):
-        available = ["reddit", "x", "youtube", "hackernews", "polymarket"]
+        available = ["reddit", "x", "github", "digg", "arxiv"]
         sqs = [self._sq(sources=available)]
         result = planner._trim_subqueries_for_depth(sqs, "comparison", "deep", available)
         # Deep comparison should also use capability expansion, not trim

@@ -39,7 +39,7 @@ def temp_db():
 
 
 def sample_report():
-    """Create a sample Report with multiple sources including HN and Polymarket."""
+    """Create a sample Report with ranked candidates from Reddit and X."""
     return schema.report_from_dict({
         "topic": "Test Topic",
         "range_from": "2026-01-01",
@@ -148,32 +148,6 @@ def sample_report():
                     "snippet": "X snippet",
                 }
             ],
-            "hackernews": [
-                {
-                    "item_id": "HN1",
-                    "source": "hackernews",
-                    "title": "Test HN Story",
-                    "body": "HN story content with comments",
-                    "url": "https://news.ycombinator.com/item?id=12345",
-                    "author": "hnuser",
-                    "engagement_score": 120.0,
-                    "local_relevance": 0.9,
-                    "snippet": "HN snippet",
-                }
-            ],
-            "polymarket": [
-                {
-                    "item_id": "PM1",
-                    "source": "polymarket",
-                    "title": "Will event happen?",
-                    "body": "Yes: 64% / No: 36%",
-                    "url": "https://polymarket.com/event/test-event",
-                    "author": None,
-                    "engagement_score": 342000.0,
-                    "local_relevance": 0.7,
-                    "snippet": "Prediction market",
-                }
-            ],
         },
         "errors_by_source": {},
         "warnings": [],
@@ -186,42 +160,12 @@ def test_findings_from_report_processes_all_sources(sample_report):
     """Test that findings_from_report extracts items from all sources in items_by_source."""
     findings = store.findings_from_report(sample_report)
     
-    # Should have 4 findings (reddit + x + hackernews + polymarket)
-    assert len(findings) == 4
+    # Should have 2 findings (reddit + x)
+    assert len(findings) == 2
     
     # Check all sources are present
     sources = {f["source"] for f in findings}
-    assert sources == {"reddit", "x", "hackernews", "polymarket"}
-
-
-def test_findings_from_report_includes_hackernews(sample_report):
-    """Test that HN items are extracted correctly (PR #85 feature)."""
-    findings = store.findings_from_report(sample_report)
-    
-    hn_findings = [f for f in findings if f["source"] == "hackernews"]
-    assert len(hn_findings) == 1
-    
-    hn = hn_findings[0]
-    assert hn["source_url"] == "https://news.ycombinator.com/item?id=12345"
-    assert hn["source_title"] == "Test HN Story"
-    assert hn["engagement_score"] == 120.0
-    assert hn["relevance_score"] == 0.9
-    assert "HN story content" in hn["content"]
-
-
-def test_findings_from_report_includes_polymarket(sample_report):
-    """Test that Polymarket items are extracted correctly (PR #85 feature)."""
-    findings = store.findings_from_report(sample_report)
-    
-    pm_findings = [f for f in findings if f["source"] == "polymarket"]
-    assert len(pm_findings) == 1
-    
-    pm = pm_findings[0]
-    assert pm["source_url"] == "https://polymarket.com/event/test-event"
-    assert pm["source_title"] == "Will event happen?"
-    assert pm["engagement_score"] == 342000.0
-    assert pm["relevance_score"] == 0.7
-    assert "Yes: 64%" in pm["content"]
+    assert sources == {"reddit", "x"}
 
 
 def test_findings_from_report_respects_limit(sample_report):
@@ -263,8 +207,6 @@ def test_findings_from_report_handles_empty_sources():
         "items_by_source": {
             "reddit": [],
             "x": [],
-            "hackernews": [],
-            "polymarket": [],
         },
         "errors_by_source": {},
         "warnings": [],
@@ -297,13 +239,13 @@ def test_findings_from_report_handles_missing_fields():
         "clusters": [],
         "ranked_candidates": [],
         "items_by_source": {
-            "hackernews": [
+            "github": [
                 {
-                    "item_id": "R1",
-                    "source": "hackernews",
+                    "item_id": "G1",
+                    "source": "github",
                     "title": "Test",
                     "body": "Content",
-                    "url": "https://news.ycombinator.com/item?id=1",
+                    "url": "https://github.com/example/repo",
                     "author": None,  # Missing author
                     "engagement_score": None,  # Missing engagement
                     "local_relevance": None,  # Missing relevance
@@ -335,13 +277,13 @@ def test_store_findings_basic(temp_db, sample_report):
     findings = store.findings_from_report(sample_report)
     counts = store.store_findings(run_id, topic["id"], findings)
     
-    assert counts["new"] == 4
+    assert counts["new"] == 2
     assert counts["updated"] == 0
     
     # Verify in database
     conn = sqlite3.connect(str(temp_db))
     total = conn.execute("SELECT COUNT(*) FROM findings").fetchone()[0]
-    assert total == 4
+    assert total == 2
     conn.close()
 
 
@@ -354,18 +296,18 @@ def test_store_findings_deduplicates_by_url(temp_db, sample_report):
     
     # Store once
     counts1 = store.store_findings(run_id, topic["id"], findings)
-    assert counts1["new"] == 4
+    assert counts1["new"] == 2
     assert counts1["updated"] == 0
     
     # Store again (same URLs)
     counts2 = store.store_findings(run_id, topic["id"], findings)
     assert counts2["new"] == 0
-    assert counts2["updated"] == 4
+    assert counts2["updated"] == 2
     
     # Verify total count didn't double
     conn = sqlite3.connect(str(temp_db))
     total = conn.execute("SELECT COUNT(*) FROM findings").fetchone()[0]
-    assert total == 4
+    assert total == 2
     conn.close()
 
 
@@ -379,17 +321,17 @@ def test_store_findings_updates_engagement_on_resighting(temp_db, sample_report)
     # Store with initial engagement
     store.store_findings(run_id, topic["id"], findings)
     
-    # Modify engagement score for HN finding
-    hn_finding = next(f for f in findings if f["source"] == "hackernews")
-    hn_finding["engagement_score"] = 200.0  # Higher than original 120.0
+    # Modify engagement score for the X finding
+    x_finding = next(f for f in findings if f["source"] == "x")
+    x_finding["engagement_score"] = 200.0  # Higher than original 75.0
     
     # Store again
-    store.store_findings(run_id, topic["id"], [hn_finding])
+    store.store_findings(run_id, topic["id"], [x_finding])
     
     # Verify engagement was updated
     conn = sqlite3.connect(str(temp_db))
     score = conn.execute(
-        "SELECT engagement_score FROM findings WHERE source='hackernews'"
+        "SELECT engagement_score FROM findings WHERE source='x'"
     ).fetchone()[0]
     assert score == 200.0
     conn.close()
@@ -776,7 +718,7 @@ def test_remove_topic_cascades_findings(temp_db, sample_report):
     conn = sqlite3.connect(str(temp_db))
     finding_count = conn.execute("SELECT COUNT(*) FROM findings").fetchone()[0]
     run_count = conn.execute("SELECT COUNT(*) FROM research_runs").fetchone()[0]
-    assert finding_count == 4
+    assert finding_count == 2
     assert run_count == 1
     conn.close()
     
@@ -823,10 +765,9 @@ def test_get_new_findings(temp_db, sample_report):
     
     new_findings = store.get_new_findings(topic["id"])
     
-    assert len(new_findings) == 4
+    assert len(new_findings) == 2
     sources = {f["source"] for f in new_findings}
-    assert "hackernews" in sources
-    assert "polymarket" in sources
+    assert sources == {"reddit", "x"}
 
 
 def test_get_new_findings_filters_by_date(temp_db, sample_report):
@@ -846,7 +787,7 @@ def test_get_new_findings_filters_by_date(temp_db, sample_report):
     yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).strftime("%Y-%m-%d")
     new_findings = store.get_new_findings(topic["id"], since=yesterday)
 
-    assert len(new_findings) == 4
+    assert len(new_findings) == 2
 
 # === Tests for the discovery topic queue (migration 3, U6) ===
 

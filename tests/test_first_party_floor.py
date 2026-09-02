@@ -377,7 +377,7 @@ def test_non_x_sources_still_prune_in_place():
     import inspect
     from lib import pipeline
     src = inspect.getsource(pipeline._normalize_score_dedupe)
-    assert 'if source != "jobs" and not defer_relevance_prune:' in src
+    assert 'if not defer_relevance_prune:' in src
 
 
 def test_deferred_prune_still_drops_off_topic_posts():

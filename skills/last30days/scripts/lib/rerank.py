@@ -41,7 +41,6 @@ FIRST_PARTY_AUTHOR_CREDIT = 5.0
 
 _DISCOVERY_ENGAGEMENT_FIELDS = {
     "reddit": ("score", "num_comments"),
-    "hackernews": ("points", "comments"),
     "digg": ("postCount", "uniqueAuthors"),
     "x": ("likes", "reposts", "replies", "quotes"),
 }
@@ -581,22 +580,12 @@ def _apply_engagement_rescue(
 def _candidate_haystack(candidate: schema.Candidate) -> str:
     """Build the lowercase text blob against which entity-grounding is checked.
 
-    Expanded 2026-04-19 to include transcript snippets, transcript highlights,
-    and top-comment text. The prior `title + snippet` check missed YouTube
-    videos whose entity mentions live in transcript content and Reddit posts
-    whose mentions are in top comments. Now checks all text surfaces a human
-    would see.
+    Expanded 2026-04-19 to include top-comment text and comment insights. The
+    prior `title + snippet` check missed Reddit posts whose entity mentions
+    are in top comments. Now checks all text surfaces a human would see.
     """
     parts: list[str] = [candidate.title or "", candidate.snippet or ""]
     metadata = candidate.metadata or {}
-
-    transcript_snippet = metadata.get("transcript_snippet") or ""
-    if isinstance(transcript_snippet, str):
-        parts.append(transcript_snippet)
-
-    for hl in metadata.get("transcript_highlights") or []:
-        if isinstance(hl, str):
-            parts.append(hl)
 
     for tc in metadata.get("top_comments") or []:
         if isinstance(tc, dict):
@@ -656,23 +645,12 @@ def _fallback_tuple(
     if resolved_handles and _is_first_party(candidate, resolved_handles):
         score += FIRST_PARTY_AUTHOR_CREDIT
         return max(0.0, min(100.0, score)), "fallback-local-score (first-party authorship)"
-    # Grounding-exempt evidence (currently Amazon): the adapter gated these
-    # against the model-supplied keyword before they existed, so the
-    # entity-miss demotion below would punish them for a match they were
-    # never going to make -- a "Weber Grills" run legitimately surfaces a
-    # product called "Spirit E-325" whose reviews discuss searing, not Weber.
-    # Returning here also skips _final_score's secondary penalty, which greps
-    # the reason string for "entity-miss": one flag, both paths, per the
-    # propagation pattern in
-    # docs/solutions/logic-errors/entity-grounding-full-phrase-false-demotion.md
-    if _is_grounding_exempt(candidate):
-        return max(0.0, min(100.0, score)), "fallback-local-score (grounding-exempt source)"
     # Entity-grounding demotion: subtract ENTITY_MISS_PENALTY when the candidate
     # never mentions the primary entity's head token, across all text surfaces
-    # (title, snippet, transcript, transcript highlights, top comments,
-    # insights). Skip for candidates with NO text anywhere (e.g. image-only
-    # TikToks) so thin-text sources aren't penalized unfairly. See
-    # _entity_grounded for why grounding keys on the head token, not the phrase.
+    # (title, snippet, top comments, insights). Skip for candidates with NO
+    # text anywhere (e.g. image-only posts) so thin-text sources aren't
+    # penalized unfairly. See _entity_grounded for why grounding keys on the
+    # head token, not the phrase.
     if primary_entity:
         haystack = _candidate_haystack(candidate)
         if haystack.strip() and not _entity_grounded(haystack, primary_entity):
@@ -695,30 +673,6 @@ def _primary_entity(topic: str) -> str:
     return stripped
 
 
-def _is_grounding_exempt(candidate: schema.Candidate) -> bool:
-    """True when the candidate carries the relevant-by-construction label.
-
-    Set by adapters that already gated their results against an explicit
-    keyword at retrieval time (see normalize._normalize_amazon). Checked on
-    the candidate's own metadata and on any of its source items, since
-    clustering can build a candidate from several items.
-    """
-    metadata = candidate.metadata or {}
-    if isinstance(metadata, dict) and metadata.get("grounding_exempt"):
-        return True
-    return any(
-        isinstance(item.metadata, dict) and item.metadata.get("grounding_exempt")
-        for item in candidate.source_items
-    )
-
-
-def _is_corpus_candidate(candidate: schema.Candidate) -> bool:
-    """True when the candidate carries private corpus evidence."""
-    if candidate.source == "corpus":
-        return True
-    return any(item.source == "corpus" for item in candidate.source_items)
-
-
 def prune_fallback_entity_misses(
     candidates: list[schema.Candidate],
     *,
@@ -731,10 +685,8 @@ def prune_fallback_entity_misses(
     marker alone is therefore not a safe filter. A candidate is removed only
     when its stable title and snippet do not clear a meaningful raw-topic
     relevance floor and it lacks a strong local-relevance signal from an
-    explicitly scoped retrieval path. Comments and transcripts are excluded
-    from this escape because incidental words there do not ground the candidate
-    itself. Private corpus candidates always escape: retrieval already accepted
-    them on body text, and titles are often filenames that omit the head token.
+    explicitly scoped retrieval path. Comments are excluded from this escape
+    because incidental words there do not ground the candidate itself.
     Source items remain in the report's diagnostic source dump.
     """
     if not topic:
@@ -743,9 +695,6 @@ def prune_fallback_entity_misses(
     kept: list[schema.Candidate] = []
     for candidate in candidates:
         if candidate.explanation != _FALLBACK_ENTITY_MISS_EXPLANATION:
-            kept.append(candidate)
-            continue
-        if _is_corpus_candidate(candidate):
             kept.append(candidate)
             continue
         if candidate.local_relevance >= FALLBACK_ENTITY_MISS_CONFIDENCE_ESCAPE:
@@ -763,11 +712,11 @@ def prune_fallback_entity_misses(
 #: Secondary entity-miss penalty applied directly to final_score (not just
 #: rerank_score). The -25 on rerank_score composes to only -15 on final_score
 #: via the 0.60 weight, which engagement bonus partially offsets on
-#: high-view YouTube items. This secondary penalty lands the full weight on
-#: the composite signal the cluster-scoring layer consumes. 2026-04-19
-#: Nate Herk "Managed Agents" video ranked at cluster #2 with score 51
-#: despite the rerank_score demotion because engagement + freshness drowned
-#: the dilute penalty. This backstop makes the demotion actually decisive.
+#: high-engagement items. This secondary penalty lands the full weight on
+#: the composite signal the cluster-scoring layer consumes. 2026-04-19 a
+#: high-view video ranked at cluster #2 with score 51 despite the
+#: rerank_score demotion because engagement + freshness drowned the dilute
+#: penalty. This backstop makes the demotion actually decisive.
 ENTITY_MISS_FINAL_PENALTY = 20.0
 
 #: Multiplier applied to a candidate whose every dated item falls outside the
@@ -783,11 +732,11 @@ OUT_OF_WINDOW_FINAL_MULTIPLIER = 0.35
 def _final_score(candidate: schema.Candidate) -> float:
     normalized_rrf = _normalized_rrf(candidate.rrf_score)
     rerank_score = candidate.rerank_score or 0.0
-    # Engagement bonus: high-engagement items (viral TikToks, popular YouTube videos)
-    # get a boost so they aren't buried by lower-engagement but text-relevant items.
-    # Engagement is log1p-normalized (0-100 range via signals.py), so a 2.5M-view
-    # TikTok scores ~15 and a 1500-view one scores ~7. The 0.05 weight gives a
-    # meaningful but not dominant boost.
+    # Engagement bonus: high-engagement items (viral posts, heavily upvoted
+    # threads) get a boost so they aren't buried by lower-engagement but
+    # text-relevant items. Engagement is log1p-normalized (0-100 range via
+    # signals.py), so a 2.5M-like post scores ~15 and a 1500-like one scores
+    # ~7. The 0.05 weight gives a meaningful but not dominant boost.
     engagement_val = candidate.engagement if candidate.engagement is not None else 0.0
     base = (
         0.60 * rerank_score

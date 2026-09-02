@@ -1,6 +1,6 @@
 """First-run setup wizard for last30days.
 
-Detects first run, performs auto-setup (cookie extraction + yt-dlp check),
+Detects first run, performs auto-setup (cookie extraction + CLI installs),
 and writes configuration. The actual wizard UI is SKILL.md-driven (the LLM
 presents it), but this module provides the detection and setup actions.
 """
@@ -17,8 +17,6 @@ from typing import Any, Dict, Optional, Tuple
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from . import brightdata
-
 logger = logging.getLogger(__name__)
 
 
@@ -31,23 +29,18 @@ def is_first_run(config: Dict[str, Any]) -> bool:
     return not config.get("SETUP_COMPLETE")
 
 
-_WELCOME_TEXT = """Welcome to /last30days! I research any topic across Reddit, X, YouTube, TikTok, Digg, arXiv, Techmeme, HN, Polymarket & more - what people actually said in the last 30 days. Let's get you set up (~30s).
+_WELCOME_TEXT = """Welcome to /last30days! I research any topic across Reddit, X, GitHub, Digg & arXiv - what people actually said in the last 30 days. Let's get you set up (~30s).
 
-I synthesize what people are actually saying right now across social, news, and market sources.
+I synthesize what people are actually saying right now across social, code, and news sources.
 
 Auto setup gives you the core sources free in about 30 seconds:
 - Reddit with comments - free keyless discovery (RSS + shreddit), no API key needed.
-- YouTube search + transcripts - installs yt-dlp (open source, 190K+ GitHub stars).
+- GitHub - always on, zero config (the gh CLI or a GITHUB_TOKEN raises rate limits).
 - Digg - trending news, GitHub stars, and pipeline feeds - installs the free, keyless Digg CLI.
-- arXiv (papers) + Techmeme (tech-news) - install free, keyless Printing Press CLIs and run on any topic (arXiv is relevance + recency gated to research topics).
-- StockTwits - retail trader sentiment - auto-on when your topic is a ticker or crypto (e.g. "$NVDA earnings", "bitcoin"), off for everything else.
-- Trustpilot - brand/company review sentiment - opt-in (add trustpilot to INCLUDE_SOURCES), off by default.
-- Hacker News + Polymarket + GitHub (auto-on if the gh CLI is installed) - always on, zero config.
+- arXiv (papers) - installs the free, keyless Printing Press CLI and runs on research topics (relevance + recency gated).
 - X/Twitter - optional. It stays available when you already configured it, or after you explicitly approve a browser-cookie read; skipping it never blocks research.
 
-Want TikTok and Instagram too? ScrapeCreators adds those (10,000 free calls, scrapecreators.com). No kickbacks, no affiliation.
-
-Power users can turn on more sources in the Manual Setup guide (LinkedIn, Bluesky, Perplexity, and others) - each needs its own credential, so they are off by default."""
+Want deeper Reddit coverage? ScrapeCreators adds a backup Reddit lane when the free path runs thin (10,000 free calls, scrapecreators.com). No kickbacks, no affiliation."""
 
 
 def render_welcome() -> str:
@@ -67,19 +60,15 @@ def run_auto_setup(config: Dict[str, Any], *, allow_browser_cookies: bool = Fals
     - Optionally runs cookie extraction for all registered domains, trying the
       browsers from ``env.cookie_extraction_browsers()``. Browser reads are off
       unless ``allow_browser_cookies`` is true.
-    - Checks if yt-dlp is installed
     - Best-effort install of digg-pp-cli (Printing Press library)
 
     Returns:
         Dict with keys:
           cookies_found: {source_name: browser_name} for each source where cookies were found
           browser_cookie_scan_attempted: bool (True only after explicit consent)
-          ytdlp_installed: bool
-          ytdlp_action: already_installed | installed | install_failed | no_homebrew
           digg_installed: bool (True when the engine can resolve digg-pp-cli on PATH)
           digg_action: already_installed | installed | installed_off_path | install_failed | no_npx
           env_written: bool (always False here — caller writes config separately)
-          ytdlp_stderr: present when ytdlp_action is install_failed
           digg_stderr: present when digg_action is install_failed
           digg_path: present when digg_action is installed_off_path (binary on disk, not on PATH)
     """
@@ -115,64 +104,19 @@ def run_auto_setup(config: Dict[str, Any], *, allow_browser_cookies: bool = Fals
                     cookies_found[source_name] = result[1]
                     break  # Found cookies for this service, stop trying browsers
 
-    # Check yt-dlp availability and install via Homebrew if missing. Windows
-    # has no Homebrew, and its working install path is `pip install yt-dlp`
-    # (see #904), so it gets its own no-op-install guidance branch instead of
-    # falling into the Homebrew-oriented no_homebrew outcome.
-    ytdlp_action: str
-    if shutil.which("yt-dlp") is not None:
-        ytdlp_installed = True
-        ytdlp_action = "already_installed"
-    elif os.name == "nt":
-        ytdlp_installed = False
-        ytdlp_action = "no_pip_windows"
-    elif shutil.which("brew") is not None:
-        brew_stderr = ""
-        try:
-            proc = subprocess.run(
-                ["brew", "install", "yt-dlp"],
-                capture_output=True, text=True, timeout=120,
-            )
-            if proc.returncode == 0:
-                ytdlp_installed = True
-                ytdlp_action = "installed"
-            else:
-                ytdlp_installed = False
-                ytdlp_action = "install_failed"
-                brew_stderr = proc.stderr
-                logger.warning("brew install yt-dlp failed: %s", proc.stderr)
-        except Exception as exc:
-            ytdlp_installed = False
-            ytdlp_action = "install_failed"
-            brew_stderr = str(exc)
-            logger.warning("brew install yt-dlp exception: %s", exc)
-    else:
-        ytdlp_installed = False
-        ytdlp_action = "no_homebrew"
-
     digg_installed, digg_action, digg_stderr, digg_path = _install_digg_cli()
     pp_sources = install_default_pp_sources()
 
     results: Dict[str, Any] = {
         "cookies_found": cookies_found,
         "browser_cookie_scan_attempted": allow_browser_cookies,
-        "ytdlp_installed": ytdlp_installed,
-        "ytdlp_action": ytdlp_action,
         "digg_installed": digg_installed,
         "digg_action": digg_action,
         # Per-CLI status for the additional default-on Printing Press sources
-        # (arxiv, techmeme, trustpilot): {source: {installed, action, ...}}.
+        # (arxiv): {source: {installed, action, ...}}.
         "pp_sources": pp_sources,
-        # Reported, never installed: this CLI spends the user's own metered
-        # credits, so acquiring it stays their decision (U5/R11). Passing
-        # config matters: a user whose key lives in a .env file or the
-        # keychain (rather than a `brightdata login` credentials file) is
-        # active in the engine, and setup must not tell them otherwise.
-        "brightdata": brightdata_status(config),
         "env_written": False,
     }
-    if ytdlp_action == "install_failed":
-        results["ytdlp_stderr"] = brew_stderr
     if digg_action == "install_failed":
         results["digg_stderr"] = digg_stderr
     if digg_path:
@@ -285,7 +229,7 @@ def _run_npx_install(slug: str) -> Tuple[str, str]:
 def _install_digg_cli() -> Tuple[bool, str, str, str]:
     """Best-effort install of the digg-pp-cli binary.
 
-    Mirrors the yt-dlp/brew auto-install: it never raises, and degrades to a
+    Best-effort like the other CLI installs: it never raises, and degrades to a
     recommend-only outcome when the installer is unavailable. Uses
     ``@mvanhorn/printing-press-library`` (``--cli-only``) — the same catalog
     installer as pp-digg; Hermes/OpenClaw skill wiring is irrelevant here.
@@ -323,94 +267,9 @@ def _install_digg_cli() -> Tuple[bool, str, str, str]:
 # Additional default-on Printing Press sources installed the same way as Digg:
 # (engine source key, slug for `install <slug>`, binary name). These activate in
 # ``pipeline.available_sources()`` when ``shutil.which`` resolves the binary.
-# Trustpilot is intentionally NOT here: it is opt-in (INCLUDE_SOURCES=trustpilot)
-# because of its headless-Chrome cookie harvest, so auto-installing its binary
-# for a source that stays off by default would be wasted work. Opting in installs
-# it on demand via `npx ... install trustpilot --cli-only` (see CONFIGURATION.md).
 PP_DEFAULT_SOURCES: list[tuple[str, str, str]] = [
     ("arxiv", "arxiv", "arxiv-pp-cli"),
-    ("techmeme", "techmeme", "techmeme-pp-cli"),
 ]
-
-# Bright Data is deliberately absent from PP_DEFAULT_SOURCES: it is not a
-# Printing Press CLI, it is opt-in like Trustpilot, and it spends the user's
-# own metered credits. Setup reports its state and never installs it.
-BRIGHTDATA_BIN = "brightdata"
-
-
-def _brightdata_off_path_binary() -> Optional[str]:
-    """Locate a brightdata binary that exists on disk but not on PATH.
-
-    Covers the common npm global prefixes. The distinction matters because
-    Hermes and OpenClaw gateways routinely run the engine with a PATH that
-    excludes the user's npm bin directory, so "installed" and "the engine
-    can see it" are different questions.
-    """
-    home = Path.home()
-    candidates = [
-        home / ".local" / "bin" / BRIGHTDATA_BIN,
-        home / ".npm-global" / "bin" / BRIGHTDATA_BIN,
-        Path("/opt/homebrew/bin") / BRIGHTDATA_BIN,
-        Path("/usr/local/bin") / BRIGHTDATA_BIN,
-    ]
-    npm_prefix = os.environ.get("NPM_CONFIG_PREFIX")
-    if npm_prefix:
-        candidates.insert(0, Path(npm_prefix) / "bin" / BRIGHTDATA_BIN)
-    for candidate in candidates:
-        try:
-            if candidate.is_file() and os.access(candidate, os.X_OK):
-                return str(candidate)
-        except OSError:
-            continue
-    return None
-
-
-def brightdata_status(config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-    """Report the Bright Data install and auth state honestly.
-
-    Deliberately never claims the source is active unless the engine's own
-    gate would pass -- ``brightdata.is_available`` is the single predicate,
-    so setup and the engine cannot drift apart. Three states matter:
-
-    * ``already_installed``  -- on PATH; ``authenticated`` says whether the
-      amazon lane will actually run.
-    * ``installed_off_path`` -- on disk but invisible to the engine, which
-      is the Hermes/OpenClaw failure mode. Carries the path so the user can
-      fix their PATH.
-    * ``not_installed``      -- nothing found. No auto-install: this CLI
-      spends the user's metered credits, so acquiring it is their call.
-    """
-    installed = brightdata.is_installed()
-    authenticated = brightdata.has_credentials(config)
-    if installed:
-        action = "already_installed"
-        off_path = ""
-    else:
-        off_path = _brightdata_off_path_binary() or ""
-        action = "installed_off_path" if off_path else "not_installed"
-
-    status: Dict[str, Any] = {
-        "installed": installed,
-        "action": action,
-        "authenticated": installed and authenticated,
-        # The engine gate, verbatim. Never report active on anything else.
-        "engine_active": brightdata.is_available(config),
-    }
-    if off_path:
-        status["path"] = off_path
-        status["hint"] = (
-            f"brightdata found at {off_path} but not on PATH; add its directory "
-            "to PATH so the engine subprocess can see it"
-        )
-    elif installed and not authenticated:
-        status["hint"] = "run `brightdata login` to activate the amazon source"
-    elif not installed:
-        status["hint"] = (
-            "install with `npm i -g @brightdata/cli` then `brightdata login` "
-            "to enable the amazon source"
-        )
-    return status
-
 
 def _pp_bin_candidate_paths(bin_name: str) -> list[Path]:
     """Known install locations for a Printing Press CLI binary (slug-parameterized
@@ -659,25 +518,6 @@ def get_setup_status_text(results: Dict[str, Any]) -> str:
         for source, browser in cookies_found.items():
             lines.append(f"  - {source.upper()} cookies found in {browser}")
 
-    ytdlp_action = results.get("ytdlp_action", "")
-    if ytdlp_action == "installed":
-        lines.append("  - Installed yt-dlp via Homebrew")
-    elif ytdlp_action == "install_failed":
-        lines.append("  - yt-dlp install failed \u2014 run `brew install yt-dlp` manually")
-    elif ytdlp_action == "no_homebrew":
-        lines.append("  - yt-dlp not found. Install Homebrew first, then: brew install yt-dlp")
-    elif ytdlp_action == "no_pip_windows":
-        lines.append(
-            "  - yt-dlp not found. Install with: pip install yt-dlp "
-            "(it may install to a Scripts directory not on PATH -- add it to PATH if YouTube search stays inactive)"
-        )
-    elif ytdlp_action == "already_installed":
-        lines.append("  - yt-dlp already installed")
-    elif results.get("ytdlp_installed", False):
-        lines.append("  - yt-dlp is installed (YouTube search ready)")
-    else:
-        lines.append("  - yt-dlp not found (install with: brew install yt-dlp)")
-
     digg_action = results.get("digg_action", "")
     if digg_action == "installed":
         lines.append("  - Installed Digg CLI (free AI-news clusters source now active)")
@@ -707,7 +547,7 @@ def get_setup_status_text(results: Dict[str, Any]) -> str:
         )
 
     pp_sources = results.get("pp_sources", {})
-    pp_name: dict[str, str] = {"arxiv": "arXiv", "techmeme": "Techmeme"}
+    pp_name: dict[str, str] = {"arxiv": "arXiv"}
     for source_key, entry in sorted(pp_sources.items()):
         name = pp_name.get(source_key, source_key.title())
         action = entry.get("action", "")
@@ -740,33 +580,6 @@ def get_setup_status_text(results: Dict[str, Any]) -> str:
                 f"then: `npx -y {PRINTING_PRESS_NPM} install {source_key} --cli-only`"
             )
 
-    # Bright Data / Amazon. Reported but never installed (it spends the user's
-    # own metered credits), so the only useful thing setup can do is say
-    # precisely why the lane is or is not active -- the three states below are
-    # otherwise invisible, since SKILL.md tells the model not to raise the
-    # subject mid-run.
-    brightdata_status_entry = results.get("brightdata") or {}
-    bd_action = brightdata_status_entry.get("action", "")
-    if brightdata_status_entry.get("engine_active"):
-        lines.append("  - Bright Data CLI ready (Amazon buyer signals available)")
-    elif bd_action == "already_installed":
-        lines.append(
-            "  - Bright Data CLI installed but not logged in — run "
-            "`brightdata login` to enable Amazon buyer signals (optional)"
-        )
-    elif bd_action == "installed_off_path":
-        bd_path = brightdata_status_entry.get("path", "")
-        lines.append(
-            f"  - Bright Data CLI found at {bd_path} but not on PATH — add "
-            f"{os.path.dirname(os.path.expanduser(bd_path))} to PATH and restart "
-            "your agent session/gateway for Amazon buyer signals to activate"
-        )
-    elif bd_action == "not_installed":
-        lines.append(
-            "  - Amazon buyer signals not installed (optional; 5,000 free "
-            "requests/month). Install with: npm i -g @brightdata/cli && brightdata login"
-        )
-
     env_written = results.get("env_written", False)
     if env_written:
         lines.append("")
@@ -782,9 +595,6 @@ def get_setup_status_text(results: Dict[str, Any]) -> str:
 _OPENCLAW_KEY_NAMES = [
     "SCRAPECREATORS_API_KEY",
     "XAI_API_KEY",
-    "BRAVE_API_KEY",
-    "EXA_API_KEY",
-    "SERPER_API_KEY",
     "OPENAI_API_KEY",
     "AUTH_TOKEN",
 ]
@@ -797,7 +607,6 @@ def run_openclaw_setup(config: Dict[str, Any]) -> Dict[str, Any]:
     ``run_auto_setup``). Returns a dict suitable for JSON output to stdout so
     that SKILL.md can present appropriate options to the user.
     """
-    yt_dlp = shutil.which("yt-dlp") is not None
     node = shutil.which("node") is not None
     python3 = shutil.which("python3") is not None
 
@@ -818,7 +627,6 @@ def run_openclaw_setup(config: Dict[str, Any]) -> Dict[str, Any]:
         x_method = None
 
     payload: Dict[str, Any] = {
-        "yt_dlp": yt_dlp,
         "node": node,
         "python3": python3,
         "digg_cli": digg_installed,

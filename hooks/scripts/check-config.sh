@@ -175,7 +175,7 @@ load_keychain_presence() {
   fi
   [[ -n "$user" ]] || return 0
 
-  for key in SETUP_COMPLETE OPENAI_API_KEY SCRAPECREATORS_API_KEY AUTH_TOKEN CT0 XAI_API_KEY BSKY_HANDLE EXA_API_KEY; do
+  for key in SETUP_COMPLETE OPENAI_API_KEY SCRAPECREATORS_API_KEY AUTH_TOKEN CT0 XAI_API_KEY XQUIK_API_KEY; do
     env_var="ENV_${key}"
     current="${!env_var:-}"
     if [[ -z "$current" ]]; then
@@ -233,98 +233,51 @@ except Exception:
 ' 2>/dev/null || true)
 fi
 
-# Detect capability that doesn't need a config file: yt-dlp on PATH.
-# Done before the new-user early-exit so first-run users with yt-dlp
-# installed see YouTube is already available. See #394.
-HAS_YTDLP=""
-if command -v yt-dlp &>/dev/null; then
-  HAS_YTDLP="yes"
-fi
-
 # If setup has never been run, show welcome message for new users
 if [[ -z "$SETUP_COMPLETE" && -z "$CONFIG_FILE" && -z "${ENV_OPENAI_API_KEY:-${OPENAI_API_KEY:-}}" && -z "${ENV_SCRAPECREATORS_API_KEY:-${SCRAPECREATORS_API_KEY:-}}" && -z "${ENV_AUTH_TOKEN:-${AUTH_TOKEN:-}}" && -z "${ENV_XAI_API_KEY:-${XAI_API_KEY:-}}" ]]; then
   # printf, NOT cat-with-heredoc: see the bash 5.3 heredoc deadlock note above.
-  if [[ -n "$HAS_YTDLP" ]]; then
-    # YouTube is already working via the on-system yt-dlp binary — don't list
-    # it as something the wizard needs to unlock. See #394.
-    printf '%s\n' \
-      '/last30days: Ready to use. Run /last30days to get started — setup takes 30 seconds.' \
-      '  Research any topic across Reddit, HN, X, YouTube, Polymarket (last 30 days).' \
-      '' \
-      'Reddit, Hacker News, Polymarket, and YouTube (yt-dlp detected) work out of the box.' \
-      'The setup wizard can unlock X/Twitter and more.' \
-      '  Detected: yt-dlp is installed (YouTube transcripts ready, no setup needed).'
-  else
-    printf '%s\n' \
-      '/last30days: Ready to use. Run /last30days to get started — setup takes 30 seconds.' \
-      '  Research any topic across Reddit, HN, X, YouTube, Polymarket (last 30 days).' \
-      '' \
-      'Reddit, Hacker News, and Polymarket work out of the box.' \
-      'The setup wizard can unlock X/Twitter, YouTube, and more.'
-  fi
+  printf '%s\n' \
+    '/last30days: Ready to use. Run /last30days to get started — setup takes 30 seconds.' \
+    '  Research any topic across Reddit, X, GitHub, Digg, arXiv (last 30 days).' \
+    '' \
+    'Reddit and GitHub work out of the box.' \
+    'The setup wizard can unlock X/Twitter, Digg, and arXiv.'
   if [[ -n "$LAST_RUN_LINE" ]]; then
     echo "$LAST_RUN_LINE"
   fi
   exit 0
 fi
 
-# Setup done but check for ScrapeCreators
+# Setup done: count the active sources (reddit, x, github, digg, arxiv).
 HAS_SCRAPECREATORS="${ENV_SCRAPECREATORS_API_KEY:-${SCRAPECREATORS_API_KEY:-}}"
 HAS_X=""
 if [[ -n "${ENV_AUTH_TOKEN:-${AUTH_TOKEN:-}}" && -n "${ENV_CT0:-${CT0:-}}" ]]; then
   HAS_X="yes"
 fi
 HAS_XAI="${ENV_XAI_API_KEY:-${XAI_API_KEY:-}}"
-HAS_BSKY="${ENV_BSKY_HANDLE:-${BSKY_HANDLE:-}}"
-HAS_EXA="${ENV_EXA_API_KEY:-${EXA_API_KEY:-}}"
+HAS_XQUIK="${ENV_XQUIK_API_KEY:-${XQUIK_API_KEY:-}}"
 
-# Count active sources
-SOURCE_COUNT=2  # HN + Polymarket are always free
-if [[ -n "$HAS_X" || -n "$HAS_XAI" ]]; then
+# Reddit (free keyless) and GitHub (public REST tier) always work.
+SOURCE_COUNT=2
+if [[ -n "$HAS_X" || -n "$HAS_XAI" || -n "$HAS_XQUIK" ]]; then
   SOURCE_COUNT=$((SOURCE_COUNT + 1))
 fi
-# Reddit public JSON always works
-SOURCE_COUNT=$((SOURCE_COUNT + 1))
-if [[ -n "$HAS_YTDLP" ]]; then
+# Digg and arXiv activate when their keyless Printing Press CLIs are on PATH.
+if command -v digg-pp-cli &>/dev/null; then
   SOURCE_COUNT=$((SOURCE_COUNT + 1))
 fi
-if [[ -n "$HAS_EXA" ]]; then
+if command -v arxiv-pp-cli &>/dev/null; then
   SOURCE_COUNT=$((SOURCE_COUNT + 1))
-fi
-if [[ -n "$HAS_BSKY" ]]; then
-  SOURCE_COUNT=$((SOURCE_COUNT + 1))
-fi
-if [[ -n "$HAS_SCRAPECREATORS" ]]; then
-  # Start with Reddit comments + TikTok + Instagram, subtract any in EXCLUDE_SOURCES.
-  # Normalise EXCLUDED by removing whitespace; case-insensitive matches below
-  # mirror pipeline.py's .strip().lower() parsing without requiring sed/tr.
-  SC_ADD=3
-  EXCLUDED="${ENV_EXCLUDE_SOURCES:-${EXCLUDE_SOURCES:-}}"
-  EXCLUDED_NORM="${EXCLUDED//[[:space:]]/}"
-  if [[ ",$EXCLUDED_NORM," == *",[Tt][Ii][Kk][Tt][Oo][Kk],"* ]]; then
-    SC_ADD=$((SC_ADD - 1))
-  fi
-  if [[ ",$EXCLUDED_NORM," == *",[Ii][Nn][Ss][Tt][Aa][Gg][Rr][Aa][Mm],"* ]]; then
-    SC_ADD=$((SC_ADD - 1))
-  fi
-  SOURCE_COUNT=$((SOURCE_COUNT + SC_ADD))
 fi
 
-if [[ -n "$HAS_SCRAPECREATORS" ]]; then
-  # Fully configured — compact ready message
-  echo "/last30days: Ready — ${SOURCE_COUNT} sources active."
-  echo "  Research any topic across social + market + web sources (last 30 days)."
-  if [[ -n "$LAST_RUN_LINE" ]]; then
-    echo "$LAST_RUN_LINE"
-  fi
-else
-  # Setup done but missing ScrapeCreators — recommend it
-  echo "/last30days: Ready — ${SOURCE_COUNT} sources active."
-  echo "  Research any topic across social + market + web sources (last 30 days)."
-  if [[ -n "$LAST_RUN_LINE" ]]; then
-    echo "$LAST_RUN_LINE"
-  fi
-  echo "  Tip: Add ScrapeCreators for Reddit comments + TikTok + Instagram."
+echo "/last30days: Ready — ${SOURCE_COUNT} sources active."
+echo "  Research any topic across Reddit, X, GitHub, Digg, arXiv (last 30 days)."
+if [[ -n "$LAST_RUN_LINE" ]]; then
+  echo "$LAST_RUN_LINE"
+fi
+if [[ -z "$HAS_SCRAPECREATORS" ]]; then
+  # Setup done but no ScrapeCreators key — mention the optional Reddit backup lane.
+  echo "  Tip: Add ScrapeCreators for a backup Reddit lane when the free path runs thin."
   echo "  100 free credits, no credit card — scrapecreators.com"
   echo "  last30days has no affiliation with any API provider."
 fi

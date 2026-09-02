@@ -38,27 +38,26 @@ def _report(topic: str = "OpenClaw") -> schema.Report:
                     label="primary",
                     search_query=topic,
                     ranking_query=topic,
-                    sources=["grounding"],
+                    sources=["reddit"],
                 )
             ],
-            source_weights={"grounding": 1.0},
+            source_weights={"reddit": 1.0},
         ),
         clusters=[],
         ranked_candidates=[],
-        items_by_source={"grounding": []},
+        items_by_source={"reddit": []},
         errors_by_source={},
     )
 
 
 def _diag() -> dict[str, object]:
     return {
-        "available_sources": ["grounding"],
+        "available_sources": ["reddit"],
         "providers": {"google": True, "openai": False, "xai": False},
         "x_backend": None,
         "bird_installed": True,
         "bird_authenticated": False,
         "bird_username": None,
-        "native_web_backend": "brave",
     }
 
 

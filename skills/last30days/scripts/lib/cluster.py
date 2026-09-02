@@ -174,14 +174,6 @@ def _merge_entity_clusters(
             sources_j = set(clusters[j].sources)
             if sources_i == sources_j and len(sources_i) == 1:
                 continue
-            # Prevent Polymarket clusters from merging with non-Polymarket
-            # clusters. Prediction markets about "Sam Altman equity" should not
-            # merge into a news cluster about "Sam Altman rivalry" just because
-            # both mention the same entity.
-            poly_i = "polymarket" in sources_i
-            poly_j = "polymarket" in sources_j
-            if poly_i != poly_j:
-                continue
 
             shared_entities = cluster_entities[i] & cluster_entities[j]
             overlap = entity_extract.entity_overlap(cluster_entities[i], cluster_entities[j])

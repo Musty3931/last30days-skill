@@ -27,7 +27,6 @@ class AudienceRegister:
 
 
 _DEFAULT_ORDER = (
-    "hiring_signals",
     "clusters",
     "stats",
     "best_takes",
@@ -59,7 +58,6 @@ _REGISTERS = {
         section_order=(
             "stats",
             "clusters",
-            "hiring_signals",
             "source_outcomes",
             "source_coverage",
             "best_takes",
@@ -67,10 +65,7 @@ _REGISTERS = {
         ),
         item_budgets={"clusters": 5, "best_takes": 2, "top_comments": 3},
         emphasis_weights={
-            "polymarket": 1.50,
-            "jobs": 1.30,
             "github": 1.20,
-            "grounding": 1.10,
         },
     ),
     "dev": _preset(
@@ -79,7 +74,6 @@ _REGISTERS = {
             "clusters",
             "source_outcomes",
             "source_coverage",
-            "hiring_signals",
             "stats",
             "top_comments",
             "best_takes",
@@ -87,9 +81,7 @@ _REGISTERS = {
         item_budgets={"clusters": 10, "best_takes": 3, "top_comments": 4},
         emphasis_weights={
             "github": 1.60,
-            "hackernews": 1.35,
             "arxiv": 1.30,
-            "grounding": 1.10,
         },
     ),
     "creator": _preset(
@@ -99,15 +91,11 @@ _REGISTERS = {
             "top_comments",
             "stats",
             "clusters",
-            "hiring_signals",
             "source_outcomes",
             "source_coverage",
         ),
         item_budgets={"clusters": 6, "best_takes": 5, "top_comments": 8},
         emphasis_weights={
-            "tiktok": 1.60,
-            "instagram": 1.50,
-            "youtube": 1.40,
             "x": 1.20,
             "reddit": 1.10,
         },

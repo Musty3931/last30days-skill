@@ -22,9 +22,11 @@ CONFIG_ENV_KEY_RE = re.compile(
     r"EXCLUDE_SOURCES|SETUP_COMPLETE|FUN_LEVEL"
     r")(?![A-Z0-9_])"
 )
+# Keys the docs may mention that are consumed outside env.get_config(): the
+# SKILL.md runtime-preflight interpreter variable and MCP-bundle settings.
+# LAST30DAYS_API_BASE / LAST30DAYS_API_KEY (hosted backend) are gone from this
+# fork on purpose; a doc mention of them must fail this test.
 DOC_ONLY_KEYS = {
-    "LAST30DAYS_API_BASE",
-    "LAST30DAYS_API_KEY",
     "LAST30DAYS_CACHE_DIR",
     "LAST30DAYS_MCP_TIMEOUT",
     "LAST30DAYS_PYTHON",

@@ -2,7 +2,7 @@
 
 The eval suite measures the quality properties that ordinary unit tests do not: whether ranked evidence is grounded in retrieved inputs, stays inside the requested window, forms coherent clusters, accounts for every usable fixture source, and remains deterministic.
 
-It runs the production pipeline offline. Recorded HTTP exchanges replay at `lib/http.py`; CLI-backed adapters such as yt-dlp, Digg, arXiv, Techmeme, and Trustpilot replay their parsed result at the source-module seam. Planning is supplied by each fixture manifest, and normalization, date filtering, scoring, fusion, clustering, source outcomes, and the versioned agent JSON export all run normally. The harness never calls an LLM or the network.
+It runs the production pipeline offline. Recorded HTTP exchanges replay at `lib/http.py`; CLI-backed adapters such as Digg and arXiv replay their parsed result at the source-module seam. Planning is supplied by each fixture manifest, and normalization, date filtering, scoring, fusion, clustering, source outcomes, and the versioned agent JSON export all run normally. The harness never calls an LLM or the network.
 
 ## Run it
 
@@ -30,13 +30,19 @@ CI runs the pytest command in the `eval` job of `.github/workflows/validate.yml`
 | Coverage | Fraction of fixture sources represented by usable report items or an explicit `Report.source_status` outcome. |
 | Determinism | `schema.to_dict()` equality for two runs with fixed time and identical recorded inputs. |
 
-Aggregate floors live in `tests/eval/baseline.json`. The fixture matrix covers a tech product, a person, a comparison, breaking events, a niche technical topic, and a non-English CJK topic.
+Aggregate floors live in `tests/eval/baseline.json`. The intended fixture matrix covers a tech product, a person, a comparison, breaking events, a niche technical topic, and a non-English CJK topic.
+
+## Current state: the fixture matrix is empty
+
+`tests/eval/fixtures/` holds only a README. The seven upstream recordings were made against web search (`grounding`) and Hacker News, both removed from this fork, so none of them could replay against the five surviving sources (reddit, x, github, digg, arxiv) and they were deleted rather than left to fail. While the directory has no `manifest.json`, the fixture-driven tests in `tests/eval/test_eval_harness.py` skip and the harness reports nothing to score; the negative-control test still runs.
+
+To rebuild the matrix, record one fixture per archetype with the hidden `--record-fixtures tests/eval/fixtures/<name>` flag (command below), hand-write its `manifest.json`, then re-derive `tests/eval/baseline.json` floors from the first green run and review them as a quality-policy change.
 
 ## Add or refresh a fixture
 
 Fixture directories contain:
 
-- `manifest.json`: topic archetype, fixed `as_of_date`, sources, safe dummy config, and a deterministic external query plan.
+- `manifest.json`: topic archetype, fixed `as_of_date`, sources (any subset of `reddit`, `x`, `github`, `digg`, `arxiv`), safe dummy config, and a deterministic external query plan. Written by hand; the recorder does not create it.
 - `http.json`: scrubbed HTTP exchanges and any CLI-backed source exchanges.
 
 Use the direct engine invocation below only for development/fixture capture; `/last30days <topic>` remains the product interface:
@@ -46,7 +52,7 @@ python3 skills/last30days/scripts/last30days.py \
   "<topic>" \
   --quick \
   --as-of 2026-07-10 \
-  --search grounding,hackernews \
+  --search reddit,github,digg,arxiv \
   --plan /tmp/eval-plan.json \
   --record-fixtures tests/eval/fixtures/<fixture-name>
 ```
@@ -65,12 +71,12 @@ The replay is fail-closed: an unrecorded request or an unused recorded exchange 
 ## Fixture flags
 
 - `expects_clusters` (bool): fixtures whose topic historically forms multi-member clusters set this true; if cluster formation regresses to singletons on such a fixture, coherence scores 0.0 instead of a vacuous 1.0. Sparse topics (niche, non-english-cjk, tech-product) set it false because singletons are their legitimate shape.
-- Post-ranking enrichment (YouTube transcripts, Digg posts) is recorded and replayed by merging recorded `metadata` onto freshly computed items by item_id, so normalization/scoring/dedupe regressions stay visible to the eval rather than being overwritten by fixture state.
+- Post-ranking enrichment (Reddit comments, Digg posts) is recorded and replayed by merging recorded `metadata` onto freshly computed items by item_id, so normalization/scoring/dedupe regressions stay visible to the eval rather than being overwritten by fixture state.
 - Post-rerank GitHub star enrichment records its repo->stars map and replays via `github.apply_star_map`, keeping runs offline even when `GITHUB_TOKEN` is set in CI. GitHub project-mode (`--github-repo`) and person-mode (`--github-user`) runs are not yet fixture-recordable; the network guard fails loudly if a fixture attempts them.
 
 ## Known seams
 
-- Module-backed sources (yt-dlp, digg-pp-cli and other CLI adapters) record post-parse items at the module boundary, so replay does not re-exercise their parsing/normalization code the way HTTP-backed sources do (those replay raw responses through the real pipeline). A normalization regression in a module adapter is covered by that adapter's unit tests, not the eval. Recording raw CLI stdout is a possible future upgrade.
+- Module-backed sources (digg-pp-cli, arxiv-pp-cli and other CLI adapters) record post-parse items at the module boundary, so replay does not re-exercise their parsing/normalization code the way HTTP-backed sources do (those replay raw responses through the real pipeline). A normalization regression in a module adapter is covered by that adapter's unit tests, not the eval. Recording raw CLI stdout is a possible future upgrade.
 - Cluster coherence shares `entity_extract` with production clustering. The pinned-predicate test (`test_entity_overlap_predicate_pinned`) guards against the shared predicate drifting permissive, and per-fixture floors in baseline.json catch a single archetype collapsing even when the cross-fixture average stays green.
 
 ## Move a baseline

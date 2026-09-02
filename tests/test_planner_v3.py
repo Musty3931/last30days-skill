@@ -59,13 +59,13 @@ class PlannerV3Tests(unittest.TestCase):
             "intent": "how_to",
             "freshness_mode": "balanced_recent",
             "cluster_mode": "workflow",
-            "source_weights": {"hackernews": 0.7, "reddit": 0.3},
+            "source_weights": {"digg": 0.7, "reddit": 0.3},
             "subqueries": [
                 {
                     "label": "primary",
                     "search_query": "deploy app to Fly.io guide",
                     "ranking_query": "How do I deploy an app to Fly.io?",
-                    "sources": ["hackernews"],
+                    "sources": ["digg"],
                     "weight": 1.0,
                 }
             ],
@@ -73,16 +73,16 @@ class PlannerV3Tests(unittest.TestCase):
         plan = planner._sanitize_plan(
             raw,
             "how to deploy on Fly.io",
-            ["reddit", "x", "youtube", "hackernews"],
+            ["reddit", "x", "github", "digg"],
             None,
             "default",
         )
         sources = plan.subqueries[0].sources
-        # how_to capability routing selects video + discussion
+        # how_to capability routing selects discussion + link sources
         self.assertIn("reddit", sources)
-        self.assertIn("youtube", sources)
+        self.assertIn("github", sources)
         self.assertIn("reddit", plan.source_weights)
-        self.assertIn("youtube", plan.source_weights)
+        self.assertIn("github", plan.source_weights)
         self.assertEqual("evergreen_ok", plan.freshness_mode)
 
     def test_comparison_uses_deterministic_plan_and_preserves_entities(self):
@@ -181,7 +181,7 @@ class PlannerV3Tests(unittest.TestCase):
     def test_default_comparison_uses_all_capable_sources(self):
         plan = planner.plan_query(
             topic="codex vs claude code",
-            available_sources=["reddit", "x", "youtube", "hackernews", "polymarket"],
+            available_sources=["reddit", "x", "github", "digg", "arxiv"],
             requested_sources=None,
             depth="default",
             provider=None,
@@ -192,25 +192,11 @@ class PlannerV3Tests(unittest.TestCase):
             # Default depth should not artificially cap sources
             self.assertGreaterEqual(len(subquery.sources), 4)
 
-    def test_default_how_to_keeps_youtube_in_source_mix(self):
-        plan = planner.plan_query(
-            topic="how to deploy remotion animations for claude code",
-            available_sources=["reddit", "x", "youtube", "hackernews"],
-            requested_sources=None,
-            depth="default",
-            provider=None,
-            model=None,
-        )
-        self.assertEqual("how_to", plan.intent)
-        sources = plan.subqueries[0].sources
-        self.assertIn("youtube", sources)
-        self.assertIn("reddit", sources)
-
     def test_how_to_sources_includes_capability_matched_extras(self):
         """how_to routing should include additional sources beyond the core ones."""
         plan = planner.plan_query(
             topic="how to deploy on Fly.io",
-            available_sources=["reddit", "tiktok", "instagram", "youtube", "hackernews"],
+            available_sources=["reddit", "x", "github", "digg"],
             requested_sources=None,
             depth="default",
             provider=None,
@@ -218,7 +204,7 @@ class PlannerV3Tests(unittest.TestCase):
         )
         self.assertEqual("how_to", plan.intent)
         sources = plan.subqueries[0].sources
-        self.assertIn("youtube", sources)
+        self.assertIn("github", sources)
         self.assertIn("reddit", sources)
         # Additional capability-matched sources should also be included
         self.assertGreater(len(sources), 2,
@@ -243,34 +229,6 @@ class PlannerV3Tests(unittest.TestCase):
         )
         self.assertEqual("factual", plan.intent)
         self.assertLessEqual(len(plan.subqueries), 2)
-
-    def test_default_how_to_prefers_longform_video_over_shortform(self):
-        plan = planner.plan_query(
-            topic="how to deploy on Fly.io",
-            available_sources=["reddit", "tiktok", "instagram", "youtube", "hackernews"],
-            requested_sources=None,
-            depth="default",
-            provider=None,
-            model=None,
-        )
-        self.assertEqual("how_to", plan.intent)
-        sources = plan.subqueries[0].sources
-        # how_to routing should include youtube (longform) over tiktok/instagram
-        self.assertIn("youtube", sources)
-        self.assertIn("reddit", sources)
-
-    def test_product_plan_can_include_jobs_source(self):
-        plan = planner.plan_query(
-            topic="Listen Labs features",
-            available_sources=["reddit", "youtube", "jobs", "hackernews"],
-            requested_sources=None,
-            depth="default",
-            provider=None,
-            model=None,
-        )
-        self.assertEqual("product", plan.intent)
-        self.assertIn("jobs", plan.subqueries[0].sources)
-        self.assertGreater(plan.source_weights["jobs"], plan.source_weights["youtube"])
 
     def test_prediction_includes_tiktok_and_instagram(self):
         """TikTok and Instagram are no longer excluded from prediction intent."""
@@ -305,43 +263,6 @@ class PlannerV3Tests(unittest.TestCase):
             all_sources.update(subquery.sources)
         self.assertIn("tiktok", all_sources)
         self.assertIn("instagram", all_sources)
-
-    def test_comparison_includes_polymarket(self):
-        """Polymarket should not be excluded from comparison intent plans."""
-        plan = planner.plan_query(
-            topic="Sam Altman vs Dario Amodei",
-            available_sources=["reddit", "x", "youtube", "hackernews", "polymarket"],
-            requested_sources=None,
-            depth="default",
-            provider=None,
-            model=None,
-        )
-        self.assertEqual("comparison", plan.intent)
-        all_sources = set()
-        for subquery in plan.subqueries:
-            all_sources.update(subquery.sources)
-        self.assertIn("polymarket", all_sources)
-
-    def test_polymarket_excluded_from_how_to_and_concept(self):
-        """Polymarket should remain excluded from how_to and concept intents."""
-        for topic, expected_intent in [
-            ("how to deploy on Fly.io", "how_to"),
-            ("explain transformer architecture", "concept"),
-        ]:
-            plan = planner.plan_query(
-                topic=topic,
-                available_sources=["reddit", "x", "youtube", "hackernews", "polymarket"],
-                requested_sources=None,
-                depth="default",
-                provider=None,
-                model=None,
-            )
-            self.assertEqual(expected_intent, plan.intent)
-            all_sources = set()
-            for subquery in plan.subqueries:
-                all_sources.update(subquery.sources)
-            self.assertNotIn("polymarket", all_sources,
-                             f"polymarket should be excluded from {expected_intent}")
 
     def test_opinion_includes_polymarket(self):
         """Polymarket should not be excluded from opinion intent plans."""

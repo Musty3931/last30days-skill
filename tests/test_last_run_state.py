@@ -53,27 +53,26 @@ def _report(topic: str) -> schema.Report:
                     label="primary",
                     search_query=topic,
                     ranking_query=topic,
-                    sources=["grounding"],
+                    sources=["reddit"],
                 )
             ],
-            source_weights={"grounding": 1.0},
+            source_weights={"reddit": 1.0},
         ),
         clusters=[],
         ranked_candidates=[],
-        items_by_source={"grounding": []},
+        items_by_source={"reddit": []},
         errors_by_source={},
     )
 
 
 def _diag() -> dict[str, object]:
     return {
-        "available_sources": ["grounding"],
+        "available_sources": ["reddit"],
         "providers": {"google": True, "openai": False, "xai": False},
         "x_backend": None,
         "bird_installed": True,
         "bird_authenticated": False,
         "bird_username": None,
-        "native_web_backend": "brave",
     }
 
 
@@ -184,43 +183,6 @@ class LastRunStateTests(unittest.TestCase):
             self.assertEqual(0, rc)
             self.assertIn("Cached synthesis body.", stdout.getvalue())
             self.assertIn("Reusing cached report data", stderr.getvalue())
-
-    def test_deep_research_bypasses_html_synthesis_cache(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            config_dir = Path(tmp) / "config"
-            synthesis_path = Path(tmp) / "synthesis.md"
-            synthesis_path.write_text("# Cached synthesis", encoding="utf-8")
-            with mock.patch.object(cli.env, "CONFIG_DIR", config_dir):
-                cli._write_last_run("OpenClaw", _report("OpenClaw"))
-
-            fresh_report = _report("OpenClaw")
-            config = {"OPENROUTER_API_KEY": "or-test"}
-            with mock.patch.object(cli.env, "CONFIG_DIR", config_dir), \
-                 mock.patch.object(cli.env, "get_config", return_value=config), \
-                 mock.patch.object(cli.pipeline, "diagnose", return_value=_diag()), \
-                 mock.patch.object(cli.pipeline, "run", return_value=fresh_report) as run_mock, \
-                 mock.patch.object(cli.ui, "ProgressDisplay"), \
-                 mock.patch.object(cli, "_load_last_report_cache") as cache_mock, \
-                 mock.patch.object(sys, "argv", [
-                     "last30days.py",
-                     "OpenClaw",
-                     "--deep-research",
-                     "--emit=html",
-                     "--synthesis-file",
-                     str(synthesis_path),
-                 ]), \
-                 mock.patch.dict(
-                     os.environ,
-                     {"LAST30DAYS_SKIP_PREFLIGHT": "1"},
-                     clear=False,
-                 ):
-                with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
-                    rc = cli.main()
-
-            self.assertEqual(0, rc)
-            cache_mock.assert_not_called()
-            run_mock.assert_called_once()
-            self.assertTrue(run_mock.call_args.kwargs["config"]["_deep_research"])
 
     def test_html_synthesis_reuses_cached_comparison_reports(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -420,7 +382,7 @@ class LastRunStateTests(unittest.TestCase):
         env["SETUP_COMPLETE"] = "true"
         # Strip credentials that could bleed in from the test-runner environment
         # and corrupt source-count baseline comparisons.
-        for key in ("AUTH_TOKEN", "CT0", "XAI_API_KEY", "BSKY_HANDLE", "EXA_API_KEY", "SCRAPECREATORS_API_KEY"):
+        for key in ("AUTH_TOKEN", "CT0", "XAI_API_KEY", "XQUIK_API_KEY", "SCRAPECREATORS_API_KEY"):
             env.pop(key, None)
         env.update(env_overrides)
         return subprocess.run(

@@ -1167,10 +1167,9 @@ def findings_from_report(
     """Convert report into persisted findings.
 
     Uses ranked candidates (post-rerank) when available for quality scores and explanations.
-    Supplements with raw items from items_by_source for HN/PM that didn't rank highly
-    but are valuable for watchlist persistence. When ranked_candidates is empty
-    (degraded path — rerank failed or was skipped), falls back to supplementing
-    all sources from items_by_source so findings aren't silently dropped.
+    When ranked_candidates is empty (degraded path — rerank failed or was
+    skipped), falls back to supplementing all sources from items_by_source so
+    findings aren't silently dropped.
     """
     findings = []
     seen_urls = set()
@@ -1180,9 +1179,7 @@ def findings_from_report(
         seen_urls.add(candidate.url)
 
     supplement_sources = (
-        list(report.items_by_source)
-        if not report.ranked_candidates
-        else ["hackernews", "polymarket"]
+        list(report.items_by_source) if not report.ranked_candidates else []
     )
     for source_name in supplement_sources:
         if source_name not in report.items_by_source:

@@ -24,7 +24,7 @@ RUNNABLE = re.compile(
     r"^(?:python3 \S*last30days\.py\b"
     r"|[A-Z][A-Z0-9_]*="
     r"|export [A-Z][A-Z0-9_]*="
-    r"|(?:brew|pipx|pip|scoop|npx|npm|xurl|yt-dlp|docker|grok) )"
+    r"|(?:brew|pipx|pip|scoop|npx|npm|xurl|docker|grok) )"
 )
 
 # The seed failure inventory from the plan (U3 approach section).
@@ -32,16 +32,9 @@ SEED_INVENTORY = {
     ("x", "cookies_missing"),
     ("x", "cookies_expired"),
     ("scrapecreators", "key_missing"),
-    ("bluesky", "app_password_missing"),
-    ("youtube", "transcription_key_missing"),
     ("digg", "pp_cli_missing"),
     ("digg", "pp_cli_off_path"),
     ("digg", "pp_cli_broken"),
-    ("youtube", "ytdlp_missing"),
-    ("youtube", "ytdlp_stale"),
-    ("youtube", "ytdlp_broken"),
-    ("truthsocial", "token_missing"),
-    ("xiaohongshu", "service_unreachable"),
 }
 
 
@@ -115,12 +108,6 @@ class TestDocumentedCliForms:
         entry = prescriptions.get("scrapecreators", "key_missing")
         assert entry.fix_cli == "python3 skills/last30days/scripts/last30days.py setup --github"
 
-    def test_ytdlp_install_and_reinstall_reference_u1_health_strings(self):
-        """Binary-class fixes reference U1's tables instead of restating them."""
-        install, reinstall = health._MANAGER_PRESCRIPTIONS["yt-dlp"]["brew"]
-        assert prescriptions.get("youtube", "ytdlp_missing").fix_cli == install
-        assert prescriptions.get("youtube", "ytdlp_broken").fix_cli == reinstall
-
     def test_digg_install_references_u1_printing_press_command(self):
         entry = prescriptions.get("digg", "pp_cli_missing")
         assert entry.fix_cli == health._pp_install_cmd("digg-pp-cli")
@@ -130,9 +117,8 @@ class TestDocumentedCliForms:
 # Scenario 2: quality_nudge text derives from the same registry entries
 # ---------------------------------------------------------------------------
 
-def _nudge(config_overrides=None, result_overrides=None, ytdlp_installed=False):
+def _nudge(config_overrides=None, result_overrides=None):
     from lib.quality_nudge import compute_quality_score
-    from lib import youtube_yt
 
     config = {
         "AUTH_TOKEN": None,
@@ -142,10 +128,9 @@ def _nudge(config_overrides=None, result_overrides=None, ytdlp_installed=False):
         "SCRAPECREATORS_API_KEY": None,
     }
     config.update(config_overrides or {})
-    results = {"x_error": None, "youtube_error": None, "reddit_error": None}
+    results = {"x_error": None, "reddit_error": None}
     results.update(result_overrides or {})
-    with patch.object(youtube_yt, "is_ytdlp_installed", return_value=ytdlp_installed):
-        return compute_quality_score(config, results)
+    return compute_quality_score(config, results)
 
 
 class TestSharedWithQualityNudge:
@@ -155,7 +140,6 @@ class TestSharedWithQualityNudge:
         q = _nudge(
             config_overrides={"AUTH_TOKEN": "tok123"},
             result_overrides={"x_error": "401 unauthorized"},
-            ytdlp_installed=True,
         )
         assert q["nudge_text"] is not None
         assert entry.fix_nl in q["nudge_text"]
@@ -163,28 +147,9 @@ class TestSharedWithQualityNudge:
         assert q["core_errored"] == ["x"]
 
     def test_x_cookie_missing_is_an_optional_omission_not_a_nudge(self):
-        q = _nudge(ytdlp_installed=True)
+        q = _nudge()
         assert q["nudge_text"] is None
         assert q["core_missing"] == []
-
-    def test_ytdlp_missing_nudge_uses_registry_cli(self):
-        entry = prescriptions.get("youtube", "ytdlp_missing")
-        q = _nudge(config_overrides={"AUTH_TOKEN": "tok123"}, ytdlp_installed=False)
-        assert entry.fix_cli in q["nudge_text"]
-
-    def test_ytdlp_stale_degraded_nudge_uses_registry_cli_forms(self):
-        entry = prescriptions.get("youtube", "ytdlp_stale")
-        q = _nudge(
-            config_overrides={"AUTH_TOKEN": "tok123"},
-            ytdlp_installed=True,
-            result_overrides={
-                "youtube_videos_count": 6,
-                "youtube_transcripts_count": 0,
-            },
-        )
-        assert entry.fix_cli in q["nudge_text"]
-        for alt in entry.alt_cli:
-            assert alt in q["nudge_text"]
 
     def test_quality_nudge_source_no_longer_hardcodes_fix_strings(self):
         """The migrated fix strings must live in the registry only.
@@ -198,7 +163,6 @@ class TestSharedWithQualityNudge:
         assert "brew " not in source
         assert "api.x.ai" not in source
         assert "log into x.com" not in source
-        assert "yt-dlp: brew" not in source
 
 
 # ---------------------------------------------------------------------------
@@ -228,22 +192,22 @@ class TestFallback:
 
 class TestDependencyProbeComposition:
     def test_ok_probe_needs_no_prescription(self):
-        probe = health.DependencyProbe(name="yt-dlp", status=health.OK, detail="2026.06.01")
+        probe = health.DependencyProbe(name="digg-pp-cli", status=health.OK, detail="0.3.1")
         assert prescriptions.for_dependency_probe(probe) is None
 
     def test_probe_prescription_wins_the_cli_form(self):
-        """U1's machine-aware string (pipx owner here) overrides the static CLI."""
+        """U1's machine-aware string overrides the static CLI form."""
         probe = health.DependencyProbe(
-            name="yt-dlp",
+            name="digg-pp-cli",
             status=health.BROKEN,
-            detail="yt-dlp resolves to /x/yt-dlp but won't execute: stale shim",
-            prescription="pipx reinstall yt-dlp",
+            detail="digg-pp-cli resolves to /x/digg-pp-cli but won't execute: stale shim",
+            prescription="npx -y printing-press install digg --cli-only --force",
         )
         entry = prescriptions.for_dependency_probe(probe)
         assert entry is not None
-        assert entry.fix_cli == "pipx reinstall yt-dlp"
+        assert entry.fix_cli == "npx -y printing-press install digg --cli-only --force"
         # Registry vocabulary (NL form) is retained.
-        assert entry.fix_nl == prescriptions.get("youtube", "ytdlp_broken").fix_nl
+        assert entry.fix_nl == prescriptions.get("digg", "pp_cli_broken").fix_nl
 
     def test_digg_off_path_probe_maps_to_the_path_entry(self):
         probe = health.DependencyProbe(
@@ -297,14 +261,14 @@ class TestDependencyProbeComposition:
 
     def test_unregistered_dependency_wraps_the_probe(self):
         probe = health.DependencyProbe(
-            name="ffmpeg",
+            name="node",
             status=health.MISSING,
-            detail="ffmpeg not found on PATH",
-            prescription="brew install ffmpeg",
+            detail="node not found on PATH",
+            prescription="brew install node",
         )
         entry = prescriptions.for_dependency_probe(probe)
         assert entry is not None
-        assert entry.fix_cli == "brew install ffmpeg"
+        assert entry.fix_cli == "brew install node"
         assert entry.fix_nl  # still has a natural-language form
 
 
@@ -333,18 +297,3 @@ class TestBackendComposition:
         assert entry.fix_cli in finding.prescription
         # test_backend_descriptors requires the key name to stay present.
         assert "SCRAPECREATORS_API_KEY" in finding.prescription
-
-
-class TestAltCliArityPin:
-    """Greptile PR review: quality_nudge composes YouTube nudges from the two
-    platform alternates on the ytdlp entries. The consumer is now tolerant of
-    any arity (degrades wording instead of crashing), and this pin keeps the
-    wording rich: both entries must keep at least the scoop + pip alternates."""
-
-    @pytest.mark.parametrize("failure", ["ytdlp_missing", "ytdlp_stale"])
-    def test_ytdlp_entries_keep_two_platform_alternates(self, failure):
-        entry = prescriptions.get("youtube", failure)
-        assert len(entry.alt_cli) >= 2, (
-            f"youtube/{failure} lost a platform alternate; quality_nudge "
-            "wording degrades (tolerant, but fix the entry or the prose)"
-        )

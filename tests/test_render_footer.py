@@ -60,9 +60,9 @@ def test_footer_omits_clean_no_results_sources():
         items_by_source={"reddit": [_reddit_item()]},
         source_status={
             "reddit": schema.SourceOutcome(source="reddit", state=health.OK, items_returned=1),
-            "jobs": schema.SourceOutcome(source="jobs", state=schema.NO_RESULTS),
-            "polymarket": schema.SourceOutcome(source="polymarket", state=schema.NO_RESULTS),
-            "youtube": schema.SourceOutcome(source="youtube", state=schema.NO_RESULTS),
+            "github": schema.SourceOutcome(source="github", state=schema.NO_RESULTS),
+            "digg": schema.SourceOutcome(source="digg", state=schema.NO_RESULTS),
+            "arxiv": schema.SourceOutcome(source="arxiv", state=schema.NO_RESULTS),
         },
     )
 
@@ -71,9 +71,12 @@ def test_footer_omits_clean_no_results_sources():
     # Populated source stays.
     assert "🟠 Reddit: 1 thread" in text
     # Clean zero-result sources do not get a footer line.
-    assert "Jobs: no results" not in text
-    assert "Polymarket: no results" not in text
-    assert "YouTube: no results" not in text
+    assert "GitHub: no results" not in text
+    assert "Digg: no results" not in text
+    assert "arXiv: no results" not in text
+    assert "🐙 GitHub" not in text
+    assert "⛏️ Digg" not in text
+    assert "📄 arXiv" not in text
 
 
 def test_footer_omits_errored_zero_item_source_but_keeps_evidence():
@@ -106,7 +109,7 @@ def test_footer_preserves_save_path_when_all_sources_empty():
     # removal, which previously suppressed the whole footer incl. save path).
     report = _report(
         source_status={
-            "jobs": schema.SourceOutcome(source="jobs", state=schema.NO_RESULTS),
+            "github": schema.SourceOutcome(source="github", state=schema.NO_RESULTS),
             "x": schema.SourceOutcome(
                 source="x", state=schema.RATE_LIMITED, detail="429", fix_hint="doctor"
             ),
@@ -118,13 +121,13 @@ def test_footer_preserves_save_path_when_all_sources_empty():
     assert "✅ All agents reported back!" in text
     assert "Raw results saved to /tmp/l30d-scratch/topic-raw.md" in text
     # No per-source line for the zero-item sources.
-    assert "Jobs" not in text
+    assert "GitHub" not in text
     assert "rate-limited" not in text
 
 
 def test_footer_empty_with_no_save_path_returns_nothing():
     report = _report(
-        source_status={"jobs": schema.SourceOutcome(source="jobs", state=schema.NO_RESULTS)},
+        source_status={"github": schema.SourceOutcome(source="github", state=schema.NO_RESULTS)},
     )
     assert render._render_emoji_footer(report, None) == []
 
@@ -160,19 +163,19 @@ def test_footer_keeps_partial_populated_source_without_warning_text():
     as counts only: run diagnostics live in doctor --postmortem, the saved raw
     file, and the model-facing ## Partial Coverage note, never on the
     user-facing conclusion surface."""
-    ig_item = schema.SourceItem(
-        item_id="ig1",
-        source="instagram",
-        title="A reel",
-        body="caption",
-        url="https://instagram.com/reel/1",
+    x_item = schema.SourceItem(
+        item_id="x1",
+        source="x",
+        title="A post",
+        body="post text",
+        url="https://x.com/i/status/1",
     )
     report = _report(
-        items_by_source={"reddit": [_reddit_item()], "instagram": [ig_item]},
+        items_by_source={"reddit": [_reddit_item()], "x": [x_item]},
         source_status={
             "reddit": schema.SourceOutcome(source="reddit", state=health.OK, items_returned=1),
-            "instagram": schema.SourceOutcome(
-                source="instagram",
+            "x": schema.SourceOutcome(
+                source="x",
                 state=schema.PARTIAL,
                 items_returned=1,
                 detail="HTTP 400: Bad Request",
@@ -183,28 +186,28 @@ def test_footer_keeps_partial_populated_source_without_warning_text():
 
     text = render.render_compact(report)
 
-    assert "📸 Instagram: 1 reel" in text
+    assert "🔵 X: 1 post" in text
     footer = text.split("✅ All agents reported back!", 1)[1]
     assert "⚠" not in footer
     assert "run doctor" not in footer
     assert "## Partial Coverage" in text
-    assert "Instagram" in text.split("## Partial Coverage", 1)[1].split("\n\n", 1)[0] or "Instagram partial" in text
+    assert "> X partial" in text.split("## Partial Coverage", 1)[1]
 
 
 def test_footer_auth_failed_populated_source_has_no_warning_text():
-    ig_item = schema.SourceItem(
-        item_id="ig1",
-        source="instagram",
-        title="A reel",
-        body="caption",
-        url="https://instagram.com/reel/1",
+    x_item = schema.SourceItem(
+        item_id="x1",
+        source="x",
+        title="A post",
+        body="post text",
+        url="https://x.com/i/status/1",
     )
     report = _report(
-        items_by_source={"reddit": [_reddit_item()], "instagram": [ig_item]},
+        items_by_source={"reddit": [_reddit_item()], "x": [x_item]},
         source_status={
             "reddit": schema.SourceOutcome(source="reddit", state=health.OK, items_returned=1),
-            "instagram": schema.SourceOutcome(
-                source="instagram",
+            "x": schema.SourceOutcome(
+                source="x",
                 state=schema.AUTH_FAILED,
                 items_returned=1,
                 detail="HTTP 401",
@@ -216,7 +219,7 @@ def test_footer_auth_failed_populated_source_has_no_warning_text():
     text = render.render_compact(report)
     footer = text.split("✅ All agents reported back!", 1)[1]
 
-    assert "📸 Instagram: 1 reel" in footer
+    assert "🔵 X: 1 post" in footer
     assert "⚠" not in footer
     assert "auth-failed" in text.split("## Partial Coverage", 1)[1]
 
@@ -226,15 +229,15 @@ def test_compact_drops_source_failure_warnings_and_source_errors_block():
         items_by_source={"reddit": [_reddit_item()]},
         source_status={
             "reddit": schema.SourceOutcome(source="reddit", state=health.OK, items_returned=1),
-            "jobs": schema.SourceOutcome(source="jobs", state=schema.UNREACHABLE, items_returned=0, detail="DNS"),
+            "github": schema.SourceOutcome(source="github", state=schema.UNREACHABLE, items_returned=0, detail="DNS"),
         },
     )
     report.warnings = [
-        "Some sources failed: jobs",
+        "Some sources failed: github",
         "Some sources returned partial results (degraded): reddit",
         "Evidence is thin for this topic.",
     ]
-    report.errors_by_source = {"jobs": "URL Error: nodename nor servname provided"}
+    report.errors_by_source = {"github": "URL Error: nodename nor servname provided"}
 
     compact = render.render_compact(report)
     assert "## Source Errors" not in compact
@@ -247,8 +250,8 @@ def test_compact_drops_source_failure_warnings_and_source_errors_block():
 
     payload = schema.to_dict(report)
     assert payload["warnings"] == report.warnings
-    assert payload["errors_by_source"] == {"jobs": "URL Error: nodename nor servname provided"}
-    assert payload["source_status"]["jobs"]["state"] == schema.UNREACHABLE
+    assert payload["errors_by_source"] == {"github": "URL Error: nodename nor servname provided"}
+    assert payload["source_status"]["github"]["state"] == schema.UNREACHABLE
 
 
 def test_footer_carries_freshness_verdict():

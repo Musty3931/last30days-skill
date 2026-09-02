@@ -109,8 +109,8 @@ def probe_command(
 # Dependency probes (doctor command, issue #692).
 #
 # ``probe_dependency`` generalizes ``probe_command`` for the skill's external
-# binaries (yt-dlp, Printing Press CLIs, node for the vendored bird client,
-# ffmpeg). It answers three questions the bare shutil.which gate cannot:
+# binaries (Printing Press CLIs, node for the vendored bird client, the grok
+# CLI). It answers three questions the bare shutil.which gate cannot:
 #   - Is the binary genuinely runnable (a stale shim that resolves on PATH but
 #     cannot exec is BROKEN, not available)?
 #   - If not, WHICH fix applies (install vs reinstall vs a PATH edit), keyed to
@@ -132,12 +132,10 @@ _PP_CLI_SUFFIX = "-pp-cli"
 _PRINTING_PRESS_NPM = "@mvanhorn/printing-press-library@0.1.16"
 
 # Dependencies the doctor probes by default.
-KNOWN_DEPENDENCIES: Tuple[str, ...] = ("yt-dlp", "digg-pp-cli", "node", "ffmpeg", "grok")
+KNOWN_DEPENDENCIES: Tuple[str, ...] = ("digg-pp-cli", "arxiv-pp-cli", "node", "grok")
 
 # Cheap side-effect-free version invocation per dependency (default --version).
-_VERSION_ARGS: Dict[str, List[str]] = {
-    "ffmpeg": ["-version"],
-}
+_VERSION_ARGS: Dict[str, List[str]] = {}
 
 # Package managers each dependency may be owned by, in preference order, and
 # the (install, reinstall) prescription for each. "reinstall" wording matters:
@@ -145,17 +143,9 @@ _VERSION_ARGS: Dict[str, List[str]] = {
 # no-op ("it's already installed") — the stale-shim trap this module exists
 # to name.
 _MANAGER_PRESCRIPTIONS: Dict[str, Dict[str, Tuple[str, str]]] = {
-    "yt-dlp": {
-        "brew": ("brew install yt-dlp", "brew reinstall yt-dlp"),
-        "pipx": ("pipx install yt-dlp", "pipx reinstall yt-dlp"),
-    },
     "node": {
         "brew": ("brew install node", "brew reinstall node"),
         "nvm": ("nvm install --lts", "reinstall node via nvm: nvm install --lts && nvm use --lts"),
-    },
-    "ffmpeg": {
-        "brew": ("brew install ffmpeg", "brew reinstall ffmpeg"),
-        "apt": ("sudo apt-get install -y ffmpeg", "sudo apt-get install -y --reinstall ffmpeg"),
     },
     # The official installer is the primary path; npm is a real alternative
     # (the package is published as @xai-official/grok) and fits the existing
@@ -170,17 +160,9 @@ _MANAGER_PRESCRIPTIONS: Dict[str, Dict[str, Tuple[str, str]]] = {
 
 # Last-resort prescriptions when no known package manager is detected.
 _FALLBACK_PRESCRIPTIONS: Dict[str, Tuple[str, str]] = {
-    "yt-dlp": (
-        "install yt-dlp (https://github.com/yt-dlp/yt-dlp#installation) and ensure it is on PATH",
-        "reinstall yt-dlp (https://github.com/yt-dlp/yt-dlp#installation); the current binary won't run",
-    ),
     "node": (
         "install Node.js 22+ (https://nodejs.org) and ensure `node` is on PATH",
         "reinstall Node.js 22+ (https://nodejs.org); the current binary won't run",
-    ),
-    "ffmpeg": (
-        "install ffmpeg (https://ffmpeg.org/download.html) and ensure it is on PATH",
-        "reinstall ffmpeg (https://ffmpeg.org/download.html); the current binary won't run",
     ),
     "grok": (
         "install the Grok CLI: curl -fsSL https://x.ai/cli/install.sh | bash, then run `grok login`",

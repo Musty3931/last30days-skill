@@ -7,7 +7,7 @@ what the next run will do.
 
 Two resolution modes:
 
-- ``alternative`` (X, YouTube, web search): the pipeline tries genuinely
+- ``alternative`` (X): the pipeline tries genuinely
   interchangeable backends in a declared order. Resolution probes ALL
   candidates first, then picks (collect-then-pick): the first fully-usable
   backend wins the "will use" prediction; otherwise the best degraded
@@ -29,7 +29,7 @@ say the next run will try" — rendered as "will use". It is not an
 observation of what served a past run, and runtime failover can still
 diverge mid-run (a present-but-expired paid key passes a presence probe).
 
-Paid lanes (xai, xquik, serper, and every other API-key backend, including
+Paid lanes (xai, xquik, and every other API-key backend, including
 ScrapeCreators) probe KEY PRESENCE ONLY: a dict lookup, never a network
 call or credential spend. Binary-backed lanes reuse the U1 dependency
 probe layer (``health.probe_dependency``) so a stale shim reads as BROKEN,
@@ -56,16 +56,6 @@ MODE_CONDITIONAL = "conditional"  # per-query routing; wording, never a winner
 TIER_OK = "ok"
 TIER_WARN = "warn"
 TIER_ERROR = "error"
-
-# Web search backend order. grounding.web_search's auto branch owns the
-# runtime behavior (brave -> exa -> serper -> parallel -> keyless floor);
-# there is no importable constant there, so this declaration is guarded by
-# the grounding-auto parity test rather than an import.
-WEB_BACKEND_ORDER: Tuple[str, ...] = ("brave", "exa", "serper", "parallel", "keyless")
-
-# YouTube backend order (pipeline: yt-dlp first, ScrapeCreators search
-# fallback when yt-dlp is absent or fails — see lib/pipeline.py).
-YOUTUBE_BACKEND_ORDER: Tuple[str, ...] = ("yt-dlp", "scrapecreators")
 
 # Chain-failure fixes embed the registry's CLI forms (KTD 7): the command a
 # backend finding prescribes and the one doctor/quality-nudge render for the
@@ -126,7 +116,7 @@ class ChainDescriptor:
     mode: str
     backends: Tuple[BackendSpec, ...]
     pin_var: Optional[str] = None   # env var pin (X, Reddit)
-    pin_flag: Optional[str] = None  # CLI flag pin (web: --web-backend)
+    pin_flag: Optional[str] = None  # CLI-flag pin, for chains pinned per run rather than by env var
 
 
 @dataclass
@@ -377,37 +367,6 @@ def _probe_xurl(config: Dict[str, Any]) -> BackendFinding:
     )
 
 
-def _probe_ytdlp(config: Dict[str, Any]) -> BackendFinding:
-    """yt-dlp via the U1 dependency-probe layer (missing/broken/timeout)."""
-    dep = health.probe_dependency("yt-dlp")
-    return BackendFinding(
-        name="yt-dlp",
-        status=dep.status,
-        detail=dep.detail,
-        prescription=dep.prescription,
-        requires="yt-dlp on the agent-subprocess PATH",
-    )
-
-
-def _probe_web_keyless(config: Dict[str, Any]) -> BackendFinding:
-    """The keyless web-search floor: works keyless, but degraded quality."""
-    requires = "no key; suppressed on native-search hosts"
-    if env.keyless_web_allowed(config):
-        return BackendFinding(
-            name="keyless",
-            status=health.DEGRADED,
-            detail="keyless search floor (no paid key; lower quality)",
-            requires=requires,
-        )
-    return BackendFinding(
-        name="keyless",
-        status=health.MISSING,
-        detail="keyless floor suppressed: host has native web search",
-        prescription="",
-        requires=requires,
-    )
-
-
 def _probe_reddit_public(config: Dict[str, Any]) -> BackendFinding:
     """Public keyless Reddit composite; internal lanes are sub-probe detail."""
     return BackendFinding(
@@ -432,15 +391,6 @@ _X_PROBES: Dict[str, Callable[[Dict[str, Any]], BackendFinding]] = {
 _X_PAID = {"xai", "xquik"}
 # Opt-in backends: never auto-selected; require explicit pin.
 _X_OPT_IN = set(env.X_BACKEND_OPT_IN)
-
-_WEB_PROBES: Dict[str, Callable[[Dict[str, Any]], BackendFinding]] = {
-    "brave": _key_probe("brave", "BRAVE_API_KEY", "BRAVE_API_KEY"),
-    "exa": _key_probe("exa", "EXA_API_KEY", "EXA_API_KEY"),
-    "serper": _key_probe("serper", "SERPER_API_KEY", "SERPER_API_KEY"),
-    "parallel": _key_probe("parallel", "PARALLEL_API_KEY", "PARALLEL_API_KEY"),
-    "keyless": _probe_web_keyless,
-}
-_WEB_KEYED = {"brave", "exa", "serper", "parallel"}
 
 _SC_SPEC = BackendSpec(
     name="scrapecreators",
@@ -481,35 +431,6 @@ DESCRIPTORS: Dict[str, ChainDescriptor] = {
         ),
         pin_var=env.X_BACKEND_PIN_VAR,
     ),
-    "youtube": ChainDescriptor(
-        source="youtube",
-        mode=MODE_ALTERNATIVE,
-        backends=(
-            BackendSpec(
-                name="yt-dlp",
-                requires="yt-dlp on the agent-subprocess PATH",
-                probe=_probe_ytdlp,
-            ),
-            _SC_SPEC,
-        ),
-        pin_var=None,  # no YouTube pin knob exists
-    ),
-    "web": ChainDescriptor(
-        source="web",
-        mode=MODE_ALTERNATIVE,
-        backends=tuple(
-            BackendSpec(
-                name=name,
-                requires=(f"{name.upper()}_API_KEY" if name in _WEB_KEYED
-                          else "no key; suppressed on native-search hosts"),
-                probe=_WEB_PROBES[name],
-                paid=name in _WEB_KEYED,
-            )
-            for name in WEB_BACKEND_ORDER
-        ),
-        pin_var=None,  # pinned per-run via --web-backend, not an env var
-        pin_flag="--web-backend",
-    ),
     "reddit": ChainDescriptor(
         source="reddit",
         mode=MODE_CONDITIONAL,
@@ -542,7 +463,7 @@ def resolve(
 ) -> BackendResolution:
     """Resolve a chained source's routing into a truthful prediction.
 
-    ``pin`` is an explicit per-run pin (the ``--web-backend`` flag); it
+    ``pin`` is an explicit per-run pin (a CLI flag, when one exists); it
     takes precedence over the descriptor's env pin var. ``"auto"``/None
     mean unpinned. Probing is side-effect-free and collect-then-pick.
 

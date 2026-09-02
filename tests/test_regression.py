@@ -70,13 +70,13 @@ class RegressionTests(unittest.TestCase):
             self.assertNotIn("corsair", joined)
             self.assertNotIn("mouse", joined)
 
-    def test_how_to_keeps_web_video_and_discussion_sources(self):
+    def test_how_to_keeps_code_and_discussion_sources(self):
         payload = run_mock_json("how to deploy on Fly.io")
         self.assert_common_shape(payload)
         plan = payload["query_plan"]
         self.assertEqual("how_to", plan["intent"])
         sources = set(plan["subqueries"][0]["sources"])
-        self.assertIn("youtube", sources)
+        self.assertIn("github", sources)
         self.assertIn("reddit", sources)
         self.assertGreaterEqual(len(sources), 2)
 

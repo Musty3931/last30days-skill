@@ -34,10 +34,10 @@ def make_plan() -> schema.QueryPlan:
                 label="primary",
                 search_query="openclaw vs nanoclaw",
                 ranking_query="How does openclaw compare to nanoclaw?",
-                sources=["grounding", "reddit"],
+                sources=["x", "reddit"],
             )
         ],
-        source_weights={"grounding": 1.0, "reddit": 0.8},
+        source_weights={"x": 1.0, "reddit": 0.8},
     )
 
 
@@ -73,11 +73,11 @@ class RerankV3Tests(unittest.TestCase):
 
     def test_build_prompt_includes_source_labels_and_dates(self):
         candidate = make_candidate(80.0)
-        candidate.sources = ["grounding", "reddit"]
+        candidate.sources = ["x", "reddit"]
         candidate.source_items = [
             schema.SourceItem(
                 item_id="i1",
-                source="grounding",
+                source="x",
                 title="Title",
                 body="Body",
                 url="https://example.com",
@@ -85,7 +85,7 @@ class RerankV3Tests(unittest.TestCase):
             )
         ]
         prompt = rerank._build_prompt("topic", make_plan(), [candidate])
-        self.assertIn("sources: grounding, reddit", prompt)
+        self.assertIn("sources: x, reddit", prompt)
         self.assertIn("date: 2026-03-16", prompt)
         self.assertIn("How does openclaw compare to nanoclaw?", prompt)
 
@@ -182,7 +182,7 @@ class RerankV3Tests(unittest.TestCase):
 
 class EntityGroundingTests(unittest.TestCase):
     """Unit 4: Reranker entity-grounding demotion. 2026-04-19 Hermes Agent
-    Use Cases failure: an off-topic video about Claude Managed Agents
+    Use Cases failure: an off-topic post about Claude Managed Agents
     scored 51 and ranked #2 with zero Hermes content.
     """
 
@@ -190,12 +190,12 @@ class EntityGroundingTests(unittest.TestCase):
         return schema.Candidate(
             candidate_id=f"c-{title[:10]}",
             item_id="i1",
-            source="youtube",
+            source="x",
             title=title,
             url="https://example.com",
             snippet=snippet,
             subquery_labels=["primary"],
-            native_ranks={"primary:youtube": 1},
+            native_ranks={"primary:x": 1},
             local_relevance=0.8,
             freshness=80,
             engagement=50,
@@ -222,7 +222,7 @@ class EntityGroundingTests(unittest.TestCase):
         self.assertEqual(on_topic.explanation, "fallback-local-score")
 
     def test_fallback_grounds_on_head_token_not_full_phrase(self):
-        # Regression: a 323-pt HN thread titled "Stripe is friendly to
+        # Regression: a 323-upvote thread titled "Stripe is friendly to
         # 'friendly fraud'" was demoted to score 0 on a "Stripe payments"
         # query because it lacked the trailing word "payments". The brand
         # token alone must ground the item - trailing descriptors are search
@@ -294,7 +294,7 @@ class FallbackVisibilityTests(unittest.TestCase):
         snippet: str,
         local_relevance: float,
         explanation: str,
-        source: str = "youtube",
+        source: str = "x",
     ) -> schema.Candidate:
         candidate = schema.Candidate(
             candidate_id=f"{source}-{title[:18]}",
@@ -356,7 +356,7 @@ class FallbackVisibilityTests(unittest.TestCase):
             source="reddit",
         )
         incidental_metadata.metadata = {
-            "transcript_snippet": "One speaker briefly says agents.",
+            "comment_insights": ["One commenter briefly says agents."],
             "top_comments": [{"excerpt": "Execution was the best part."}],
         }
         generic_title = self._candidate(
@@ -366,17 +366,6 @@ class FallbackVisibilityTests(unittest.TestCase):
             explanation="fallback-local-score (entity-miss demotion)",
             source="x",
         )
-        # Corpus titles are often filenames; retrieval may have matched body text
-        # that never lands in title/snippet, so local_relevance can sit below the
-        # public escape floor without meaning the document is off-topic.
-        corpus_body_match = self._candidate(
-            title="meeting-notes.md",
-            snippet="Agenda and follow-ups from last week.",
-            local_relevance=0.22,
-            explanation="fallback-local-score (entity-miss demotion)",
-            source="corpus",
-        )
-
         kept = rerank.prune_fallback_entity_misses(
             [
                 starship,
@@ -385,7 +374,6 @@ class FallbackVisibilityTests(unittest.TestCase):
                 ordinary_fallback,
                 incidental_metadata,
                 generic_title,
-                corpus_body_match,
             ],
             topic=self.topic,
         )
@@ -396,47 +384,22 @@ class FallbackVisibilityTests(unittest.TestCase):
         self.assertIn(adjacent, kept)
         self.assertIn(scoped_project, kept)
         self.assertIn(ordinary_fallback, kept)
-        self.assertIn(corpus_body_match, kept)
-
-    def test_keeps_fused_candidate_with_corpus_source_item(self):
-        fused = self._candidate(
-            title="weekly-summary.md",
-            snippet="No head token in the extracted window.",
-            local_relevance=0.18,
-            explanation="fallback-local-score (entity-miss demotion)",
-            source="web",
-        )
-        fused.source_items = [
-            schema.SourceItem(
-                item_id="c1",
-                source="corpus",
-                title="weekly-summary.md",
-                url="corpus://abc",
-                body="Notes on durable execution architecture for AI coding agents.",
-            )
-        ]
-
-        kept = rerank.prune_fallback_entity_misses([fused], topic=self.topic)
-
-        self.assertIn(fused, kept)
 
 class ExpandedHaystackTests(unittest.TestCase):
-    """Unit 3: Entity-grounding haystack covers transcript snippets,
-    transcript highlights, top comments, and comment insights - not
-    just title + snippet.
+    """Unit 3: Entity-grounding haystack covers top comments and comment
+    insights - not just title + snippet.
     """
 
-    def _youtube_candidate(self, title: str, transcript_snippet: str = "",
-                           transcript_highlights: list[str] | None = None) -> schema.Candidate:
+    def _x_candidate(self, title: str, top_comments: list[dict] | None = None) -> schema.Candidate:
         c = schema.Candidate(
             candidate_id=f"c-{title[:10]}",
             item_id="i1",
-            source="youtube",
+            source="x",
             title=title,
-            url="https://youtube.com/watch?v=x",
+            url="https://x.com/i/status/1",
             snippet="",
             subquery_labels=["primary"],
-            native_ranks={"primary:youtube": 1},
+            native_ranks={"primary:x": 1},
             local_relevance=0.8,
             freshness=80,
             engagement=50,
@@ -444,38 +407,25 @@ class ExpandedHaystackTests(unittest.TestCase):
             rrf_score=0.02,
         )
         c.metadata = {}
-        if transcript_snippet:
-            c.metadata["transcript_snippet"] = transcript_snippet
-        if transcript_highlights:
-            c.metadata["transcript_highlights"] = transcript_highlights
+        if top_comments:
+            c.metadata["top_comments"] = top_comments
         return c
 
-    def test_entity_found_in_transcript_snippet_avoids_demotion(self):
-        # Title + snippet miss the entity, but the transcript contains it.
-        c = self._youtube_candidate(
+    def test_entity_found_in_x_replies_avoids_demotion(self):
+        # Title + snippet miss the entity, but a reply names it.
+        c = self._x_candidate(
             "Weekly roundup",
-            transcript_snippet="In this video I walk through using Hermes Agent in production.",
+            top_comments=[{"text": "Using Hermes Agent in production this week."}],
         )
         rerank._apply_fallback_scores([c], primary_entity="Hermes Agent")
         self.assertEqual("fallback-local-score", c.explanation)
 
-    def test_entity_found_in_transcript_highlights_avoids_demotion(self):
-        c = self._youtube_candidate(
-            "Some review",
-            transcript_highlights=[
-                "Today we're talking about Hermes Agent",
-                "Let's compare it to the alternatives",
-            ],
-        )
-        rerank._apply_fallback_scores([c], primary_entity="Hermes Agent")
-        self.assertEqual("fallback-local-score", c.explanation)
-
-    def test_entity_missing_everywhere_still_demoted_for_video(self):
-        # Nate Herk "Managed Agents" case: no Hermes in title, snippet,
-        # or transcript - demotion fires.
-        c = self._youtube_candidate(
+    def test_entity_missing_everywhere_still_demoted(self):
+        # "Managed Agents" case: no Hermes in title, snippet, or replies -
+        # demotion fires.
+        c = self._x_candidate(
             "I Tested Claude's New Managed Agents",
-            transcript_snippet="Managed agents are Anthropic's new product with ClickUp and cron...",
+            top_comments=[{"text": "Managed agents are Anthropic's new product with ClickUp and cron..."}],
         )
         rerank._apply_fallback_scores([c], primary_entity="Hermes Agent")
         self.assertIn("entity-miss", c.explanation)
@@ -518,8 +468,8 @@ class ExpandedHaystackTests(unittest.TestCase):
         self.assertEqual("fallback-local-score", c.explanation)
 
     def test_truly_empty_candidate_still_skipped(self):
-        # Image-only TikTok with no text anywhere - do not penalize.
-        c = self._youtube_candidate("")  # empty title
+        # Image-only post with no text anywhere - do not penalize.
+        c = self._x_candidate("")  # empty title
         rerank._apply_fallback_scores([c], primary_entity="Hermes Agent")
         self.assertEqual("fallback-local-score", c.explanation)
 
@@ -528,10 +478,10 @@ class ExpandedHaystackTests(unittest.TestCase):
         # -20 penalty beyond the rerank_score reduction. Verify by
         # comparing final_score for a demoted candidate vs an identical
         # candidate that matched the entity.
-        off_topic = self._youtube_candidate("Managed Agents from Anthropic")
-        on_topic = self._youtube_candidate(
+        off_topic = self._x_candidate("Managed Agents from Anthropic")
+        on_topic = self._x_candidate(
             "Hermes Agent walkthrough",
-            transcript_snippet="Hermes Agent review",
+            top_comments=[{"text": "Hermes Agent review"}],
         )
         rerank._apply_fallback_scores([off_topic, on_topic], primary_entity="Hermes Agent")
         # Gap should be well above the rerank_score-only path's 0.60 * 25 = 15;
@@ -541,7 +491,7 @@ class ExpandedHaystackTests(unittest.TestCase):
             f"entity-miss demotion gap only {gap:.1f}; secondary penalty may not be firing")
 
     def test_secondary_penalty_not_applied_when_entity_match(self):
-        on_topic = self._youtube_candidate("Hermes Agent: use cases")
+        on_topic = self._x_candidate("Hermes Agent: use cases")
         rerank._apply_fallback_scores([on_topic], primary_entity="Hermes Agent")
         # Explanation does NOT contain entity-miss, so secondary penalty
         # should not fire; final_score reflects only base signal.
@@ -885,22 +835,22 @@ class TestOutOfWindowDemotion(unittest.TestCase):
     def _candidate(self, name: str, published_at: str, confidence: str) -> schema.Candidate:
         item = schema.SourceItem(
             item_id=name,
-            source="youtube",
+            source="x",
             title=name,
             body="body",
-            url=f"https://youtube.com/watch?v={name}",
+            url=f"https://x.com/i/status/{name}",
             published_at=published_at,
             date_confidence=confidence,
         )
         return schema.Candidate(
             candidate_id=name,
             item_id=name,
-            source="youtube",
+            source="x",
             title=name,
             url=item.url,
             snippet="snippet",
             subquery_labels=["primary"],
-            native_ranks={"primary:youtube": 1},
+            native_ranks={"primary:x": 1},
             local_relevance=0.9,
             freshness=90,
             engagement=60.0,

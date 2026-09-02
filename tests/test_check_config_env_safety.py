@@ -101,8 +101,7 @@ def _run_hook(
         "AUTH_TOKEN",
         "CT0",
         "XAI_API_KEY",
-        "BSKY_HANDLE",
-        "EXA_API_KEY",
+        "XQUIK_API_KEY",
     ):
         env.pop(k, None)
     env["PATH"] = _isolated_path(tmp_path)

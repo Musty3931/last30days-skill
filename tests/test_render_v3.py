@@ -1,13 +1,13 @@
 import copy
 import unittest
 
-from lib import hiring_signals, render, schema
+from lib import render, schema
 
 
 def sample_report() -> schema.Report:
     primary_item = schema.SourceItem(
         item_id="i1",
-        source="grounding",
+        source="github",
         title="Grounded result",
         body="A grounded body with useful detail.",
         url="https://example.com",
@@ -40,7 +40,7 @@ def sample_report() -> schema.Report:
         url="https://example.com",
         snippet="A grounded snippet about the topic.",
         subquery_labels=["primary"],
-        native_ranks={"primary:grounding": 1},
+        native_ranks={"primary:github": 1},
         local_relevance=0.9,
         freshness=90,
         engagement=88,
@@ -49,7 +49,7 @@ def sample_report() -> schema.Report:
         rerank_score=92,
         final_score=90,
         explanation="high-signal result",
-        sources=["reddit", "grounding"],
+        sources=["reddit", "github"],
         source_items=[reddit_item, primary_item],
     )
     cluster = schema.Cluster(
@@ -57,7 +57,7 @@ def sample_report() -> schema.Report:
         title="Grounded result",
         candidate_ids=["c1"],
         representative_ids=["c1"],
-        sources=["grounding"],
+        sources=["github"],
         score=90,
     )
     return schema.Report(
@@ -75,12 +75,12 @@ def sample_report() -> schema.Report:
             freshness_mode="strict_recent",
             cluster_mode="story",
             raw_topic="test topic",
-            subqueries=[schema.SubQuery(label="primary", search_query="test topic", ranking_query="What happened with test topic?", sources=["grounding"])],
-            source_weights={"grounding": 1.0},
+            subqueries=[schema.SubQuery(label="primary", search_query="test topic", ranking_query="What happened with test topic?", sources=["github"])],
+            source_weights={"github": 1.0},
         ),
         clusters=[cluster],
         ranked_candidates=[candidate],
-        items_by_source={"grounding": [primary_item], "reddit": [reddit_item]},
+        items_by_source={"github": [primary_item], "reddit": [reddit_item]},
         errors_by_source={},
     )
 
@@ -114,11 +114,11 @@ class RenderV3Tests(unittest.TestCase):
         self.assertIn("## Stats", text)
         self.assertIn("Total evidence: 2 items across 2 sources", text)
         self.assertIn("Top voices: example.com, r/LocalLLaMA", text)
-        self.assertIn("Web: 1 item | domains: example.com", text)
+        self.assertIn("GitHub: 1 item | voices: example.com", text)
         self.assertIn("Reddit: 1 item | 344pts, 119cmt | communities: r/LocalLLaMA", text)
-        self.assertIn("[reddit, grounding] Grounded result", text)
+        self.assertIn("[reddit, github] Grounded result", text)
         self.assertIn("[344pts, 119cmt]", text)
-        self.assertIn("Also on: Web", text)
+        self.assertIn("Also on: GitHub", text)
         self.assertIn("Comment (22 upvotes): This is the strongest user reaction.", text)
         self.assertIn("Insight: Users corroborate the main claim.", text)
         self.assertIn("## Source Coverage", text)
@@ -257,38 +257,33 @@ class RenderV3Tests(unittest.TestCase):
         rejected_candidate.fun_score = 95
         rejected_candidate.source_items = [rejected_item]
 
-        job_item = schema.SourceItem(
-            item_id="rejected-job",
-            source="jobs",
-            title="Rejected Strategic Engineer",
-            body="Founding enterprise security role.",
-            url="https://example.com/jobs/rejected",
-            container="Engineering",
+        repo_item = schema.SourceItem(
+            item_id="rejected-repo",
+            source="github",
+            title="Rejected Strategic Repo",
+            body="Founding enterprise security tooling.",
+            url="https://github.com/example/rejected",
+            container="example/rejected",
             published_at="2026-03-15",
-            metadata={"department": "Engineering"},
+            engagement={"stars": 12},
         )
-        job_candidate = copy.deepcopy(rejected_candidate)
-        job_candidate.candidate_id = "c-rejected-job"
-        job_candidate.item_id = job_item.item_id
-        job_candidate.source = "jobs"
-        job_candidate.title = job_item.title
-        job_candidate.url = job_item.url
-        job_candidate.fun_score = None
-        job_candidate.source_items = [job_item]
-        report.ranked_candidates.extend([rejected_candidate, job_candidate])
+        repo_candidate = copy.deepcopy(rejected_candidate)
+        repo_candidate.candidate_id = "c-rejected-repo"
+        repo_candidate.item_id = repo_item.item_id
+        repo_candidate.source = "github"
+        repo_candidate.title = repo_item.title
+        repo_candidate.url = repo_item.url
+        repo_candidate.fun_score = None
+        repo_candidate.source_items = [repo_item]
+        report.ranked_candidates.extend([rejected_candidate, repo_candidate])
         report.clusters.append(schema.Cluster(
             cluster_id="cluster-rejected",
             title="Rejected cluster",
-            candidate_ids=["c-rejected", "c-rejected-job"],
+            candidate_ids=["c-rejected", "c-rejected-repo"],
             representative_ids=["c-rejected"],
-            sources=["reddit", "jobs"],
+            sources=["reddit", "github"],
             score=0,
         ))
-        report.artifacts["hiring_signals"] = hiring_signals.analyze(
-            [job_item],
-            explicit=True,
-            topic=report.topic,
-        )
 
         renderers = {
             "compact": render.render_compact,
@@ -305,7 +300,7 @@ class RenderV3Tests(unittest.TestCase):
                 self.assertIn("Grounded result", text)
                 self.assertNotIn("Rejected comment", text)
                 self.assertNotIn("Could rejected evidence", text)
-                self.assertNotIn("Rejected Strategic Engineer", text)
+                self.assertNotIn("Rejected Strategic Repo", text)
 
     def test_all_report_modes_promote_qualifying_nonrepresentative(self):
         renderers = {
@@ -368,92 +363,71 @@ class OutputEnvelopeTests(unittest.TestCase):
         close_idx = text.index("<!-- END PASS-THROUGH FOOTER -->")
         self.assertIn("All agents reported back!", text[open_idx:close_idx])
 
-    def _perplexity_item(self, item_id: str, citations: int) -> schema.SourceItem:
+    def _digg_item(self, item_id: str, posts: int, authors: int) -> schema.SourceItem:
         return schema.SourceItem(
             item_id=item_id,
-            source="perplexity",
-            title=f"Perplexity Agent: test topic ({item_id})",
-            body="AI synthesis body.",
-            url="",
-            container="perplexity.ai",
+            source="digg",
+            title=f"Digg cluster about test topic ({item_id})",
+            body="Digg cluster body.",
+            url=f"https://digg.com/ai/cluster/{item_id}",
+            container="digg.com",
             published_at="2026-03-16",
             date_confidence="high",
-            engagement={"citations": citations},
+            engagement={"postCount": posts, "uniqueAuthors": authors},
             metadata={},
         )
 
-    def test_emoji_footer_includes_perplexity_when_present(self):
-        # Regression: Perplexity items survived retrieval/normalize/dedup but
-        # were dropped from the emoji-tree footer because _FOOTER_SOURCES
-        # omitted perplexity. The synthesis LLM that consumes the pass-through
-        # block then had no Perplexity signal, and users reasonably concluded
-        # the source was broken.
-        report = sample_report()
-        report.items_by_source["perplexity"] = [self._perplexity_item("px1", 7)]
-        text = render.render_compact(report)
-        self.assertIn("🧠 Perplexity:", text)
-        self.assertIn("7 citations", text)
-
-    def test_emoji_footer_perplexity_pluralizes_correctly(self):
-        # The footer line helper appends a literal "s" for plurals, so the
-        # item_word must pluralize regularly. Multi-item runs must produce
-        # "results", not "synthesiss" or other malformed forms.
-        report = sample_report()
-        report.items_by_source["perplexity"] = [
-            self._perplexity_item("px1", 4),
-            self._perplexity_item("px2", 3),
-            self._perplexity_item("px3", 2),
-        ]
-        text = render.render_compact(report)
-        self.assertIn("3 results", text)
-        self.assertNotIn("3 synthesiss", text)
-        self.assertNotIn("3 syntheses", text)
-        # Aggregate of all citation counts (4+3+2 = 9) — confirms multi-item
-        # engagement summation also lands correctly.
-        self.assertIn("9 citations", text)
-
-    def _linkedin_item(self, item_id: str, likes: int, comments: int) -> schema.SourceItem:
+    def _arxiv_item(self, item_id: str) -> schema.SourceItem:
         return schema.SourceItem(
             item_id=item_id,
-            source="linkedin",
-            title=f"LinkedIn post about test topic ({item_id})",
-            body="LinkedIn post body.",
-            url="https://www.linkedin.com/posts/example",
-            container="LinkedIn",
+            source="arxiv",
+            title=f"arXiv paper about test topic ({item_id})",
+            body="Abstract.",
+            url=f"https://arxiv.org/abs/{item_id}",
+            container="cs.AI",
             published_at="2026-03-16",
             date_confidence="high",
-            engagement={"likes": likes, "comments": comments},
+            engagement={},
             metadata={},
         )
 
-    def test_emoji_footer_includes_linkedin_when_present(self):
-        # Regression: LinkedIn items survived retrieval/normalize/dedup and
-        # were counted in ## Stats, but were dropped from the emoji-tree
-        # footer because _FOOTER_SOURCES omitted linkedin. The pass-through
-        # block users read then showed no LinkedIn line at all, so an 8-item
-        # LinkedIn run looked like the source never ran.
+    def test_emoji_footer_includes_digg_and_arxiv_when_present(self):
+        # Every surviving source must have a _FOOTER_SOURCES row: a source
+        # that returns items but is missing from the table vanishes from the
+        # pass-through footer, so users conclude it never ran.
         report = sample_report()
-        report.items_by_source["linkedin"] = [self._linkedin_item("li1", 140, 7)]
+        report.items_by_source["digg"] = [self._digg_item("d1", 7, 4)]
+        report.items_by_source["arxiv"] = [self._arxiv_item("2603.00001")]
         text = render.render_compact(report)
-        self.assertIn("👔 LinkedIn:", text)
-        self.assertIn("1 post", text)
-        self.assertIn("140 likes", text)
-        self.assertIn("7 comments", text)
+        self.assertIn("⛏️ Digg: 1 cluster │ 7 posts │ 4 authors", text)
+        self.assertIn("📄 arXiv: 1 paper", text)
 
-    def test_stats_linkedin_engagement_and_label(self):
-        # ENGAGEMENT_DISPLAY and SOURCE_LABELS also omitted linkedin, so the
-        # ## Stats line rendered as a bare title-cased "Linkedin: N items"
-        # with no engagement summary.
+    def test_emoji_footer_pluralizes_digg_and_arxiv(self):
         report = sample_report()
-        report.items_by_source["linkedin"] = [
-            self._linkedin_item("li1", 140, 7),
-            self._linkedin_item("li2", 57, 2),
+        report.items_by_source["digg"] = [
+            self._digg_item("d1", 4, 3),
+            self._digg_item("d2", 3, 2),
+            self._digg_item("d3", 2, 1),
+        ]
+        report.items_by_source["arxiv"] = [
+            self._arxiv_item("2603.00001"),
+            self._arxiv_item("2603.00002"),
         ]
         text = render.render_compact(report)
-        self.assertIn("- LinkedIn: 2 items", text)
-        self.assertIn("197likes", text)
-        self.assertIn("9cmt", text)
-        self.assertNotIn("- Linkedin:", text)
+        self.assertIn("⛏️ Digg: 3 clusters │ 9 posts │ 6 authors", text)
+        self.assertIn("📄 arXiv: 2 papers", text)
+
+    def test_stats_digg_engagement_and_label(self):
+        # ENGAGEMENT_DISPLAY and SOURCE_LABELS must cover every surviving
+        # source, otherwise ## Stats renders a bare title-cased label with no
+        # engagement summary.
+        report = sample_report()
+        report.items_by_source["digg"] = [
+            self._digg_item("d1", 4, 3),
+            self._digg_item("d2", 3, 2),
+        ]
+        text = render.render_compact(report)
+        self.assertIn("- Digg: 2 items | 7posts, 5auth", text)
 
     def test_canonical_boundary_scopes_pass_through_to_footer(self):
         text = render.render_compact(sample_report())
@@ -641,34 +615,34 @@ class RenderTopCommentsTests(unittest.TestCase):
             query_plan=schema.QueryPlan(
                 intent="breaking_news", freshness_mode="strict_recent",
                 cluster_mode="story", raw_topic="t",
-                subqueries=[schema.SubQuery(label="primary", search_query="t", ranking_query="t?", sources=["youtube"])],
-                source_weights={"youtube": 1.0}),
+                subqueries=[schema.SubQuery(label="primary", search_query="t", ranking_query="t?", sources=["x"])],
+                source_weights={"x": 1.0}),
             clusters=[], ranked_candidates=candidates,
             items_by_source={}, errors_by_source={})
 
     def test_top_comments_rank_based_diversity(self):
         """U3: a viral platform can't sweep the list -- top-3-of-each beats
-        4th-of-any. 4 YouTube videos (3 high-vote comments each) + 1 TikTok video
-        (2 low-vote comments) must still surface BOTH TikTok comments."""
-        yt_cands = []
+        4th-of-any. 4 X posts (3 high-vote comments each) + 1 Reddit thread
+        (2 low-vote comments) must still surface BOTH Reddit comments."""
+        x_cands = []
         for v in range(4):
             comments = [
-                {"score": 3000 - v * 100 - i, "excerpt": f"youtube video {v} comment {i} text", "author": f"yt{v}{i}"}
+                {"score": 3000 - v * 100 - i, "excerpt": f"x post {v} comment {i} text", "author": f"xu{v}{i}"}
                 for i in range(3)
             ]
-            yt_cands.append(self._diversity_candidate("youtube", f"yt{v}", comments))
-        tt_cand = self._diversity_candidate("tiktok", "tt0", [
-            {"score": 50, "excerpt": "tiktok killer comment one text", "author": "ttA"},
-            {"score": 40, "excerpt": "tiktok killer comment two text", "author": "ttB"},
+            x_cands.append(self._diversity_candidate("x", f"x{v}", comments))
+        reddit_cand = self._diversity_candidate("reddit", "r0", [
+            {"score": 50, "excerpt": "reddit killer comment one text", "author": "rA"},
+            {"score": 40, "excerpt": "reddit killer comment two text", "author": "rB"},
         ])
-        report = self._diversity_report(yt_cands + [tt_cand])
+        report = self._diversity_report(x_cands + [reddit_cand])
         lines = render._render_top_comments(report, limit=8)
         blob = "\n".join(lines)
-        # Both low-vote TikTok comments surface despite 12 higher-vote YouTube ones.
-        self.assertIn("tiktok killer comment one text", blob)
-        self.assertIn("tiktok killer comment two text", blob)
-        # TikTok's #1 appears before YouTube's 3rd-ranked comment (round-robin).
-        self.assertLess(blob.index("tiktok killer comment one"), blob.index("comment 2 text"))
+        # Both low-vote Reddit comments surface despite 12 higher-vote X ones.
+        self.assertIn("reddit killer comment one text", blob)
+        self.assertIn("reddit killer comment two text", blob)
+        # Reddit's #1 appears before X's 3rd-ranked comment (round-robin).
+        self.assertLess(blob.index("reddit killer comment one"), blob.index("comment 2 text"))
 
     def test_reddit_5_comments_renders_top_3(self):
         """Reddit candidate with 5 comments (scores 500, 200, 50, 8, 3) renders 3."""
@@ -703,7 +677,7 @@ class RenderTopCommentsTests(unittest.TestCase):
 
     def test_non_reddit_no_comments(self):
         """Non-Reddit candidate doesn't render comments when metadata has none."""
-        report = self._make_report_with_comments(source="grounding", top_comments=[])
+        report = self._make_report_with_comments(source="github", top_comments=[])
         text = render.render_compact(report)
         self.assertNotIn("upvotes)", text)
         self.assertIn("Test cluster", text)
@@ -719,23 +693,21 @@ class RenderTopCommentsTests(unittest.TestCase):
         text = render.render_compact(report)
         self.assertNotIn("upvotes)", text)
 
-    def test_youtube_comments_use_likes_label_and_50_threshold(self):
+    def test_x_comments_use_at_handle_and_votes_label(self):
         comments = [
-            {"score": 120, "excerpt": "legit fire tutorial", "author": "alice"},
+            {"score": 120, "excerpt": "legit fire thread", "author": "alice"},
             {"score": 60, "excerpt": "saved me hours", "author": "bob"},
-            {"score": 10, "excerpt": "below threshold", "author": "carol"},
+            {"score": 10, "excerpt": "low vote reply", "author": "carol"},
         ]
-        report = self._make_report_with_comments(source="youtube", top_comments=comments)
+        report = self._make_report_with_comments(source="x", top_comments=comments)
         text = render.render_compact(report)
-        # YouTube authors render with @ prefix; "likes" label.
-        self.assertIn("@alice (120 likes): legit fire tutorial", text)
-        self.assertIn("@bob (60 likes): saved me hours", text)
-        # The per-candidate CARD still applies the 50-like threshold: carol (10)
-        # does not appear on the card (colon-format line).
-        self.assertNotIn("@carol (10 likes):", text)
-        # But the cross-platform Top Community Comments list surfaces her (U3:
-        # rank-based, no absolute floor -- a low-vote comment can be gold).
-        self.assertIn('"below threshold" — @carol (10 likes)', text)
+        # X authors render with @ prefix; generic "votes" label; X has no
+        # per-source card floor, so every top-3 comment appears on the card.
+        self.assertIn("@alice (120 votes): legit fire thread", text)
+        self.assertIn("@bob (60 votes): saved me hours", text)
+        self.assertIn("@carol (10 votes): low vote reply", text)
+        # Render must not label X replies as Reddit upvotes.
+        self.assertNotIn("upvotes)", text)
 
     def test_reddit_comment_without_author_falls_back_to_legacy_label(self):
         """When author is missing or [deleted], render falls back to 'Comment (...)'."""
@@ -753,40 +725,6 @@ class RenderTopCommentsTests(unittest.TestCase):
         self.assertNotIn("u/ (", text)
         self.assertNotIn("u/[deleted]", text)
         self.assertNotIn("u/[removed]", text)
-
-    def test_tiktok_comments_render_with_at_handle(self):
-        """TikTok source renders @handle attribution on comment lines."""
-        comments = [
-            {"score": 3986, "excerpt": "oh no. who's going to make the same phone every year now..", "author": "moosanoormahomed"},
-            {"score": 925, "excerpt": "This is either going to go so well or so bad", "author": "Muna9e"},
-        ]
-        report = self._make_report_with_comments(source="tiktok", top_comments=comments)
-        text = render.render_compact(report)
-        self.assertIn("@moosanoormahomed (3986 likes):", text)
-        self.assertIn("@Muna9e (925 likes):", text)
-        # Render must not silently label YT as upvotes.
-        self.assertNotIn("Comment (120 upvotes)", text)
-
-    def test_tiktok_comments_use_likes_label_and_500_threshold(self):
-        comments = [
-            {"score": 2000, "excerpt": "this aged well", "author": "a"},
-            {"score": 600, "excerpt": "so real", "author": "b"},
-            {"score": 400, "excerpt": "below tt threshold", "author": "c"},
-            {"score": 50, "excerpt": "way below", "author": "d"},
-        ]
-        report = self._make_report_with_comments(source="tiktok", top_comments=comments)
-        text = render.render_compact(report)
-        self.assertIn("@a (2000 likes): this aged well", text)
-        self.assertIn("@b (600 likes): so real", text)
-        # Card still applies the 500 threshold: c (400) not on the card.
-        self.assertNotIn("@c (400 likes):", text)
-        # Community list surfaces c (it's the item's #3, within the 3-per-item cap;
-        # U3 drops the absolute floor there).
-        self.assertIn('"below tt threshold" — @c (400 likes)', text)
-        # d (50) is the item's 4th comment -> dropped by the 3-per-item cap, so it
-        # never appears anywhere.
-        self.assertNotIn("@d (50 likes)", text)
-
 
 class RenderBestTakesCompactTests(unittest.TestCase):
     """Tests for Best Takes section in compact output and fun tags on candidates."""
@@ -1076,178 +1014,6 @@ class RenderBriefTests(unittest.TestCase):
         self.assertEqual(text.count("What is the best approach?"), 1)
 
 
-class YoutubeFooterTranscriptRatioTests(unittest.TestCase):
-    """The YouTube footer line must surface the transcript-fetch ratio in all
-    cases where videos were returned. Pre-fix the segment was suppressed when
-    transcripts == 0, which converted the canonical stale-yt-dlp failure mode
-    into a silent absence at the footer (the very surface users read for
-    'did this work?'). Always-render the ratio so zero is loud.
-    """
-
-    def _build_youtube_report(self, transcript_flags: list[bool]) -> schema.Report:
-        """Build a Report with one YouTube item per entry in transcript_flags.
-        True means the item has transcript data; False means it does not.
-        """
-        items = []
-        for idx, has_transcript in enumerate(transcript_flags):
-            metadata = {"views": 1000}
-            if has_transcript:
-                metadata["transcript_highlights"] = ["Some pre-extracted quote."]
-            items.append(schema.SourceItem(
-                item_id=f"yt{idx}",
-                source="youtube",
-                title=f"Video {idx}",
-                body=f"Description for video {idx}.",
-                url=f"https://youtube.com/watch?v=v{idx}",
-                container="some-channel",
-                published_at="2026-04-15",
-                date_confidence="high",
-                engagement={"views": 1000, "likes": 100},
-                metadata=metadata,
-            ))
-        return schema.Report(
-            topic="test topic",
-            range_from="2026-04-01",
-            range_to="2026-05-01",
-            generated_at="2026-05-01T00:00:00+00:00",
-            provider_runtime=schema.ProviderRuntime(
-                reasoning_provider="gemini",
-                planner_model="gemini",
-                rerank_model="gemini",
-            ),
-            query_plan=schema.QueryPlan(
-                intent="general",
-                freshness_mode="balanced_recent",
-                cluster_mode="none",
-                raw_topic="test topic",
-                subqueries=[schema.SubQuery(
-                    label="primary", search_query="test topic",
-                    ranking_query="What about test topic?", sources=["youtube"],
-                )],
-                source_weights={"youtube": 1.0},
-            ),
-            clusters=[],
-            ranked_candidates=[],
-            items_by_source={"youtube": items},
-            errors_by_source={},
-        )
-
-    def test_zero_transcripts_with_videos_present_renders_zero_over_total(self):
-        # The canonical stale-yt-dlp case: 6 videos found, 0 transcripts captured.
-        # Pre-fix the footer hid this entirely; post-fix it must say "0/6 with transcripts".
-        report = self._build_youtube_report([False] * 6)
-        text = render.render_compact(report)
-        self.assertIn("0/6 with transcripts", text)
-
-    def test_partial_transcripts_renders_ratio(self):
-        # 5 of 6 transcripts captured - shows ratio so user knows one was missed.
-        report = self._build_youtube_report([True] * 5 + [False])
-        text = render.render_compact(report)
-        self.assertIn("5/6 with transcripts", text)
-
-    def test_full_transcripts_renders_ratio(self):
-        # All 3 transcripts captured - still shows ratio for consistency.
-        report = self._build_youtube_report([True] * 3)
-        text = render.render_compact(report)
-        self.assertIn("3/3 with transcripts", text)
-
-    def test_no_videos_no_transcript_segment(self):
-        # When YouTube has no items at all, the YouTube footer line is
-        # suppressed entirely (existing behavior) - the transcript segment
-        # should not appear without a parent line.
-        report = self._build_youtube_report([])
-        text = render.render_compact(report)
-        # No YouTube footer line at all - so no transcript segment either
-        self.assertNotIn("with transcripts", text)
-
-
-class TranscriptCaveatTests(unittest.TestCase):
-    """Transcript-derived text must be labelled as auto-generated wherever it
-    is emitted, so the synthesizing model does not treat caption homophone
-    errors (e.g. "basil fears" for "basal fears") as verbatim quotes (#82).
-    """
-
-    def _youtube_item(self) -> schema.SourceItem:
-        return schema.SourceItem(
-            item_id="yt1",
-            source="youtube",
-            title="Interview video",
-            body="Description.",
-            url="https://youtube.com/watch?v=v1",
-            container="some-channel",
-            published_at="2026-04-15",
-            date_confidence="high",
-            engagement={"views": 1000, "likes": 100},
-            metadata={
-                "transcript_highlights": ["She identifies eight basil fears."],
-                "transcript_snippet": "And basil you mean like of the body? " * 5,
-            },
-        )
-
-    def _report(self) -> schema.Report:
-        return schema.Report(
-            topic="test topic",
-            range_from="2026-04-01",
-            range_to="2026-05-01",
-            generated_at="2026-05-01T00:00:00+00:00",
-            provider_runtime=schema.ProviderRuntime(
-                reasoning_provider="gemini",
-                planner_model="gemini",
-                rerank_model="gemini",
-            ),
-            query_plan=schema.QueryPlan(
-                intent="general",
-                freshness_mode="balanced_recent",
-                cluster_mode="none",
-                raw_topic="test topic",
-                subqueries=[schema.SubQuery(
-                    label="primary", search_query="test topic",
-                    ranking_query="What about test topic?", sources=["youtube"],
-                )],
-                source_weights={"youtube": 1.0},
-            ),
-            clusters=[],
-            ranked_candidates=[],
-            items_by_source={"youtube": [self._youtube_item()]},
-            errors_by_source={},
-        )
-
-    def test_render_full_labels_highlights_and_transcript_as_auto_generated(self):
-        text = render.render_full(self._report())
-        self.assertIn(
-            "Highlights (auto-generated transcript; may contain transcription errors):",
-            text,
-        )
-        self.assertIn("auto-generated — may contain transcription errors)</summary>", text)
-        self.assertNotIn("\n  Highlights:\n", text)
-
-    def test_render_candidate_labels_highlights_as_auto_generated(self):
-        item = self._youtube_item()
-        candidate = schema.Candidate(
-            candidate_id="c1",
-            item_id=item.item_id,
-            source="youtube",
-            title=item.title,
-            url=item.url,
-            snippet="A snippet.",
-            subquery_labels=["primary"],
-            native_ranks={"youtube": 1},
-            local_relevance=1.0,
-            freshness=1,
-            engagement=1000,
-            source_quality=1.0,
-            rrf_score=1.0,
-            sources=["youtube"],
-            source_items=[item],
-        )
-        lines = render._render_candidate(candidate, "1.")
-        text = "\n".join(lines)
-        self.assertIn(
-            "Highlights (auto-generated transcript; may contain transcription errors):",
-            text,
-        )
-
-
 class TestUntrustedEvidenceSanitization(unittest.TestCase):
     """Scraped markdown must not mint structural ## headings in evidence (#874)."""
 
@@ -1270,11 +1036,11 @@ class TestUntrustedEvidenceSanitization(unittest.TestCase):
 
     def test_render_candidate_evidence_has_no_column_zero_heading(self):
         item = schema.SourceItem(
-            item_id="j1",
-            source="jobs",
+            item_id="x1",
+            source="x",
             title="Sales Operations Key Account Manager",
             body="body",
-            url="https://jobs-radar.com/job/example",
+            url="https://x.com/i/status/example",
             published_at="2026-07-01",
             date_confidence="high",
             engagement={},
@@ -1287,18 +1053,18 @@ class TestUntrustedEvidenceSanitization(unittest.TestCase):
         candidate = schema.Candidate(
             candidate_id="c1",
             item_id=item.item_id,
-            source="jobs",
+            source="x",
             title=item.title,
             url=item.url,
             snippet=item.snippet,
             subquery_labels=["primary"],
-            native_ranks={"jobs": 1},
+            native_ranks={"x": 1},
             local_relevance=1.0,
             freshness=1,
             engagement=1,
             source_quality=1.0,
             rrf_score=1.0,
-            sources=["jobs"],
+            sources=["x"],
             source_items=[item],
         )
         text = "\n".join(render._render_candidate(candidate, "1."))
@@ -1408,15 +1174,14 @@ class TestRenderTopCommentsBlock(unittest.TestCase):
         self.assertTrue(open_i < blk_i < end_i, "block must sit inside the EVIDENCE envelope")
 
     def test_sorted_by_normalized_vote_cross_platform(self):
-        # Equal raw 600: Reddit normalizes higher than TikTok (smaller reference),
-        # so the Reddit gem ranks above the TikTok line despite same raw count.
-        # TikTok 600 is above its 500 min-score threshold so it isn't filtered.
+        # Equal raw 600: Reddit normalizes higher than X (smaller reference),
+        # so the Reddit gem ranks above the X line despite same raw count.
         report = self._report(
             [self._cand("r", "reddit", 600, "reddit gem line here"),
-             self._cand("t", "tiktok", 600, "low tiktok line here")],
+             self._cand("t", "x", 600, "low x reply line here")],
             representative_ids=["r"])
         block = render.render_compact(report).split("## Top Community Comments", 1)[1]
-        self.assertLess(block.index("reddit gem"), block.index("low tiktok"))
+        self.assertLess(block.index("reddit gem"), block.index("low x reply"))
 
     def test_entries_carry_url(self):
         report = self._report(
@@ -1446,92 +1211,18 @@ class TestRenderTopCommentsBlock(unittest.TestCase):
 
 
 class TestCommentAttributionPrefix(unittest.TestCase):
-    def test_strips_existing_at_prefix_youtube(self):
-        # YouTube/TikTok authors already carry '@' from enrichment -> no '@@'.
-        self.assertEqual(render._comment_attribution("youtube", "@ml-dz9ww"), "@ml-dz9ww")
-        self.assertEqual(render._comment_attribution("tiktok", "@creator"), "@creator")
+    def test_strips_existing_at_prefix_x(self):
+        # X authors may already carry '@' from enrichment -> no '@@'.
+        self.assertEqual(render._comment_attribution("x", "@ml-dz9ww"), "@ml-dz9ww")
+        self.assertEqual(render._comment_attribution("x", "@creator"), "@creator")
 
     def test_adds_prefix_when_missing(self):
-        self.assertEqual(render._comment_attribution("youtube", "alice"), "@alice")
+        self.assertEqual(render._comment_attribution("x", "alice"), "@alice")
         self.assertEqual(render._comment_attribution("reddit", "bob"), "u/bob")
 
     def test_deleted_author_is_comment(self):
         self.assertEqual(render._comment_attribution("reddit", "[deleted]"), "Comment")
         self.assertEqual(render._comment_attribution("reddit", None), "Comment")
-
-
-class TestShortenPolymarketTitle(unittest.TestCase):
-    def test_fallback_strips_leading_article(self):
-        # A long question that falls through to the 6-word fallback must not keep
-        # a leading article -> avoids descriptors like "an Anthropic Claude model".
-        title = "Will an Anthropic Claude model score at the top of the leaderboard?"
-        result = render._shorten_polymarket_title(title)
-        lower = result.lower()
-        self.assertFalse(lower.startswith("a "))
-        self.assertFalse(lower.startswith("an "))
-        self.assertFalse(lower.startswith("the "))
-
-    def test_fallback_keeps_non_article_lead(self):
-        title = "Anthropic releases a major Claude model update that changes everything soon"
-        result = render._shorten_polymarket_title(title)
-        self.assertTrue(result.lower().startswith("anthropic"))
-
-
-class TestPolymarketTopMarkets(unittest.TestCase):
-    @staticmethod
-    def _pm_item(question, outcome_name, price, volume=1000):
-        return schema.SourceItem(
-            item_id="pm1",
-            source="polymarket",
-            title=question,
-            body="",
-            url="https://polymarket.com/event/x",
-            engagement={"volume": volume},
-            metadata={
-                "question": question,
-                "outcome_prices": [(outcome_name, price)],
-            },
-        )
-
-    def test_article_outcome_is_suppressed(self):
-        # The real-world mangled case: descriptor "...score at" + lead name "an".
-        # The outcome label is an article -> render "<descriptor> <pct>", no ": an ".
-        item = self._pm_item(
-            "Will an Anthropic Claude model score at the top of the leaderboard?",
-            "an",
-            0.19,
-        )
-        lines = render._polymarket_top_markets([item])
-        self.assertEqual(len(lines), 1)
-        line = lines[0]
-        self.assertNotIn(": an ", line)
-        self.assertIn("19%", line)
-
-    def test_yes_outcome_is_suppressed(self):
-        item = self._pm_item("Will the bill pass this session?", "Yes", 0.65)
-        line = render._polymarket_top_markets([item])[0]
-        self.assertNotIn(": Yes ", line)
-        self.assertIn("65%", line)
-
-    def test_no_outcome_is_suppressed(self):
-        item = self._pm_item("Will the bill pass this session?", "No", 0.30)
-        line = render._polymarket_top_markets([item])[0]
-        self.assertNotIn(": No ", line)
-        self.assertIn("30%", line)
-
-    def test_redundant_lead_token_is_suppressed(self):
-        # Outcome name duplicates the descriptor's first token -> no doubling.
-        item = self._pm_item("Arizona wins the tournament", "Arizona", 0.42)
-        line = render._polymarket_top_markets([item])[0]
-        self.assertNotIn(": Arizona ", line)
-        # Descriptor itself still carries the name once.
-        self.assertIn("Arizona", line)
-
-    def test_named_outcome_is_kept(self):
-        # A genuinely informative multi-way outcome name is preserved.
-        item = self._pm_item("Who wins the primary?", "Kanye", 0.12)
-        line = render._polymarket_top_markets([item])[0]
-        self.assertIn(": Kanye ", line)
 
 
 class TestMarkdownUrlLinkSafety(unittest.TestCase):
@@ -1655,23 +1346,23 @@ class TestSourceUrlsAreClickable(unittest.TestCase):
         report = sample_report()
         empty_url_item = schema.SourceItem(
             item_id="i3",
-            source="perplexity",
-            title="Perplexity Agent: test topic",
-            body="AI synthesis body.",
+            source="arxiv",
+            title="arXiv paper: test topic",
+            body="Abstract body.",
             url="",
-            container="perplexity.ai",
+            container="cs.AI",
             published_at="2026-03-16",
             date_confidence="high",
-            engagement={"citations": 3},
+            engagement={},
             metadata={},
         )
-        report.items_by_source["perplexity"] = [empty_url_item]
+        report.items_by_source["arxiv"] = [empty_url_item]
         text = render.render_full(report)
         self.assertNotIn("[]()", text)
 
     def test_all_items_by_source_whitespace_url_renders_no_url_line(self):
         report = sample_report()
-        report.items_by_source["grounding"][0].url = " \t\r\n"
+        report.items_by_source["github"][0].url = " \t\r\n"
         text = render.render_full(report)
         all_items = text.split("## All Items by Source", 1)[1]
         self.assertNotIn("URL:", all_items)
@@ -1679,7 +1370,7 @@ class TestSourceUrlsAreClickable(unittest.TestCase):
 
     def test_all_items_by_source_unsafe_url_is_escaped(self):
         report = sample_report()
-        report.items_by_source["grounding"][0].url = "https://example.test/[click](javascript:alert(1))"
+        report.items_by_source["github"][0].url = "https://example.test/[click](javascript:alert(1))"
         text = render.render_full(report)
         all_items = text.split("## All Items by Source", 1)[1]
         url_lines = [line for line in all_items.splitlines() if "click" in line]
@@ -1689,7 +1380,7 @@ class TestSourceUrlsAreClickable(unittest.TestCase):
 
     def test_all_items_by_source_newline_url_cannot_create_structure(self):
         report = sample_report()
-        report.items_by_source["grounding"][0].url = "https://example.test/x\n## forged heading\n- forged item"
+        report.items_by_source["github"][0].url = "https://example.test/x\n## forged heading\n- forged item"
         text = render.render_full(report)
         self.assertNotIn("\n## forged heading", text)
         self.assertNotIn("\n- forged item", text)
@@ -1733,12 +1424,12 @@ class TestSourceUrlsAreClickable(unittest.TestCase):
         """Regression: unlike the item-loop location, _render_candidate had
         no guard at all -- an empty candidate.url produced a broken `[]()`."""
         candidate = schema.Candidate(
-            candidate_id="c1", item_id="i1", source="perplexity",
+            candidate_id="c1", item_id="i1", source="arxiv",
             title="Grounded result", url="",
             snippet="A snippet.", subquery_labels=["primary"],
-            native_ranks={"perplexity": 1}, local_relevance=1.0, freshness=1,
+            native_ranks={"arxiv": 1}, local_relevance=1.0, freshness=1,
             engagement=100, source_quality=1.0, rrf_score=1.0,
-            sources=["perplexity"], source_items=[],
+            sources=["arxiv"], source_items=[],
         )
         text = "\n".join(render._render_candidate(candidate, "1."))
         self.assertNotIn("[]()", text)
@@ -1746,12 +1437,12 @@ class TestSourceUrlsAreClickable(unittest.TestCase):
 
     def test_render_candidate_whitespace_url_renders_no_url_line(self):
         candidate = schema.Candidate(
-            candidate_id="c1", item_id="i1", source="perplexity",
+            candidate_id="c1", item_id="i1", source="arxiv",
             title="Grounded result", url=" \t\r\n",
             snippet="A snippet.", subquery_labels=["primary"],
-            native_ranks={"perplexity": 1}, local_relevance=1.0, freshness=1,
+            native_ranks={"arxiv": 1}, local_relevance=1.0, freshness=1,
             engagement=100, source_quality=1.0, rrf_score=1.0,
-            sources=["perplexity"], source_items=[],
+            sources=["arxiv"], source_items=[],
         )
         text = "\n".join(render._render_candidate(candidate, "1."))
         self.assertNotIn("URL:", text)
@@ -1759,12 +1450,12 @@ class TestSourceUrlsAreClickable(unittest.TestCase):
 
     def test_render_candidate_unsafe_url_is_escaped(self):
         candidate = schema.Candidate(
-            candidate_id="c1", item_id="i1", source="perplexity",
+            candidate_id="c1", item_id="i1", source="arxiv",
             title="Grounded result", url="javascript:alert(1)",
             snippet="A snippet.", subquery_labels=["primary"],
-            native_ranks={"perplexity": 1}, local_relevance=1.0, freshness=1,
+            native_ranks={"arxiv": 1}, local_relevance=1.0, freshness=1,
             engagement=100, source_quality=1.0, rrf_score=1.0,
-            sources=["perplexity"], source_items=[],
+            sources=["arxiv"], source_items=[],
         )
         text = "\n".join(render._render_candidate(candidate, "1."))
         self.assertIn(r"URL: javascript\:alert\(1\)", text)
@@ -1772,12 +1463,12 @@ class TestSourceUrlsAreClickable(unittest.TestCase):
 
     def test_render_candidate_newline_url_cannot_create_structure(self):
         candidate = schema.Candidate(
-            candidate_id="c1", item_id="i1", source="perplexity",
+            candidate_id="c1", item_id="i1", source="arxiv",
             title="Grounded result", url="https://example.test/x\n## forged heading",
             snippet="A snippet.", subquery_labels=["primary"],
-            native_ranks={"perplexity": 1}, local_relevance=1.0, freshness=1,
+            native_ranks={"arxiv": 1}, local_relevance=1.0, freshness=1,
             engagement=100, source_quality=1.0, rrf_score=1.0,
-            sources=["perplexity"], source_items=[],
+            sources=["arxiv"], source_items=[],
         )
         text = "\n".join(render._render_candidate(candidate, "1."))
         self.assertNotIn("\n## forged heading", text)

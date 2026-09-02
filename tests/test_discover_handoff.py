@@ -82,9 +82,9 @@ def _pool() -> list["handoff.PoolEntry"]:
         "Agent SDK Wars",
         [
             _item(
-                "hn1", "hackernews",
+                "dg1", "digg",
                 "Agent SDK Wars heat up as Anthropic ships a Claude agent runtime",
-                engagement={"points": 900, "comments": 400},
+                engagement={"postCount": 900, "uniqueAuthors": 400},
             ),
             _item(
                 "rd1", "reddit",
@@ -103,9 +103,9 @@ def _pool() -> list["handoff.PoolEntry"]:
         "Quantum Error Correction",
         [
             _item(
-                "hn2", "hackernews",
+                "dg2", "digg",
                 "Quantum error correction milestone announced",
-                engagement={"points": 250, "comments": 60},
+                engagement={"postCount": 250, "uniqueAuthors": 60},
             ),
         ],
         seed_score=18.4,
@@ -124,7 +124,7 @@ def _write(config_dir, entries=None, **overrides) -> "handoff.NominationsBundle"
         to_date="2026-07-21",
         lookback_days=30,
         enrichment_source_boundary=None,
-        requested_sources=["hackernews", "reddit"],
+        requested_sources=["digg", "reddit"],
         save_dir=None,
         config_dir=config_dir,
     )
@@ -153,7 +153,7 @@ def test_bundle_round_trip_is_lossless(tmp_path):
     assert read.tier == "deep"
     assert read.lookback_days == 30
     assert read.enrichment_source_boundary is None
-    assert read.requested_sources == ["hackernews", "reddit"]
+    assert read.requested_sources == ["digg", "reddit"]
     assert [row.nomination_id for row in read.nominations] == ["n1", "n2"]
     for row, entry in zip(read.nominations, _pool()):
         # Full dataclass equality: name, seed_score, every seed item field,
@@ -179,13 +179,13 @@ def test_source_boundary_and_shallow_tier_survive_round_trip(tmp_path):
     _write(
         tmp_path,
         tier="shallow",
-        enrichment_source_boundary=["reddit", "hackernews"],
+        enrichment_source_boundary=["reddit", "digg"],
         requested_sources=None,
         lookback_days=7,
     )
     read = handoff.read_nominations_bundle(config_dir=tmp_path)
     assert read.tier == "shallow"
-    assert read.enrichment_source_boundary == ["reddit", "hackernews"]
+    assert read.enrichment_source_boundary == ["reddit", "digg"]
     assert read.requested_sources is None
     assert read.lookback_days == 7
 
@@ -195,8 +195,8 @@ def test_bundle_round_trips_sweep_source_status_and_mock_flag(tmp_path):
     states) and the mock provenance flag ride in the bundle so legs 2-3 can
     restore them - reusing the schema round-trip, never a parallel shape."""
     status = {
-        "hackernews": schema.SourceOutcome(
-            source="hackernews", state="ok", items_returned=2,
+        "digg": schema.SourceOutcome(
+            source="digg", state="ok", items_returned=2,
             at="2026-07-21T00:00:00Z",
         ),
         "reddit": schema.SourceOutcome(
@@ -635,9 +635,9 @@ def test_long_host_name_truncates_at_word_boundary(tmp_path):
 def test_case_only_name_collisions_disambiguate_not_collapse():
     first = _nomination(
         "Agent Wars",
-        [_item("hn1", "hackernews",
+        [_item("dg1", "digg",
                "Agent Wars heat up as Anthropic ships Claude runtime",
-               engagement={"points": 900, "comments": 100})],
+               engagement={"postCount": 900, "uniqueAuthors": 100})],
     )
     second = _nomination(
         "Agent Runtime Rivalry",
@@ -657,8 +657,8 @@ def test_case_only_name_collisions_disambiguate_not_collapse():
 
 
 def test_indistinguishable_collision_still_never_drops():
-    shared = [_item("hn1", "hackernews", "Agent Wars heat up",
-                    engagement={"points": 100})]
+    shared = [_item("dg1", "digg", "Agent Wars heat up",
+                    engagement={"postCount": 100})]
     first = _nomination("Agent Wars", shared)
     second = _nomination("Agent Wars redux", shared)
     resolved = handoff.resolve_name_collisions([
@@ -713,8 +713,8 @@ def test_digest_names_bundle_path_instruction_and_capped_evidence(tmp_path):
     nomination = _nomination(
         "Agent Runtime Fallout",
         [_item(
-            "hn1", "hackernews", LONG_TITLE,
-            engagement={"points": 1200, "comments": 300},
+            "dg1", "digg", LONG_TITLE,
+            engagement={"postCount": 1200, "uniqueAuthors": 300},
             snippet=long_snippet,
             metadata={"top_comments": [{
                 "excerpt": "This will consolidate the whole agent ecosystem "
@@ -739,7 +739,7 @@ def test_digest_names_bundle_path_instruction_and_capped_evidence(tmp_path):
     assert len(n2_lines) == 1
     # Structural line carries id/sources/signal only - the third-party title
     # lives inside the untrusted-content fence, never on the structural line.
-    assert "hackernews" in n1_lines[0]  # seed source names
+    assert "digg" in n1_lines[0]  # seed source names
     assert "1,500 native interactions" in n1_lines[0]  # engagement signal
     assert LONG_TITLE[:40] not in n1_lines[0]
     # Evidence caps: the old judge surface (title ~220, snippet ~420).
@@ -798,7 +798,7 @@ def _pending_payload(**overrides) -> dict:
                 "name": "Agent SDK Wars",
                 "titles": "t1; t2",
                 "top_comment": "",
-                "engagement": "1,500 native interactions across hackernews",
+                "engagement": "1,500 native interactions across digg",
             },
         },
     }

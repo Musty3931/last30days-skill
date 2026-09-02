@@ -695,7 +695,7 @@ AGENT_EXPORT_SCHEMA_VERSION = "1.2"
 def without_sources(report: Report, excluded_sources: set[str]) -> Report:
     """Return a deep-copied report with private source evidence removed.
 
-    This is the publication boundary used by agent JSON, hosted HTML, and
+    This is the publication boundary used by agent JSON, published HTML, and
     future outbound surfaces. Cluster titles are rebuilt when a removed item
     participated so text derived from a private representative cannot survive
     after its candidate is gone.
@@ -808,7 +808,6 @@ def _agent_engagement(candidate: Candidate) -> dict[str, float | int]:
 _HEADLINE_ENGAGEMENT_FIELDS_BY_SOURCE = {
     "digg": ("postCount",),
     "reddit": ("score",),
-    "stocktwits": ("likes", "reshares"),
 }
 
 
@@ -857,20 +856,8 @@ def _agent_generated_at(value: str) -> str:
     return parsed.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
-def to_agent_export(
-    report: Report,
-    *,
-    corpus_in_export: bool | None = None,
-) -> dict[str, Any]:
-    """Serialize a report to the stable, versioned agent JSON contract.
-
-    Local corpus evidence is private by default. Callers must opt in explicitly
-    either with ``corpus_in_export=True`` or the CLI-populated report artifact.
-    """
-    if corpus_in_export is None:
-        corpus_in_export = bool(report.artifacts.get("corpus_in_export"))
-    if not corpus_in_export:
-        report = without_sources(report, {"corpus"})
+def to_agent_export(report: Report) -> dict[str, Any]:
+    """Serialize a report to the stable, versioned agent JSON contract."""
     candidates = {candidate.candidate_id: candidate for candidate in report.ranked_candidates}
     cluster_by_candidate: dict[str, int] = {}
     cluster_by_id: dict[str, int] = {}

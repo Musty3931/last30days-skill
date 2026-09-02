@@ -1,32 +1,23 @@
-"""Discover peer entities ("competitors") for a topic via web search.
+"""Competitor ("vs") comparison constants and peer-entity text mining.
 
-Mirrors the `resolve.auto_resolve()` pattern: fan out 2-3 web searches via
-`grounding.web_search()`, then extract capitalized entity candidates from
-titles and snippets with deterministic text mining. No LLM call — the
-hosting reasoning model can always override discovery via
-`--competitors-list`.
-
-Returned list is ordered by score (frequency across queries) and capped to
-the caller's requested count.
+Automatic competitor discovery via web search was removed along with the web
+source; the hosting reasoning model names peers explicitly with
+`--competitors-list`. The deterministic entity-extraction helpers remain for
+callers that already hold SERP-shaped items.
 """
 
 from __future__ import annotations
 
 import re
 from collections import Counter
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from . import dates, grounding, log
-from .resolve import _has_backend
+from . import log
 
 # Peer cap vs total vs-entity cap (main + peers).
 COMPETITORS_MIN = 1
 COMPETITORS_MAX = 6
 COMPETITORS_DEFAULT = 2
 COMPARISON_ENTITY_MAX = COMPETITORS_MAX + 1
-# Discovery SERP fan-out is small (3 queries today) but still needs a ceiling
-# so a future query expansion cannot open one worker per query unbounded.
-MAX_DISCOVERY_WORKERS = 3
 
 # A "brand-shaped" token starts with uppercase OR is camelCase with an
 # uppercase letter later. Catches "Anthropic", "OpenAI", "xAI", "iPhone",
@@ -137,71 +128,3 @@ def _extract_peer_entities(
     return [canonical[k] for k in ranked_keys[:limit]]
 
 
-def _queries_for(topic: str) -> dict[str, str]:
-    return {
-        "competitors": f"{topic} competitors",
-        "alternatives": f"{topic} alternatives",
-        "vs": f"{topic} vs",
-    }
-
-
-def discover_competitors(
-    topic: str,
-    count: int,
-    config: dict,
-    *,
-    lookback_days: int = 30,
-) -> list[str]:
-    """Discover `count` peer entities for `topic` via web search.
-
-    Args:
-        topic: The primary research topic.
-        count: Desired number of competitor entities (1..N).
-        config: Runtime config dict — expects the same shape as the engine
-            config (BRAVE_API_KEY / EXA_API_KEY / SERPER_API_KEY / etc.).
-        lookback_days: Date range for freshness. Defaults to 30.
-
-    Returns:
-        A list of up to `count` entity names, deduped and ordered by score.
-        Empty list when no web backend is configured or every search fails
-        or returns zero usable candidates.
-    """
-    if count < 1:
-        return []
-    if not _has_backend(config):
-        _log("No web search backend available, skipping competitor discovery")
-        return []
-
-    date_range = dates.get_date_range(lookback_days)
-    queries = _queries_for(topic)
-    collected: list[dict] = []
-    searches_run = 0
-
-    def _search(label: str, query: str) -> tuple[str, list[dict]]:
-        items, _artifact = grounding.web_search(query, date_range, config)
-        return label, items
-
-    with ThreadPoolExecutor(max_workers=min(len(queries), MAX_DISCOVERY_WORKERS)) as executor:
-        futures = {
-            executor.submit(_search, label, q): label
-            for label, q in queries.items()
-        }
-        for future in as_completed(futures):
-            label = futures[future]
-            try:
-                _label, items = future.result()
-                collected.extend(items)
-                searches_run += 1
-            except Exception as exc:
-                _log(f"Search failed for {label}: {exc}")
-
-    if not collected:
-        _log(f"No SERP results for {topic!r} across {searches_run}/{len(queries)} queries")
-        return []
-
-    entities = _extract_peer_entities(collected, topic, limit=count)
-    _log(
-        f"Discovered {len(entities)} competitor(s) for {topic!r} "
-        f"from {searches_run}/{len(queries)} queries: {entities}"
-    )
-    return entities

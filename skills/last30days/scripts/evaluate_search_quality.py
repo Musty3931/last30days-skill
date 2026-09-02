@@ -53,9 +53,6 @@ EVAL_CREDENTIAL_ENV_KEYS = (
     "OPENAI_API_KEY",
     "XAI_API_KEY",
     "SCRAPECREATORS_API_KEY",
-    "BSKY_HANDLE",
-    "BSKY_APP_PASSWORD",
-    "TRUTHSOCIAL_TOKEN",
     "AUTH_TOKEN",
     "CT0",
 )
@@ -78,14 +75,6 @@ def row_best_date(row: dict[str, Any]) -> str | None:
 V2_SOURCE_KEYS = [
     ("reddit", "title"),
     ("x", "text"),
-    ("youtube", "title"),
-    ("tiktok", "text"),
-    ("instagram", "text"),
-    ("hackernews", "title"),
-    ("bluesky", "text"),
-    ("truthsocial", "text"),
-    ("polymarket", "question"),
-    ("web", "title"),
 ]
 
 
@@ -106,7 +95,7 @@ def build_ranked_items(report: dict[str, Any], limit: int) -> list[dict[str, Any
             })
         return ranked
 
-    # v2 format: per-source lists (reddit, x, youtube, etc.)
+    # v2 format: per-source lists (reddit, x)
     all_items = []
     for source_key, text_field in V2_SOURCE_KEYS:
         for item in report.get(source_key) or []:

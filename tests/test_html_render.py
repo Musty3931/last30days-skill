@@ -19,32 +19,32 @@ def _report(topic: str, cluster_titles: list[str]) -> schema.Report:
     for index, title in enumerate(cluster_titles, start=1):
         item = schema.SourceItem(
             item_id=f"item-{index}",
-            source="grounding",
+            source="reddit",
             title=title,
             body=f"Body for {title}",
             url=f"https://example.test/{index}",
             container="example.test",
             published_at="2026-04-20",
             date_confidence="high",
-            engagement={"views": index * 100},
+            engagement={"score": index * 100},
             snippet=f"Snippet for {title}",
         )
         candidate = schema.Candidate(
             candidate_id=f"candidate-{index}",
             item_id=item.item_id,
-            source="grounding",
+            source="reddit",
             title=title,
             url=item.url,
             snippet=item.snippet,
             subquery_labels=["primary"],
-            native_ranks={"primary:grounding": index},
+            native_ranks={"primary:reddit": index},
             local_relevance=0.9,
             freshness=80,
             engagement=50,
             source_quality=1.0,
             rrf_score=0.5,
             final_score=90 - index,
-            sources=["grounding"],
+            sources=["reddit"],
             source_items=[item],
         )
         cluster = schema.Cluster(
@@ -52,7 +52,7 @@ def _report(topic: str, cluster_titles: list[str]) -> schema.Report:
             title=title,
             candidate_ids=[candidate.candidate_id],
             representative_ids=[candidate.candidate_id],
-            sources=["grounding"],
+            sources=["reddit"],
             score=90 - index,
         )
         items.append(item)
@@ -79,14 +79,14 @@ def _report(topic: str, cluster_titles: list[str]) -> schema.Report:
                     label="primary",
                     search_query=topic,
                     ranking_query=topic,
-                    sources=["grounding"],
+                    sources=["reddit"],
                 )
             ],
-            source_weights={"grounding": 1.0},
+            source_weights={"reddit": 1.0},
         ),
         clusters=clusters,
         ranked_candidates=candidates,
-        items_by_source={"grounding": items},
+        items_by_source={"reddit": items},
         errors_by_source={},
         artifacts={"pre_research_flags_present": True},
     )
@@ -323,11 +323,11 @@ class HtmlRenderBehaviorTests(unittest.TestCase):
         report = _report("OpenClaw", ["Containers"])
         report.artifacts["pre_research_flags_present"] = False
         report.artifacts["plan_source"] = "deterministic"
-        report.warnings.append("Brave quota exhausted")
+        report.warnings.append("Reddit quota exhausted")
         rendered = html_render.render_html(report)
         # Warning text variations must all be absent from the artifact.
         self.assertNotIn("Data quality note", rendered)
-        self.assertNotIn("Brave quota exhausted", rendered)
+        self.assertNotIn("Reddit quota exhausted", rendered)
         self.assertNotIn("DEGRADED RUN WARNING", rendered)
         self.assertNotIn("Pre-Research Status", rendered)
         # No blockquote at all in mock output - just badge + meta + footer + colophon

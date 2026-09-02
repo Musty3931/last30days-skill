@@ -52,21 +52,20 @@ class FusionV3Tests(unittest.TestCase):
         """Every qualifying source (local_relevance >= 0.25) gets at least 2
         items in the fused pool.
 
-        Dominant sources (x, tiktok) get high weights, so pure-RRF truncation
+        Dominant sources (x, digg) get high weights, so pure-RRF truncation
         would squeeze out low-weight sources entirely.  The diversity guarantee
         must reserve at least 2 slots per qualifying active source.  All sources
         here have rank_score=0.8 (well above the 0.25 threshold), so every
         source qualifies for reserved slots.
         """
-        sources = ["reddit", "hackernews", "x", "tiktok", "bluesky", "youtube"]
-        # Heavily skewed weights: x and tiktok dominate.
+        sources = ["reddit", "github", "x", "digg", "arxiv"]
+        # Heavily skewed weights: x and digg dominate.
         weights = {
             "x": 3.0,
-            "tiktok": 2.5,
+            "digg": 2.5,
             "reddit": 0.5,
-            "hackernews": 0.4,
-            "bluesky": 0.3,
-            "youtube": 0.3,
+            "github": 0.4,
+            "arxiv": 0.3,
         }
         plan = schema.QueryPlan(
             intent="concept",
@@ -99,8 +98,8 @@ class FusionV3Tests(unittest.TestCase):
                 )
             streams[("primary", src)] = items
 
-        candidates = fusion.weighted_rrf(streams, plan, pool_limit=12)
-        self.assertEqual(12, len(candidates))
+        candidates = fusion.weighted_rrf(streams, plan, pool_limit=10)
+        self.assertEqual(10, len(candidates))
 
         source_counts: dict[str, int] = {}
         for c in candidates:
@@ -177,17 +176,17 @@ class FusionV3Tests(unittest.TestCase):
                     label="primary",
                     search_query="test",
                     ranking_query="What is test?",
-                    sources=["x", "reddit", "hackernews"],
+                    sources=["x", "reddit", "github"],
                     weight=1.0,
                 ),
             ],
             # Give x a much higher weight so its items get higher RRF scores
-            source_weights={"x": 3.0, "reddit": 0.3, "hackernews": 0.3},
+            source_weights={"x": 3.0, "reddit": 0.3, "github": 0.3},
         )
 
         streams: dict[tuple[str, str], list[schema.SourceItem]] = {}
         # All sources below threshold (local_relevance = 0.1)
-        for src in ["x", "reddit", "hackernews"]:
+        for src in ["x", "reddit", "github"]:
             items = [
                 make_item(f"{src}_{i}", src, f"https://{src}.example.com/{i}", f"{src} item {i}", 0.1)
                 for i in range(4)
@@ -203,8 +202,8 @@ class FusionV3Tests(unittest.TestCase):
         for c in candidates:
             source_counts[c.source] = source_counts.get(c.source, 0) + 1
 
-        # x has 3x weight so its RRF scores are ~3x higher than reddit/hn.
-        # All 4 x items should beat all reddit/hackernews items.
+        # x has 3x weight so its RRF scores are ~3x higher than reddit/github.
+        # All 4 x items should beat all reddit/github items.
         self.assertEqual(
             source_counts.get("x", 0),
             4,
@@ -402,8 +401,8 @@ class TestUrlNormalization(unittest.TestCase):
     def test_strips_mobile_prefix(self):
         from lib.fusion import _normalize_url
         self.assertEqual(
-            _normalize_url("https://m.youtube.com/watch?v=abc"),
-            _normalize_url("https://youtube.com/watch?v=abc"),
+            _normalize_url("https://m.reddit.com/r/test/comments/abc"),
+            _normalize_url("https://reddit.com/r/test/comments/abc"),
         )
 
     def test_strips_utm_params(self):
@@ -441,22 +440,22 @@ class OutOfWindowSortTests(unittest.TestCase):
     def _candidate(self, name: str, published_at: str | None, confidence: str, rrf: float) -> schema.Candidate:
         item = schema.SourceItem(
             item_id=name,
-            source="youtube",
+            source="x",
             title=name,
             body="body",
-            url=f"https://youtube.com/watch?v={name}",
+            url=f"https://x.com/i/status/{name}",
             published_at=published_at,
             date_confidence=confidence,
         )
         return schema.Candidate(
             candidate_id=name,
             item_id=name,
-            source="youtube",
+            source="x",
             title=name,
             url=item.url,
             snippet="snippet",
             subquery_labels=["primary"],
-            native_ranks={"primary:youtube": 1},
+            native_ranks={"primary:x": 1},
             local_relevance=0.9,
             freshness=90,
             engagement=60.0,
@@ -484,23 +483,23 @@ class OutOfWindowSortTests(unittest.TestCase):
         the run window, not solely from adapter-provided date_confidence.
         """
         item = schema.SourceItem(
-            item_id="old_job",
-            source="jobs",
-            title="Old job posting",
+            item_id="old_repo",
+            source="github",
+            title="Old repo release",
             body="body",
-            url="https://example.com/job",
+            url="https://github.com/example/repo",
             published_at="2025-10-15",
             date_confidence="high",
         )
         stale_with_high_confidence = schema.Candidate(
             candidate_id="stale_high",
-            item_id="old_job",
-            source="jobs",
-            title="Old job posting",
-            url="https://example.com/job",
+            item_id="old_repo",
+            source="github",
+            title="Old repo release",
+            url="https://github.com/example/repo",
             snippet="snippet",
             subquery_labels=["primary"],
-            native_ranks={"primary:jobs": 1},
+            native_ranks={"primary:github": 1},
             local_relevance=0.9,
             freshness=90,
             engagement=60.0,

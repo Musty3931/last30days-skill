@@ -1,37 +1,32 @@
 {
   "name": "last30days",
   "version": "3.23.0",
-  "description": "Research any topic across Reddit, X, YouTube, TikTok, Instagram, Hacker News, Polymarket, GitHub, and the web.",
+  "description": "Research any topic across Reddit, X, GitHub, Digg, and arXiv.",
   "author": {
     "name": "Matt Van Horn",
     "email": "mvanhorn@gmail.com",
     "url": "https://github.com/mvanhorn"
   },
-  "homepage": "https://github.com/mvanhorn/last30days-skill",
-  "repository": "https://github.com/mvanhorn/last30days-skill",
+  "homepage": "https://github.com/Musty3931/last30days-skill",
+  "repository": "https://github.com/Musty3931/last30days-skill",
   "license": "MIT",
   "keywords": [
     "competitor research",
     "research",
     "reddit",
     "twitter",
-    "youtube",
-    "tiktok",
-    "instagram",
-    "trends",
-    "prompts",
-    "polymarket",
+    "x",
     "github",
-    "perplexity",
-    "threads",
-    "pinterest",
-    "hacker-news"
+    "digg",
+    "arxiv",
+    "trends",
+    "prompts"
   ],
   "skills": "./skills/",
   "interface": {
     "displayName": "last30days",
     "shortDescription": "Research what people are saying about a topic now.",
-    "longDescription": "last30days adds a Codex skill for researching any topic based on recent discussion and engagement signals across Reddit, X, YouTube, TikTok, Instagram, Hacker News, Polymarket, GitHub, and the web.",
+    "longDescription": "last30days adds a Codex skill for researching any topic based on recent discussion and engagement signals across Reddit, X, GitHub, Digg, and arXiv.",
     "developerName": "Matt Van Horn",
     "category": "Research",
     "capabilities": [
@@ -39,11 +34,11 @@
       "Read",
       "Write"
     ],
-    "websiteURL": "https://github.com/mvanhorn/last30days-skill",
+    "websiteURL": "https://github.com/Musty3931/last30days-skill",
     "defaultPrompt": [
-      "TikTok shop trends",
-      "Codex vs Cursor",
-      "best travel credit cards"
+      "Claude Code vs Codex",
+      "what's trending in AI agents",
+      "Peter Steinberger"
     ],
     "brandColor": "#6F42C1"
   }

@@ -105,7 +105,6 @@ def _run_once(fixture: EvalFixture) -> schema.Report:
             depth=manifest.get("depth", "quick"),
             requested_sources=list(manifest["fixture_sources"]),
             mock=False,
-            web_backend=manifest.get("web_backend", "none"),
             external_plan=manifest["plan"],
             lookback_days=int(manifest.get("lookback_days", 30)),
             as_of_date=manifest["as_of_date"],
