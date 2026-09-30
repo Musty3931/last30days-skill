@@ -66,7 +66,9 @@ def test_ytsearch_prefix_fallback_for_builds_without_ytsearchdate(monkeypatch):
     def run(cmd, **kwargs):
         assert not any(arg.startswith("ytsearchdate") for arg in cmd)
         if "--flat-playlist" in cmd:
-            assert "ytsearch18:unreal engine" in cmd
+            if any(arg.startswith("https://www.youtube.com/results?") for arg in cmd):
+                return result(code=1, stderr="ERROR: Unsupported URL")
+            assert "ytsearch24:unreal engine" in cmd
         return result([video()])
     monkeypatch.setattr(yt, "_run_ytdlp", run)
     assert len(yt.search_youtube("Unreal Engine", FROM, TO, "quick")["items"]) == 1
@@ -77,7 +79,7 @@ def test_old_results_never_fill_a_thin_recent_window(monkeypatch):
     assert yt.search_youtube("Unreal Engine", FROM, TO)["items"] == []
 
 
-@pytest.mark.parametrize("depth,cap", [("quick", 6), ("default", 8), ("deep", 16)])
+@pytest.mark.parametrize("depth,cap", [("quick", 8), ("default", 12), ("deep", 16)])
 def test_metadata_budget_and_cache(monkeypatch, depth, cap):
     rows = [video(f"Example{i:04d}") for i in range(50)]
     calls = search_runner(monkeypatch, rows)

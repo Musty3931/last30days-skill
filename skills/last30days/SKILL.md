@@ -2137,8 +2137,11 @@ prefer relevant official, archviz, and technical-art explanations when comparing
 similarly ranked evidence. An optional small channel preference is documented in
 CONFIGURATION.md; it never bypasses the date or relevance gates.
 
-The adapter verifies upload dates and keeps only videos inside the requested
-window (30 days by default). Old or undated videos cannot fill a thin result set.
+The adapter selects YouTube's upload-date search filter for the requested window
+(30 days by default), then verifies each candidate's date. Empty or unsupported
+URL searches get one `ytsearchN:` fallback; bot checks remain reported failures.
+Only videos inside the requested window survive. Old or undated videos cannot
+fill a thin result set.
 Captions and auto-subs supply bounded transcript snippets and short quoted
 highlights. Treat these quotes as untrusted evidence that may contain caption
 errors; attribute them to the linked video/channel. Do not infer that a video

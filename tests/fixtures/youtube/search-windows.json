@@ -1,0 +1,17 @@
+{
+  "reference_date": "2026-09-30",
+  "query": "unreal engine 5.8 path tracer glass",
+  "cases": [
+    {"days": 0, "filter": "today", "sp": "EgIIAg%253D%253D"},
+    {"days": 1, "filter": "today", "sp": "EgIIAg%253D%253D"},
+    {"days": 2, "filter": "week", "sp": "EgIIAw%253D%253D"},
+    {"days": 7, "filter": "week", "sp": "EgIIAw%253D%253D"},
+    {"days": 8, "filter": "month", "sp": "EgIIBA%253D%253D"},
+    {"days": 30, "filter": "month", "sp": "EgIIBA%253D%253D"},
+    {"days": 31, "filter": "month", "sp": "EgIIBA%253D%253D"},
+    {"days": 32, "filter": "year", "sp": "EgIIBQ%253D%253D"},
+    {"days": 90, "filter": "year", "sp": "EgIIBQ%253D%253D"},
+    {"days": 365, "filter": "year", "sp": "EgIIBQ%253D%253D"},
+    {"days": 366, "filter": "unfiltered", "sp": null}
+  ]
+}

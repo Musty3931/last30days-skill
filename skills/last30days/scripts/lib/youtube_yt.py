@@ -17,15 +17,16 @@ import tempfile
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
+from urllib.parse import quote, urlencode
 
 from . import dates, health, http, log, subproc
 from .query import infer_query_intent
 from .relevance import token_overlap_relevance as _compute_relevance
 
-DEPTH_CONFIG = {"quick": 6, "default": 8, "deep": 16}
+DEPTH_CONFIG = {"quick": 8, "default": 12, "deep": 16}
 TRANSCRIPT_LIMITS = {"quick": 0, "default": 2, "deep": 8}
 TRANSCRIPT_MAX_WORDS = 5000
 _SEARCH_TIMEOUT = 30
@@ -162,6 +163,54 @@ def _video_metadata(video):
     return payload
 
 
+def _search_url(topic, from_date, to_date):
+    """Use the smallest relative upload filter covering the requested window."""
+    start = datetime.strptime(from_date, "%Y-%m-%d").date()
+    end = datetime.strptime(to_date, "%Y-%m-%d").date()
+    # YouTube filters are relative to today, including for historical --as-of
+    # runs. Widen to reach the start; metadata still enforces both date bounds.
+    days = max((end - start).days, (datetime.now(timezone.utc).date() - start).days)
+    params = {"search_query": topic}
+    # Base64 of protobuf 12 02 08 <upload-date enum>. The hour filter (enum 1)
+    # cannot cover our day-granularity windows; today starts at enum 2.
+    for limit, token in ((1, "EgIIAg=="), (7, "EgIIAw=="),
+                         (31, "EgIIBA=="), (365, "EgIIBQ==")):
+        if days <= limit:
+            # YouTube's results URL double-encodes the base64 padding.
+            params["sp"] = quote(token, safe="")
+            break
+    # No relative filter covers more than a year: leave that search unfiltered.
+    return "https://www.youtube.com/results?" + urlencode(params)
+
+
+def _search_candidates(topic, from_date, to_date, count):
+    """Bound flat extraction and fall back once for empty/unsupported URL search."""
+    targets = (_search_url(topic, from_date, to_date), f"ytsearch{count * 3}:{topic}")
+    previous_error = None
+    for index, target in enumerate(targets):
+        try:
+            result = _run_ytdlp([
+                "yt-dlp", "--ignore-config", "--no-cookies-from-browser", target,
+                "--flat-playlist", "--dump-json", "--skip-download",
+                "--playlist-end", str(count * 3),
+            ], timeout=_SEARCH_TIMEOUT)
+            raw = _json_lines(result.stdout)
+            error = _fetch_failure(result)
+            if result.stdout.strip() and not raw and not error:
+                error = "YouTube search returned no valid video JSON"
+        except (OSError, subproc.SubprocTimeout) as exc:
+            raw, error = [], str(exc)
+        if raw or (error and classify_run_failure(error) == health.RATE_LIMITED):
+            return raw, error
+        if index:
+            # A clean empty fallback cannot erase a failed primary fetch.
+            return [], error or previous_error
+        previous_error = error
+        _log("Upload-date search returned no candidates; trying ytsearch fallback"
+             + (f" ({error})" if error else ""))
+    return [], previous_error
+
+
 def search_youtube(topic, from_date, to_date, depth="default"):
     if not is_enabled():
         return {"items": []}
@@ -178,16 +227,7 @@ def search_youtube(topic, from_date, to_date, depth="default"):
     payload = {"items": [], "error": "YouTube search failed"}
     try:
         _log(f"Searching '{core}' ({from_date} through {to_date}, metadata cap {count})")
-        # ytsearchdate is unsupported in current yt-dlp. Always use the
-        # compatible ytsearchN prefix; recency is enforced after metadata.
-        result = _run_ytdlp([
-            "yt-dlp", "--ignore-config", "--no-cookies-from-browser",
-            f"ytsearch{count * 3}:{core}", "--flat-playlist", "--dump-json", "--skip-download",
-        ], timeout=_SEARCH_TIMEOUT)
-        raw = _json_lines(result.stdout)
-        error = _fetch_failure(result)
-        if result.stdout.strip() and not raw and not error:
-            error = "YouTube search returned no valid video JSON"
+        raw, error = _search_candidates(core, from_date, to_date, count)
         unique = {video["id"]: video for video in raw}
         candidates = sorted(unique.values(), key=lambda v: (
             _compute_relevance(core, str(v.get("title") or "")),

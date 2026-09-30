@@ -410,12 +410,18 @@ evidence that there are no videos in the window.
 For development or scripting, `python3 skills/last30days/scripts/last30days.py
 "Unreal Engine 5.8 archviz glass" --search youtube --emit compact` isolates the lane.
 
-The compatible search prefix is `ytsearchN:` (not `ytsearchdate`). Flat search
-lacks upload dates, so the adapter fetches metadata for only its best candidates
-in a pool of two, caching metadata and captions within the run. Quick/default/deep
-use at most 1/2/3 searches, 6/8/16 metadata calls **per search**, and 0/2/8 caption
-attempts across merged results: at most 7/20/59 yt-dlp invocations per source
-retrieval, less when cached. One YouTube retrieval stream runs per research pass.
+Search uses YouTube's upload-date filter: today for a one-day window, this week
+for up to 7 days, this month for up to 31, and this year for up to 365. Historical
+`--as-of` windows widen the filter to reach their start date; windows starting
+more than a year ago use unfiltered search. Empty or unsupported URL searches
+get one compatible `ytsearchN:` fallback; bot checks and rate limits stop that
+search without a fallback. Flat search lacks upload dates, so the adapter fetches
+metadata for only its best candidates in a pool of two, caching metadata and
+captions within the run. Quick/default/deep use at most 1/2/3 queries, 8/12/16
+metadata calls **per query**, and 0/2/8 caption attempts across merged results.
+Each query examines at most 24/36/48 flat entries per search attempt, including
+its optional fallback: at most 10/30/62 yt-dlp invocations per source retrieval,
+less when cached. One YouTube retrieval stream runs per research pass.
 Both date bounds are enforced; undated, old, and future videos are excluded even
 if no recent results remain. Each transcript is capped at 5,000 words and its
 short highlights appear as attributed evidence. No paid or audio fallback runs.
