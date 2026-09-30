@@ -1,0 +1,845 @@
+{
+  "captured_at": "2026-09-30T14:44:20.041513+00:00",
+  "url": "https://forums.unrealengine.com/t/2832702.json",
+  "response": {
+    "post_stream": {
+      "posts": [
+        {
+          "id": 5229868,
+          "name": "Anonymous User",
+          "username": "anonymous-edc",
+          "avatar_template": "https://d3kjluh73b9h9o.cloudfront.net/original/4X/2/8/5/28502927f1d97ba1051b3b47ccfe17233bf41ef0.png",
+          "created_at": "2026-08-19T09:05:06.000Z",
+          "cooked": "<p>Using a simple substrate glass material in pathtracer produces artifacts in the form of colored streaks across the object and causes a lot of noise (I have included the material in the zip).</p>\n<p>We were able to narrow the issue down to the transmittance color input of the Substrate Transmittance-to-MFP node. Using flat colors (solid color, stripes etc.) works as expected but as soon as any smooth color transitions or gradients are introduced, the artifacts start showing up (refer to the screenshots in the attachment).</p>\n<p>-image A - posterization:1, depth:50</p>\n<p>-image B - posterization:4, depth:50</p>\n<p>-image C - posterization:100000, depth:50</p>\n<p><a class=\"attachment\" href=\"/uploads/short-url/vDXZE1SVBcMmZcjyJ8p0bjM7fYn.zip\">Substrate.zip</a>(922 KB)</p>",
+          "post_number": 1,
+          "post_type": 1,
+          "posts_count": 3,
+          "updated_at": "2026-09-20T08:01:51.991Z",
+          "reply_count": 0,
+          "reply_to_post_number": null,
+          "quote_count": 0,
+          "incoming_link_count": 2,
+          "reads": 1,
+          "readers_count": 0,
+          "score": 10.2,
+          "yours": false,
+          "topic_id": 2832702,
+          "topic_slug": "pathtracer-substrate-transmission-issues",
+          "display_username": "Anonymous User",
+          "primary_group_name": "Epic_Games_Inc",
+          "flair_name": "Epic_Games_Inc",
+          "flair_url": null,
+          "flair_bg_color": "",
+          "flair_color": "",
+          "flair_group_id": 69,
+          "badges_granted": [],
+          "version": 2,
+          "can_edit": false,
+          "can_delete": false,
+          "can_recover": false,
+          "can_see_hidden_post": false,
+          "can_wiki": false,
+          "read": true,
+          "user_title": "Staff",
+          "title_is_group": true,
+          "bookmarked": false,
+          "actions_summary": [],
+          "moderator": false,
+          "admin": false,
+          "staff": false,
+          "user_id": 7003830,
+          "hidden": false,
+          "trust_level": 2,
+          "deleted_at": null,
+          "user_deleted": false,
+          "edit_reason": "Ownership transferred",
+          "can_view_edit_history": false,
+          "wiki": false,
+          "user_custom_fields": {
+            "team_memberships": "{\"memberships\":[]}"
+          },
+          "post_url": "/t/pathtracer-substrate-transmission-issues/2832702/1",
+          "unreal_post_count": 25400,
+          "unreal_user_answers_count": 202,
+          "reactions": [],
+          "current_user_reaction": null,
+          "reaction_users_count": 0,
+          "current_user_used_main_reaction": false,
+          "can_accept_answer": false,
+          "can_unaccept_answer": false,
+          "accepted_answer": false,
+          "topic_accepted_answer": true,
+          "can_vote": false
+        },
+        {
+          "id": 5229925,
+          "name": "chris.kulla",
+          "username": "chris.kulla",
+          "avatar_template": "/user_avatar/forums.unrealengine.com/chris.kulla/{size}/924252_2.png",
+          "created_at": "2026-08-21T17:21:24.000Z",
+          "cooked": "<p>Thank you for the simple repro. I am able to reproduce these artifacts which do seem like a bug.</p>\n<p>I’ve created an internal issue to track this. It appears to be coming from the scattering inside the volume (it doesn’t happen when DiffuseColor = 0 and becomes more pronounced with higher DiffuseColor values).</p>",
+          "post_number": 2,
+          "post_type": 1,
+          "posts_count": 3,
+          "updated_at": "2026-09-20T08:02:28.861Z",
+          "reply_count": 0,
+          "reply_to_post_number": null,
+          "quote_count": 0,
+          "incoming_link_count": 0,
+          "reads": 1,
+          "readers_count": 0,
+          "score": 0.2,
+          "yours": false,
+          "topic_id": 2832702,
+          "topic_slug": "pathtracer-substrate-transmission-issues",
+          "display_username": "chris.kulla",
+          "primary_group_name": "Epic_Games_Inc",
+          "flair_name": "Epic_Games_Inc",
+          "flair_url": null,
+          "flair_bg_color": "",
+          "flair_color": "",
+          "flair_group_id": 69,
+          "badges_granted": [],
+          "version": 2,
+          "can_edit": false,
+          "can_delete": false,
+          "can_recover": false,
+          "can_see_hidden_post": false,
+          "can_wiki": false,
+          "read": true,
+          "user_title": "Staff",
+          "title_is_group": true,
+          "bookmarked": false,
+          "actions_summary": [],
+          "moderator": false,
+          "admin": false,
+          "staff": false,
+          "user_id": 4424024,
+          "hidden": false,
+          "trust_level": 2,
+          "deleted_at": null,
+          "user_deleted": false,
+          "edit_reason": "Ownership transferred",
+          "can_view_edit_history": false,
+          "wiki": false,
+          "user_custom_fields": {
+            "lms_badges": "7v70GxMDan81,ZyNj0LdH09o1,ruNtASRvGww1",
+            "badges": "1",
+            "team_memberships": "{\"memberships\":[{\"name\":\"Epic Games\",\"hash_id\":\"9n\",\"slug\":\"epic-games\"}]}"
+          },
+          "post_url": "/t/pathtracer-substrate-transmission-issues/2832702/2",
+          "unreal_post_count": 28,
+          "unreal_user_answers_count": 3,
+          "reactions": [],
+          "current_user_reaction": null,
+          "reaction_users_count": 0,
+          "current_user_used_main_reaction": false,
+          "can_accept_answer": false,
+          "can_unaccept_answer": false,
+          "accepted_answer": false,
+          "topic_accepted_answer": true
+        },
+        {
+          "id": 5229926,
+          "name": "chris.kulla",
+          "username": "chris.kulla",
+          "avatar_template": "/user_avatar/forums.unrealengine.com/chris.kulla/{size}/924252_2.png",
+          "created_at": "2026-08-21T18:08:32.000Z",
+          "cooked": "<p>I have a fix for the root issue, I will try to get this into the next release of 5.8</p>\n<p><div class=\"lightbox-wrapper\"><a class=\"lightbox\" href=\"https://d3kjluh73b9h9o.cloudfront.net/original/4X/e/5/f/e5f64e3f1307d6782b0d0459099fd18792dd3e0b.png\" data-download-href=\"/uploads/short-url/wOl2Z6sDLJ0keAcetEYdy7xUqG7.png?dl=1\" title=\"udn-substrate-transmission-scatter-bug.png\" rel=\"noopener nofollow ugc\"><img src=\"https://d3kjluh73b9h9o.cloudfront.net/optimized/4X/e/5/f/e5f64e3f1307d6782b0d0459099fd18792dd3e0b_2_566x499.png\" alt=\"udn-substrate-transmission-scatter-bug.png\" data-base62-sha1=\"wOl2Z6sDLJ0keAcetEYdy7xUqG7\" width=\"566\" height=\"499\" srcset=\"https://d3kjluh73b9h9o.cloudfront.net/optimized/4X/e/5/f/e5f64e3f1307d6782b0d0459099fd18792dd3e0b_2_566x499.png, https://d3kjluh73b9h9o.cloudfront.net/optimized/4X/e/5/f/e5f64e3f1307d6782b0d0459099fd18792dd3e0b_2_849x748.png 1.5x, https://d3kjluh73b9h9o.cloudfront.net/original/4X/e/5/f/e5f64e3f1307d6782b0d0459099fd18792dd3e0b.png 2x\" data-dominant-color=\"8D949D\"><div class=\"meta\"><svg class=\"fa d-icon d-icon-far-image svg-icon\" aria-hidden=\"true\"><use href=\"#far-image\"></use></svg><span class=\"filename\">udn-substrate-transmission-scatter-bug.png</span><span class=\"informations\">871×769 1.07 MB</span><svg class=\"fa d-icon d-icon-discourse-expand svg-icon\" aria-hidden=\"true\"><use href=\"#discourse-expand\"></use></svg></div></a></div> <div class=\"lightbox-wrapper\"><a class=\"lightbox\" href=\"https://d3kjluh73b9h9o.cloudfront.net/original/4X/b/3/8/b384f87227d3c91243555dc752a33503833f79db.png\" data-download-href=\"/uploads/short-url/pC6m1ie5KEC8YJEFY3trz1K7d3B.png?dl=1\" title=\"udn-substrate-transmission-scatter-fixed.png\" rel=\"noopener nofollow ugc\"><img src=\"https://d3kjluh73b9h9o.cloudfront.net/optimized/4X/b/3/8/b384f87227d3c91243555dc752a33503833f79db_2_566x499.png\" alt=\"udn-substrate-transmission-scatter-fixed.png\" data-base62-sha1=\"pC6m1ie5KEC8YJEFY3trz1K7d3B\" width=\"566\" height=\"499\" srcset=\"https://d3kjluh73b9h9o.cloudfront.net/optimized/4X/b/3/8/b384f87227d3c91243555dc752a33503833f79db_2_566x499.png, https://d3kjluh73b9h9o.cloudfront.net/optimized/4X/b/3/8/b384f87227d3c91243555dc752a33503833f79db_2_849x748.png 1.5x, https://d3kjluh73b9h9o.cloudfront.net/original/4X/b/3/8/b384f87227d3c91243555dc752a33503833f79db.png 2x\" data-dominant-color=\"878E96\"><div class=\"meta\"><svg class=\"fa d-icon d-icon-far-image svg-icon\" aria-hidden=\"true\"><use href=\"#far-image\"></use></svg><span class=\"filename\">udn-substrate-transmission-scatter-fixed.png</span><span class=\"informations\">871×769 768 KB</span><svg class=\"fa d-icon d-icon-discourse-expand svg-icon\" aria-hidden=\"true\"><use href=\"#discourse-expand\"></use></svg></div></a></div></p>",
+          "post_number": 3,
+          "post_type": 1,
+          "posts_count": 3,
+          "updated_at": "2026-09-20T08:02:29.369Z",
+          "reply_count": 0,
+          "reply_to_post_number": null,
+          "quote_count": 0,
+          "incoming_link_count": 0,
+          "reads": 1,
+          "readers_count": 0,
+          "score": 0.2,
+          "yours": false,
+          "topic_id": 2832702,
+          "topic_slug": "pathtracer-substrate-transmission-issues",
+          "display_username": "chris.kulla",
+          "primary_group_name": "Epic_Games_Inc",
+          "flair_name": "Epic_Games_Inc",
+          "flair_url": null,
+          "flair_bg_color": "",
+          "flair_color": "",
+          "flair_group_id": 69,
+          "badges_granted": [],
+          "version": 2,
+          "can_edit": false,
+          "can_delete": false,
+          "can_recover": false,
+          "can_see_hidden_post": false,
+          "can_wiki": false,
+          "read": true,
+          "user_title": "Staff",
+          "title_is_group": true,
+          "bookmarked": false,
+          "actions_summary": [],
+          "moderator": false,
+          "admin": false,
+          "staff": false,
+          "user_id": 4424024,
+          "hidden": false,
+          "trust_level": 2,
+          "deleted_at": null,
+          "user_deleted": false,
+          "edit_reason": "Ownership transferred",
+          "can_view_edit_history": false,
+          "wiki": false,
+          "user_custom_fields": {
+            "lms_badges": "7v70GxMDan81,ZyNj0LdH09o1,ruNtASRvGww1",
+            "badges": "1",
+            "team_memberships": "{\"memberships\":[{\"name\":\"Epic Games\",\"hash_id\":\"9n\",\"slug\":\"epic-games\"}]}"
+          },
+          "post_url": "/t/pathtracer-substrate-transmission-issues/2832702/3",
+          "unreal_post_count": 28,
+          "unreal_user_answers_count": 3,
+          "reactions": [],
+          "current_user_reaction": null,
+          "reaction_users_count": 0,
+          "current_user_used_main_reaction": false,
+          "can_accept_answer": false,
+          "can_unaccept_answer": false,
+          "accepted_answer": true,
+          "topic_accepted_answer": true
+        }
+      ],
+      "stream": [
+        5229868,
+        5229925,
+        5229926
+      ]
+    },
+    "timeline_lookup": [
+      [
+        1,
+        42
+      ],
+      [
+        2,
+        40
+      ]
+    ],
+    "suggested_topics": [
+      {
+        "fancy_title": "UE 5.7 Can&rsquo;t Connect to Steam Dedicated Server",
+        "id": 2699933,
+        "title": "UE 5.7 Can't Connect to Steam Dedicated Server",
+        "slug": "ue-5-7-cant-connect-to-steam-dedicated-server",
+        "posts_count": 4,
+        "reply_count": 1,
+        "highest_post_number": 4,
+        "image_url": "https://d3kjluh73b9h9o.cloudfront.net/optimized/4X/6/9/6/69675d6719ac54b85059e44bcb8a8a256e8dd564_2_1024x101.png",
+        "created_at": "2026-02-15T17:19:15.628Z",
+        "last_posted_at": "2026-07-03T15:33:40.000Z",
+        "bumped": true,
+        "bumped_at": "2026-07-03T15:33:40.000Z",
+        "archetype": "regular",
+        "unseen": false,
+        "pinned": false,
+        "unpinned": null,
+        "excerpt": "Hello, I’m trying to get a dedicated server launched using the steam subsystems but I’m running into a problem getting the server to actually start. I have compiled a source build of UE5.7 and installed and enabled Advan&hellip;",
+        "visible": true,
+        "closed": false,
+        "archived": false,
+        "bookmarked": null,
+        "liked": null,
+        "thumbnails": [
+          {
+            "max_width": null,
+            "max_height": null,
+            "width": 1748,
+            "height": 173,
+            "url": "https://d3kjluh73b9h9o.cloudfront.net/original/4X/6/9/6/69675d6719ac54b85059e44bcb8a8a256e8dd564.png"
+          },
+          {
+            "max_width": 1024,
+            "max_height": 1024,
+            "width": 1024,
+            "height": 101,
+            "url": "https://d3kjluh73b9h9o.cloudfront.net/optimized/4X/6/9/6/69675d6719ac54b85059e44bcb8a8a256e8dd564_2_1024x101.png"
+          },
+          {
+            "max_width": 800,
+            "max_height": 800,
+            "width": 800,
+            "height": 79,
+            "url": "https://d3kjluh73b9h9o.cloudfront.net/optimized/4X/6/9/6/69675d6719ac54b85059e44bcb8a8a256e8dd564_2_800x79.png"
+          },
+          {
+            "max_width": 600,
+            "max_height": 600,
+            "width": 600,
+            "height": 59,
+            "url": "https://d3kjluh73b9h9o.cloudfront.net/optimized/4X/6/9/6/69675d6719ac54b85059e44bcb8a8a256e8dd564_2_600x59.png"
+          },
+          {
+            "max_width": 400,
+            "max_height": 400,
+            "width": 400,
+            "height": 39,
+            "url": "https://d3kjluh73b9h9o.cloudfront.net/optimized/4X/6/9/6/69675d6719ac54b85059e44bcb8a8a256e8dd564_2_400x39.png"
+          },
+          {
+            "max_width": 300,
+            "max_height": 300,
+            "width": 300,
+            "height": 29,
+            "url": "https://d3kjluh73b9h9o.cloudfront.net/optimized/4X/6/9/6/69675d6719ac54b85059e44bcb8a8a256e8dd564_2_300x29.png"
+          },
+          {
+            "max_width": 200,
+            "max_height": 200,
+            "width": 200,
+            "height": 19,
+            "url": "https://d3kjluh73b9h9o.cloudfront.net/optimized/4X/6/9/6/69675d6719ac54b85059e44bcb8a8a256e8dd564_2_200x19.png"
+          }
+        ],
+        "tags": [
+          {
+            "id": 705,
+            "name": "unreal-engine",
+            "slug": "unreal-engine"
+          },
+          {
+            "id": 53,
+            "name": "question",
+            "slug": "question"
+          }
+        ],
+        "tags_descriptions": {},
+        "like_count": 0,
+        "views": 338,
+        "category_id": 148,
+        "featured_link": null,
+        "op_like_count": 0,
+        "has_accepted_answer": false,
+        "posters": [
+          {
+            "extras": null,
+            "description": "Original Poster",
+            "user": {
+              "id": 1279678,
+              "username": "NaniLlicious",
+              "name": "NaniLlicious",
+              "avatar_template": "https://d3kjluh73b9h9o.cloudfront.net/original/4X/2/8/5/28502927f1d97ba1051b3b47ccfe17233bf41ef0.png",
+              "primary_group_name": "Registered_Users",
+              "trust_level": 2,
+              "unreal_badges": null
+            }
+          },
+          {
+            "extras": null,
+            "description": "Recent Poster",
+            "user": {
+              "id": 7206994,
+              "username": "Yolue",
+              "name": "Yolue",
+              "avatar_template": "https://d3kjluh73b9h9o.cloudfront.net/original/4X/2/8/5/28502927f1d97ba1051b3b47ccfe17233bf41ef0.png",
+              "trust_level": 1,
+              "unreal_badges": null
+            }
+          },
+          {
+            "extras": "latest",
+            "description": "Most Recent Poster",
+            "user": {
+              "id": 81721,
+              "username": "P0k3r",
+              "name": "P0k3r",
+              "avatar_template": "https://d3kjluh73b9h9o.cloudfront.net/original/4X/2/8/5/28502927f1d97ba1051b3b47ccfe17233bf41ef0.png",
+              "primary_group_name": "Registered_Users_Approved",
+              "trust_level": 2,
+              "unreal_badges": null
+            }
+          }
+        ]
+      },
+      {
+        "fancy_title": "为什么我在ue5.6里操作小人后相机偶尔会脱离小人，小人会持续执行原输入并在原地留下一个坐标轴，（可能和更改了速度和行走角度有关） ",
+        "id": 2667986,
+        "title": "为什么我在ue5.6里操作小人后相机偶尔会脱离小人，小人会持续执行原输入并在原地留下一个坐标轴，（可能和更改了速度和行走角度有关） ",
+        "slug": "ue5-6",
+        "posts_count": 1,
+        "reply_count": 0,
+        "highest_post_number": 1,
+        "image_url": null,
+        "created_at": "2025-10-23T14:01:05.295Z",
+        "last_posted_at": "2025-10-23T14:01:05.408Z",
+        "bumped": true,
+        "bumped_at": "2025-10-23T14:01:05.408Z",
+        "archetype": "regular",
+        "unseen": false,
+        "pinned": false,
+        "unpinned": null,
+        "excerpt": "为什么我在ue5.6里操作小人后相机偶尔会脱离小人，小人会持续执行原输入并在原地留下一个坐标轴，（可能和更改了速度和行走角度有关）",
+        "visible": true,
+        "closed": false,
+        "archived": false,
+        "bookmarked": null,
+        "liked": null,
+        "thumbnails": null,
+        "tags": [
+          {
+            "id": 705,
+            "name": "unreal-engine",
+            "slug": "unreal-engine"
+          },
+          {
+            "id": 53,
+            "name": "question",
+            "slug": "question"
+          },
+          {
+            "id": 64,
+            "name": "bug-report",
+            "slug": "bug-report"
+          }
+        ],
+        "tags_descriptions": {},
+        "like_count": 0,
+        "views": 57,
+        "category_id": 148,
+        "featured_link": null,
+        "op_like_count": 0,
+        "has_accepted_answer": false,
+        "posters": [
+          {
+            "extras": "latest single",
+            "description": "Original Poster, Most Recent Poster",
+            "user": {
+              "id": 7527109,
+              "username": "_xr5",
+              "name": "_xr5",
+              "avatar_template": "https://d3kjluh73b9h9o.cloudfront.net/original/4X/2/8/5/28502927f1d97ba1051b3b47ccfe17233bf41ef0.png",
+              "trust_level": 0,
+              "unreal_badges": null
+            }
+          }
+        ]
+      },
+      {
+        "fancy_title": "How do I Make a Achievement System in UE5.5",
+        "id": 2670304,
+        "title": "How do I Make a Achievement System in UE5.5",
+        "slug": "how-do-i-make-a-achievement-system-in-ue5-5",
+        "posts_count": 3,
+        "reply_count": 0,
+        "highest_post_number": 3,
+        "image_url": null,
+        "created_at": "2025-10-30T22:03:08.650Z",
+        "last_posted_at": "2025-10-31T03:12:49.573Z",
+        "bumped": true,
+        "bumped_at": "2025-10-31T03:12:49.573Z",
+        "archetype": "regular",
+        "unseen": false,
+        "pinned": false,
+        "unpinned": null,
+        "excerpt": "how could I make it where you can earn an achievement by overlapping with a box collider and if you press tab the achievement you’ve unlocked will become visible. step by step please! thanks -VSC",
+        "visible": true,
+        "closed": false,
+        "archived": false,
+        "bookmarked": null,
+        "liked": null,
+        "thumbnails": null,
+        "tags": [
+          {
+            "id": 705,
+            "name": "unreal-engine",
+            "slug": "unreal-engine"
+          },
+          {
+            "id": 53,
+            "name": "question",
+            "slug": "question"
+          }
+        ],
+        "tags_descriptions": {},
+        "like_count": 0,
+        "views": 229,
+        "category_id": 28,
+        "featured_link": null,
+        "op_like_count": 0,
+        "has_accepted_answer": false,
+        "posters": [
+          {
+            "extras": null,
+            "description": "Original Poster",
+            "user": {
+              "id": 7250012,
+              "username": "VintageSCollecto",
+              "name": "VintageSCollecto",
+              "avatar_template": "https://d3kjluh73b9h9o.cloudfront.net/original/4X/2/8/5/28502927f1d97ba1051b3b47ccfe17233bf41ef0.png",
+              "trust_level": 1,
+              "unreal_badges": null
+            }
+          },
+          {
+            "extras": null,
+            "description": "Recent Poster",
+            "user": {
+              "id": 5198913,
+              "username": "Trilient",
+              "name": "Trilient",
+              "avatar_template": "https://d3kjluh73b9h9o.cloudfront.net/original/4X/2/8/5/28502927f1d97ba1051b3b47ccfe17233bf41ef0.png",
+              "trust_level": 1,
+              "unreal_badges": null
+            }
+          },
+          {
+            "extras": "latest",
+            "description": "Most Recent Poster",
+            "user": {
+              "id": 114614,
+              "username": "FlamingKoala6",
+              "name": "FlamingKoala6",
+              "avatar_template": "https://d3kjluh73b9h9o.cloudfront.net/original/4X/2/8/5/28502927f1d97ba1051b3b47ccfe17233bf41ef0.png",
+              "primary_group_name": "Registered_Users",
+              "trust_level": 2,
+              "unreal_badges": null
+            }
+          }
+        ]
+      },
+      {
+        "fancy_title": "Community Tutorial: Unreal engine 5.7 groom, hair, fur ",
+        "id": 2698482,
+        "title": "Community Tutorial: Unreal engine 5.7 groom, hair, fur ",
+        "slug": "community-tutorial-unreal-engine-5-7-groom-hair-fur",
+        "posts_count": 1,
+        "reply_count": 0,
+        "highest_post_number": 1,
+        "image_url": null,
+        "created_at": "2026-02-09T12:20:59.000Z",
+        "last_posted_at": "2026-02-09T12:20:59.000Z",
+        "bumped": false,
+        "bumped_at": "2026-02-09T12:20:59.000Z",
+        "archetype": "regular",
+        "unseen": false,
+        "pinned": false,
+        "unpinned": null,
+        "excerpt": "In this advanced Unreal Engine groom tutorial, I show you a complete step-by-step setup for rendering a realistic lion with hair and fur using Unreal Engine.  https://dev.epicgames.com/community/learning/tutorials/1mVV/u&hellip;",
+        "visible": true,
+        "closed": false,
+        "archived": false,
+        "bookmarked": null,
+        "liked": null,
+        "thumbnails": null,
+        "tags": [
+          {
+            "id": 705,
+            "name": "unreal-engine",
+            "slug": "unreal-engine"
+          }
+        ],
+        "tags_descriptions": {},
+        "like_count": 0,
+        "views": 117,
+        "category_id": 159,
+        "featured_link": null,
+        "op_like_count": 0,
+        "has_accepted_answer": false,
+        "posters": [
+          {
+            "extras": "latest single",
+            "description": "Original Poster, Most Recent Poster",
+            "user": {
+              "id": 3586501,
+              "username": "vikramv12",
+              "name": "vikramv12",
+              "avatar_template": "https://d3kjluh73b9h9o.cloudfront.net/original/4X/2/8/5/28502927f1d97ba1051b3b47ccfe17233bf41ef0.png",
+              "primary_group_name": "Registered_Users_Approved",
+              "trust_level": 2,
+              "unreal_badges": null
+            }
+          }
+        ]
+      },
+      {
+        "fancy_title": "T. Gohier - City Billboards ",
+        "id": 2696237,
+        "title": "T. Gohier - City Billboards ",
+        "slug": "t-gohier-city-billboards",
+        "posts_count": 1,
+        "reply_count": 0,
+        "highest_post_number": 1,
+        "image_url": "https://d3kjluh73b9h9o.cloudfront.net/optimized/4X/2/4/b/24bb6332f782c007dfb69e07639a90e8230db32a_2_1024x576.jpeg",
+        "created_at": "2026-01-31T15:42:13.240Z",
+        "last_posted_at": "2026-01-31T15:42:13.386Z",
+        "bumped": true,
+        "bumped_at": "2026-01-31T15:42:13.386Z",
+        "archetype": "regular",
+        "unseen": false,
+        "pinned": false,
+        "unpinned": null,
+        "excerpt": "Medianation City Billboards These billboards will match your urban scenes perfectly, whether on the street, in an airport, a shopping mall, a subway station, and much more. Easily add your own textures and videos to crea&hellip;",
+        "visible": true,
+        "closed": false,
+        "archived": false,
+        "bookmarked": null,
+        "liked": null,
+        "thumbnails": [
+          {
+            "max_width": null,
+            "max_height": null,
+            "width": 3840,
+            "height": 2160,
+            "url": "https://d3kjluh73b9h9o.cloudfront.net/original/4X/2/4/b/24bb6332f782c007dfb69e07639a90e8230db32a.jpeg"
+          },
+          {
+            "max_width": 1024,
+            "max_height": 1024,
+            "width": 1024,
+            "height": 576,
+            "url": "https://d3kjluh73b9h9o.cloudfront.net/optimized/4X/2/4/b/24bb6332f782c007dfb69e07639a90e8230db32a_2_1024x576.jpeg"
+          },
+          {
+            "max_width": 800,
+            "max_height": 800,
+            "width": 800,
+            "height": 450,
+            "url": "https://d3kjluh73b9h9o.cloudfront.net/optimized/4X/2/4/b/24bb6332f782c007dfb69e07639a90e8230db32a_2_800x450.jpeg"
+          },
+          {
+            "max_width": 600,
+            "max_height": 600,
+            "width": 600,
+            "height": 337,
+            "url": "https://d3kjluh73b9h9o.cloudfront.net/optimized/4X/2/4/b/24bb6332f782c007dfb69e07639a90e8230db32a_2_600x337.jpeg"
+          },
+          {
+            "max_width": 400,
+            "max_height": 400,
+            "width": 400,
+            "height": 225,
+            "url": "https://d3kjluh73b9h9o.cloudfront.net/optimized/4X/2/4/b/24bb6332f782c007dfb69e07639a90e8230db32a_2_400x225.jpeg"
+          },
+          {
+            "max_width": 300,
+            "max_height": 300,
+            "width": 300,
+            "height": 168,
+            "url": "https://d3kjluh73b9h9o.cloudfront.net/optimized/4X/2/4/b/24bb6332f782c007dfb69e07639a90e8230db32a_2_300x168.jpeg"
+          },
+          {
+            "max_width": 200,
+            "max_height": 200,
+            "width": 200,
+            "height": 112,
+            "url": "https://d3kjluh73b9h9o.cloudfront.net/optimized/4X/2/4/b/24bb6332f782c007dfb69e07639a90e8230db32a_2_200x112.jpeg"
+          }
+        ],
+        "tags": [
+          {
+            "id": 11497,
+            "name": "fab",
+            "slug": "fab"
+          }
+        ],
+        "tags_descriptions": {},
+        "like_count": 0,
+        "views": 45,
+        "category_id": 237,
+        "featured_link": null,
+        "op_like_count": 0,
+        "has_accepted_answer": false,
+        "posters": [
+          {
+            "extras": "latest single",
+            "description": "Original Poster, Most Recent Poster",
+            "user": {
+              "id": 4158909,
+              "username": "Yosei11",
+              "name": "Yosei11",
+              "avatar_template": "https://d3kjluh73b9h9o.cloudfront.net/original/4X/2/8/5/28502927f1d97ba1051b3b47ccfe17233bf41ef0.png",
+              "primary_group_name": "Registered_Users",
+              "trust_level": 2,
+              "unreal_badges": null
+            }
+          }
+        ]
+      }
+    ],
+    "tags": [
+      {
+        "id": 705,
+        "name": "unreal-engine",
+        "slug": "unreal-engine"
+      },
+      {
+        "id": 53,
+        "name": "question",
+        "slug": "question"
+      },
+      {
+        "id": 11523,
+        "name": "Epic-Pro-Support",
+        "slug": "epic-pro-support"
+      }
+    ],
+    "tags_descriptions": {},
+    "fancy_title": "Pathtracer Substrate Transmission Issues ",
+    "id": 2832702,
+    "title": "Pathtracer Substrate Transmission Issues ",
+    "posts_count": 3,
+    "created_at": "2026-08-19T09:05:06.000Z",
+    "views": 30,
+    "reply_count": 0,
+    "like_count": 0,
+    "last_posted_at": "2026-08-21T18:08:32.000Z",
+    "visible": true,
+    "closed": false,
+    "archived": false,
+    "has_summary": false,
+    "archetype": "regular",
+    "slug": "pathtracer-substrate-transmission-issues",
+    "category_id": 148,
+    "word_count": 208,
+    "deleted_at": null,
+    "user_id": 7003830,
+    "featured_link": null,
+    "pinned_globally": false,
+    "pinned_at": null,
+    "pinned_until": null,
+    "image_url": null,
+    "slow_mode_seconds": 0,
+    "draft": null,
+    "draft_key": "topic_2832702",
+    "draft_sequence": null,
+    "unpinned": null,
+    "pinned": false,
+    "current_post_number": 1,
+    "highest_post_number": 3,
+    "deleted_by": null,
+    "actions_summary": [
+      {
+        "id": 4,
+        "count": 0,
+        "hidden": false,
+        "can_act": false
+      },
+      {
+        "id": 8,
+        "count": 0,
+        "hidden": false,
+        "can_act": false
+      },
+      {
+        "id": 10,
+        "count": 0,
+        "hidden": false,
+        "can_act": false
+      },
+      {
+        "id": 7,
+        "count": 0,
+        "hidden": false,
+        "can_act": false
+      }
+    ],
+    "chunk_size": 20,
+    "bookmarked": false,
+    "topic_timer": null,
+    "message_bus_last_id": 0,
+    "participant_count": 2,
+    "show_read_indicator": false,
+    "thumbnails": null,
+    "slow_mode_enabled_until": null,
+    "epic_component": null,
+    "epic_affects_versions": null,
+    "epic_target_fix": null,
+    "epic_resolved": null,
+    "epic_fix_commit": null,
+    "unreal_users_badges": [
+      {
+        "user_id": 7003830,
+        "badges": null
+      },
+      {
+        "user_id": 4424024,
+        "badges": "1"
+      }
+    ],
+    "valid_reactions": [
+      "heart",
+      "+1",
+      "laughing",
+      "open_mouth",
+      "clap",
+      "confetti_ball",
+      "hugs"
+    ],
+    "accepted_answers": [
+      {
+        "id": 5229926,
+        "name": "chris.kulla",
+        "username": "chris.kulla",
+        "avatar_template": "/user_avatar/forums.unrealengine.com/chris.kulla/{size}/924252_2.png",
+        "created_at": "2026-08-21T18:08:32.000Z",
+        "cooked": "<p>I have a fix for the root issue, I will try to get this into the next release of 5.8</p>\n<p><div class=\"lightbox-wrapper\"><a class=\"lightbox\" href=\"https://d3kjluh73b9h9o.cloudfront.net/original/4X/e/5/f/e5f64e3f1307d6782b0d0459099fd18792dd3e0b.png\" data-download-href=\"/uploads/short-url/wOl2Z6sDLJ0keAcetEYdy7xUqG7.png?dl=1\" title=\"udn-substrate-transmission-scatter-bug.png\" rel=\"noopener nofollow ugc\"><img src=\"https://d3kjluh73b9h9o.cloudfront.net/optimized/4X/e/5/f/e5f64e3f1307d6782b0d0459099fd18792dd3e0b_2_566x499.png\" alt=\"udn-substrate-transmission-scatter-bug.png\" data-base62-sha1=\"wOl2Z6sDLJ0keAcetEYdy7xUqG7\" width=\"566\" height=\"499\" srcset=\"https://d3kjluh73b9h9o.cloudfront.net/optimized/4X/e/5/f/e5f64e3f1307d6782b0d0459099fd18792dd3e0b_2_566x499.png, https://d3kjluh73b9h9o.cloudfront.net/optimized/4X/e/5/f/e5f64e3f1307d6782b0d0459099fd18792dd3e0b_2_849x748.png 1.5x, https://d3kjluh73b9h9o.cloudfront.net/original/4X/e/5/f/e5f64e3f1307d6782b0d0459099fd18792dd3e0b.png 2x\" data-dominant-color=\"8D949D\"><div class=\"meta\"><svg class=\"fa d-icon d-icon-far-image svg-icon\" aria-hidden=\"true\"><use href=\"#far-image\"></use></svg><span class=\"filename\">udn-substrate-transmission-scatter-bug.png</span><span class=\"informations\">871×769 1.07 MB</span><svg class=\"fa d-icon d-icon-discourse-expand svg-icon\" aria-hidden=\"true\"><use href=\"#discourse-expand\"></use></svg></div></a></div> <div class=\"lightbox-wrapper\"><a class=\"lightbox\" href=\"https://d3kjluh73b9h9o.cloudfront.net/original/4X/b/3/8/b384f87227d3c91243555dc752a33503833f79db.png\" data-download-href=\"/uploads/short-url/pC6m1ie5KEC8YJEFY3trz1K7d3B.png?dl=1\" title=\"udn-substrate-transmission-scatter-fixed.png\" rel=\"noopener nofollow ugc\"><img src=\"https://d3kjluh73b9h9o.cloudfront.net/optimized/4X/b/3/8/b384f87227d3c91243555dc752a33503833f79db_2_566x499.png\" alt=\"udn-substrate-transmission-scatter-fixed.png\" data-base62-sha1=\"pC6m1ie5KEC8YJEFY3trz1K7d3B\" width=\"566\" height=\"499\" srcset=\"https://d3kjluh73b9h9o.cloudfront.net/optimized/4X/b/3/8/b384f87227d3c91243555dc752a33503833f79db_2_566x499.png, https://d3kjluh73b9h9o.cloudfront.net/optimized/4X/b/3/8/b384f87227d3c91243555dc752a33503833f79db_2_849x748.png 1.5x, https://d3kjluh73b9h9o.cloudfront.net/original/4X/b/3/8/b384f87227d3c91243555dc752a33503833f79db.png 2x\" data-dominant-color=\"878E96\"><div class=\"meta\"><svg class=\"fa d-icon d-icon-far-image svg-icon\" aria-hidden=\"true\"><use href=\"#far-image\"></use></svg><span class=\"filename\">udn-substrate-transmission-scatter-fixed.png</span><span class=\"informations\">871×769 768 KB</span><svg class=\"fa d-icon d-icon-discourse-expand svg-icon\" aria-hidden=\"true\"><use href=\"#discourse-expand\"></use></svg></div></a></div></p>",
+        "post_number": 3,
+        "topic_id": 2832702,
+        "url": "/t/pathtracer-substrate-transmission-issues/2832702/3"
+      }
+    ],
+    "has_accepted_answer": true,
+    "can_create_shared_issue": false,
+    "shared_issue_visible": false,
+    "can_vote": false,
+    "vote_count": 0,
+    "user_voted": false,
+    "discourse_zendesk_plugin_zendesk_id": null,
+    "discourse_zendesk_plugin_zendesk_url": "https://your-url.zendesk.com/agent/tickets/",
+    "details": {
+      "can_edit": false,
+      "notification_level": 1,
+      "participants": [
+        {
+          "id": 4424024,
+          "username": "chris.kulla",
+          "name": "chris.kulla",
+          "avatar_template": "/user_avatar/forums.unrealengine.com/chris.kulla/{size}/924252_2.png",
+          "post_count": 2,
+          "primary_group_name": "Epic_Games_Inc",
+          "flair_name": "Epic_Games_Inc",
+          "flair_url": null,
+          "flair_color": "",
+          "flair_bg_color": "",
+          "flair_group_id": 69,
+          "trust_level": 2
+        },
+        {
+          "id": 7003830,
+          "username": "anonymous-edc",
+          "name": "Anonymous User",
+          "avatar_template": "https://d3kjluh73b9h9o.cloudfront.net/original/4X/2/8/5/28502927f1d97ba1051b3b47ccfe17233bf41ef0.png",
+          "post_count": 1,
+          "primary_group_name": "Epic_Games_Inc",
+          "flair_name": "Epic_Games_Inc",
+          "flair_url": null,
+          "flair_color": "",
+          "flair_bg_color": "",
+          "flair_group_id": 69,
+          "trust_level": 2
+        }
+      ],
+      "created_by": {
+        "id": 7003830,
+        "username": "anonymous-edc",
+        "name": "Anonymous User",
+        "avatar_template": "https://d3kjluh73b9h9o.cloudfront.net/original/4X/2/8/5/28502927f1d97ba1051b3b47ccfe17233bf41ef0.png"
+      },
+      "last_poster": {
+        "id": 4424024,
+        "username": "chris.kulla",
+        "name": "chris.kulla",
+        "avatar_template": "/user_avatar/forums.unrealengine.com/chris.kulla/{size}/924252_2.png"
+      }
+    },
+    "bookmarks": []
+  }
+}

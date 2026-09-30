@@ -458,8 +458,10 @@ class HTTPError(Exception):
         status_code: Optional[int] = None,
         body: Optional[str] = None,
         outcome_state: Optional[str] = None,
+        headers: Optional[Dict[str, str]] = None,
     ):
         super().__init__(message)
+        self.headers = headers or {}
         self.status_code = status_code
         self.body = body
         self.outcome_state = outcome_state or classify_failure(
@@ -617,6 +619,7 @@ def request(
     max_429_retries: int = MAX_429_RETRIES,
     raw: bool = False,
     deadline_monotonic: float | None = None,
+    retry_dns: bool = True,
 ) -> Union[Dict[str, Any], str]:
     """Make an HTTP request and return JSON response.
 
@@ -631,6 +634,7 @@ def request(
         retries: Number of retries on failure
         max_429_retries: Maximum 429 retries before giving up (separate cap)
         raw: If True, return raw response text instead of parsed JSON
+        retry_dns: Expand DNS retries by default; False lets a source own its request budget.
         deadline_monotonic: Optional absolute monotonic deadline shared by all
             attempts and retry delays.
 
@@ -772,7 +776,7 @@ def request(
             if body:
                 snippet = " ".join(body.split())
                 log(f"Error body: {snippet[:200]}")
-            last_error = HTTPError(f"HTTP {e.code}: {e.reason}", e.code, body)
+            last_error = HTTPError(f"HTTP {e.code}: {e.reason}", e.code, body, headers=dict(e.headers or {}))
 
             # Don't retry client errors (4xx) except rate limits
             if 400 <= e.code < 500 and e.code != 429:
@@ -822,7 +826,7 @@ def request(
                 # default. Counts DNS attempts separately so other URLError
                 # causes don't bypass the regular retry budget.
                 dns_attempts += 1
-                if effective_retries < MIN_DNS_RETRIES:
+                if retry_dns and effective_retries < MIN_DNS_RETRIES:
                     log(
                         f"DNS resolution failed; expanding retry budget from "
                         f"{effective_retries} to {MIN_DNS_RETRIES}"

@@ -1,14 +1,14 @@
-# last30days (five-source fork) - install and setup
+# last30days (six-source fork) - install and setup
 
 You are Claude Code, helping a teammate install Shane Barnard's fork of the `last30days` research skill. Walk through every step below in order, run the commands yourself where a command is shown, and confirm each check before moving on. Stop and ask the user only where a step says so.
 
 ## What this is
 
-`/last30days <topic>` researches what people said about a topic in the last 30 days across exactly five sources: Reddit, X, GitHub, Digg, and arXiv. It is a stripped-down fork of `mvanhorn/last30days-skill`; every other source (YouTube, Hacker News, web search, Perplexity, and about twenty more) has been removed on purpose. Do not try to enable them.
+`/last30days <topic>` researches what people said about a topic in the last 30 days across exactly six sources: Reddit, X, GitHub, Digg, arXiv, and Epic Forums. It is a stripped-down fork of `mvanhorn/last30days-skill`; every other source (YouTube, Hacker News, web search, Perplexity, and about twenty more) has been removed on purpose. Do not try to enable them.
 
 - Repo: https://github.com/Musty3931/last30days-skill
 - Plugin: `last30days@last30days-skill`
-- Free, no keys: Reddit and GitHub work immediately. Digg and arXiv need two small CLIs. X needs a browser login or an API key.
+- Free, no keys: Reddit and GitHub work immediately; Epic Forums works for Unreal/Epic topics. Digg and arXiv need two small CLIs. X needs a browser login or an API key.
 
 ## Step 1 - prerequisites (macOS)
 
@@ -91,7 +91,7 @@ No browser login? Alternatives, any one of them added to `~/.config/last30days/.
 - `XQUIK_API_KEY=...` (paid)
 - `AUTH_TOKEN=...` and `CT0=...` copied from x.com cookies by hand
 
-## Step 6 - verify all five sources
+## Step 6 - verify all six sources
 
 Run the engine's diagnose from the installed plugin:
 
@@ -117,7 +117,7 @@ Expected: a `Research complete` line with non-zero counts for Reddit and X.
 - Person topics work best when the skill can find their X handle and GitHub user. Product topics work best with a GitHub repo.
 - `/last30days trending` or `/last30days what's hot in AI agents` runs discovery mode across Reddit, Digg, and X.
 - "A vs B" topics run a comparison. The skill names the peers itself; there is no automatic competitor discovery.
-- Results save to `~/Documents/Last30Days` (or `LAST30DAYS_MEMORY_DIR`). Ask "search my library for X" to query past runs.
+- Results save to `LAST30DAYS_MEMORY_DIR`, which defaults to `~/Documents/Last30Days`. Ask "search my library for X" to query past runs.
 
 ## Known limits of this fork
 

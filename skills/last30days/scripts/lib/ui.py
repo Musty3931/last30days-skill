@@ -79,6 +79,7 @@ SOURCE_COMPLETION_ORDER = [
     "github",
     "digg",
     "arxiv",
+    "epicforums",
 ]
 
 SOURCE_COMPLETION_META = {
@@ -87,6 +88,7 @@ SOURCE_COMPLETION_META = {
     "github": ("GitHub", "repo", "repos", Colors.PURPLE),
     "digg": ("Digg", "cluster", "clusters", Colors.YELLOW),
     "arxiv": ("arXiv", "paper", "papers", Colors.RED),
+    "epicforums": ("Epic Forums", "topic", "topics", Colors.BLUE),
 }
 
 

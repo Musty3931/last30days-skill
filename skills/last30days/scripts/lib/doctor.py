@@ -48,12 +48,13 @@ import json
 import os
 import shutil
 import sys
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
-from . import backends, env, health, http, prescriptions
+from . import backends, env, epicforums, health, http, prescriptions
 from .backends import TIER_ERROR, TIER_OK, TIER_WARN
 
 # Rollup tiers (R1). ok/warn/error are U2's; only "off" is doctor's own.
@@ -149,6 +150,7 @@ SOURCE_ORDER = (
     "github",
     "digg",
     "arxiv",
+    "epicforums",
     "library",
 )
 
@@ -445,6 +447,18 @@ def _cli_gated_record(config, cli_name: str, purpose: str):
     return _record(status=probe.status, fix=fix, detail=probe.detail, requires=requires)
 
 
+def _epicforums_record(config):
+    if not epicforums.enabled(config):
+        return _record(status="opt-in", requires="none (anonymous Discourse JSON)",
+                       detail="disabled by LAST30DAYS_EPICFORUMS=off")
+    try:
+        base = epicforums.base_url(config)
+    except ValueError as exc:
+        return _record(status=health.ERROR, detail=str(exc), requires="valid Discourse base URL")
+    return _record(status=health.OK, requires="none (anonymous Discourse JSON)",
+                   detail=f"{base}; runs for Epic/Unreal topics or explicit source selection")
+
+
 def _arxiv_record(config):
     return _cli_gated_record(config, "arxiv-pp-cli", "arxiv")
 
@@ -507,6 +521,7 @@ _SOURCE_BUILDERS: Dict[str, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
     "github": _github_record,
     "digg": _digg_record,
     "arxiv": _arxiv_record,
+    "epicforums": _epicforums_record,
     "library": _library_record,
 }
 
@@ -1234,6 +1249,7 @@ def _write_cache(report: Dict[str, Any], config: Dict[str, Any]) -> bool:
 
 # Free, keyless liveness endpoints (reachability check, tiny payload).
 _HTTP_PROBE_URLS = {
+    "epicforums": epicforums.BASE_URL + "/search.json?q=unreal",
     # The keyless engine's real discovery endpoint (reddit_rss._build_urls).
     # /r/all/hot.json is permanently 403 keyless (see the reddit_keyless module
     # docstring) and no lane requests it any more, so probing it measured an
@@ -1313,6 +1329,17 @@ def _http_ok(
 
 
 def _probe_source(name: str, config: Dict[str, Any], timeout: float) -> Optional[Dict[str, Any]]:
+    if name == "epicforums":
+        if not epicforums.enabled(config):
+            return None
+        try:
+            # Same request limiter and anonymous JSON parser as research.
+            client = epicforums.Client(config, "quick", timeout=timeout, deadline=time.monotonic() + timeout)
+            data = client.get("/search.json?q=unreal", search=True)
+            ok = isinstance(data.get("posts"), list) and isinstance(data.get("topics"), list)
+            return {"ok": ok, "detail": "Discourse search JSON" if ok else "invalid search JSON schema", "probed": True}
+        except (http.HTTPError, ValueError) as exc:
+            return {"ok": False, "detail": str(exc), "probed": True}
     url = _HTTP_PROBE_URLS.get(name)
     if url:
         ok, detail = _http_ok(

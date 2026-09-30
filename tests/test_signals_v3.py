@@ -52,7 +52,7 @@ class SignalsV3Tests(unittest.TestCase):
         self.assertAlmostEqual(expected, signals.engagement_raw(item))
 
     def test_source_quality_covers_surviving_sources(self):
-        self.assertEqual(set(signals.SOURCE_QUALITY), {"reddit", "x", "digg", "arxiv"})
+        self.assertEqual(set(signals.SOURCE_QUALITY), {"reddit", "x", "digg", "arxiv", "epicforums"})
         self.assertEqual(signals.source_quality("github"), 0.6)
 
     def test_annotate_stream_sorts_by_source_specific_reddit_engagement(self):

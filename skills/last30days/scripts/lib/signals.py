@@ -10,6 +10,7 @@ from . import dates, relevance, schema
 # Editorial signal-to-noise scores on a 1.0 baseline; social platforms are
 # discounted for noise.
 SOURCE_QUALITY = {
+    "epicforums": 0.8,
     "digg": 0.85,
     "arxiv": 0.9,
     "reddit": 0.6,
@@ -135,6 +136,7 @@ def top_comment_vote_signal(candidate: schema.Candidate) -> float:
 # Reddit uses a custom function because it includes a dedicated 10%
 # top-comment-score slot (see _reddit_engagement).
 ENGAGEMENT_WEIGHTS: dict[str, list[tuple[str, float]]] = {
+    "epicforums": [("likes", 0.5), ("replies", 0.4), ("views", 0.1)],
     "x":            [("likes", 0.55), ("reposts", 0.25), ("replies", 0.15), ("quotes", 0.05)],
     "digg":         [("postCount", 0.40), ("uniqueAuthors", 0.30), ("rank_score", 0.30)],
 }
@@ -216,6 +218,8 @@ def annotate_stream(
             + 0.25 * (item.freshness / 100.0)
             + 0.10 * ((eng_score or 0) / 100.0)
         )
+        if item.source == "epicforums" and item.metadata.get("marketplace_ad"):
+            item.local_rank_score *= 0.55
     return sorted(items, key=lambda item: item.local_rank_score or 0, reverse=True)
 
 

@@ -1,0 +1,1 @@
+Research Unreal Engine and Epic ecosystem topics with the keyless Epic Developer Community forums source, including category names, likes/replies/views, and topic excerpts. The lane uses bounded, rate-limited anonymous Discourse requests, supports doctor checks and alternate Discourse hosts, and can be disabled with `LAST30DAYS_EPICFORUMS=off`.

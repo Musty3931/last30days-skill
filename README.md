@@ -16,7 +16,7 @@
 
 **An AI agent-led search engine scored by upvotes, likes, and stars - not editors.**
 
-> **This is a personal fork** of [mvanhorn/last30days-skill](https://github.com/mvanhorn/last30days-skill), stripped down to five sources: **Reddit, X, GitHub, Digg, and arXiv**. Everything else the upstream engine searched (YouTube, TikTok, Instagram, Hacker News, Polymarket, web search, Perplexity, and the rest) has been removed, not disabled. Install commands below point at the fork.
+> **This is a personal fork** of [mvanhorn/last30days-skill](https://github.com/mvanhorn/last30days-skill), stripped down to six sources: **Reddit, X, GitHub, Digg, arXiv, and Epic Forums**. Everything else the upstream engine searched (YouTube, TikTok, Instagram, Hacker News, Polymarket, web search, Perplexity, and the rest) has been removed, not disabled. Install commands below point at the fork.
 
 This README tracks the current v3 pipeline. The runtime skill spec lives in [skills/last30days/SKILL.md](skills/last30days/SKILL.md), which is the source of truth for the latest command and setup behavior.
 
@@ -44,7 +44,7 @@ Google aggregates editors. /last30days searches people.
 
 You can't get this search anywhere else because no single AI has access to all of it. Google search doesn't touch Reddit comments or X posts. ChatGPT has a deal with Reddit but can't search X. Claude has none of them natively. Each platform is a walled garden with its own API, its own tokens, its own auth. But you can bring your own keys and browser sessions, and suddenly an AI agent can search all of them at once, score them against each other, and tell you what actually matters.
 
-That's the unlock. Not one better search engine. Five disconnected platforms, bridged by an agent.
+That's the unlock. Not one better search engine. Six disconnected platforms, bridged by an agent.
 
 ```
 /last30days Peter Steinberger
@@ -69,6 +69,7 @@ If you're meeting with a CEO, have you read all their tweets and GitHub activity
 | **GitHub** | For people: PR velocity, top repos by stars, release notes. For projects: live star counts, issues, and discussions. Free, always on. |
 | **Digg** | Curated story clusters from Digg's AI 1000 leaderboard (~1000 high-signal AI accounts on X), with attributable inline quotes (no X auth required). Auto-enabled when `digg-pp-cli` is on PATH (first-run setup installs it). |
 | **arXiv** | The papers behind the hype. New research in the window, free, no API key. Auto-enabled when `arxiv-pp-cli` is on PATH (first-run setup installs it). |
+| **Epic Forums** | Epic Developer Community discussions for Unreal Engine, UE5, UEFN, Fortnite, MetaHuman, Nanite, and Lumen. Anonymous Discourse JSON with likes, replies, views, categories, and topic excerpts; no setup required. |
 
 That is the whole list. General web context (blogs, news, docs) comes from the hosting agent's own web-search tool, not from the engine.
 
@@ -92,7 +93,7 @@ A Reddit thread with 1,500 upvotes is a stronger signal than a blog post nobody 
 
 ## What this fork keeps
 
-The engine searches exactly five sources and nothing else. Compared with upstream, this fork removed YouTube (and yt-dlp), TikTok, Instagram, Threads, Pinterest, LinkedIn, Telegram, Bluesky, Truth Social, Xiaohongshu, Hacker News, Polymarket, StockTwits, DripStack, Techmeme, Trustpilot, Amazon, the engine's own web-search backends and keyless web floor, Perplexity / OpenRouter deep research, the hosted remote backend, local corpus search, hiring signals, and automatic competitor discovery.
+The engine searches exactly six sources and nothing else. Compared with upstream, this fork removed YouTube (and yt-dlp), TikTok, Instagram, Threads, Pinterest, LinkedIn, Telegram, Bluesky, Truth Social, Xiaohongshu, Hacker News, Polymarket, StockTwits, DripStack, Techmeme, Trustpilot, Amazon, the engine's own web-search backends and keyless web floor, Perplexity / OpenRouter deep research, the hosted remote backend, local corpus search, hiring signals, and automatic competitor discovery.
 
 Still here from upstream v3:
 

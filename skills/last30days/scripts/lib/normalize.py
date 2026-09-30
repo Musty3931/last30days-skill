@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 from urllib.parse import urlparse
 
-from . import dates, schema
+from . import dates, epicforums, schema
 
 
 def filter_by_date_range(
@@ -42,6 +42,7 @@ def normalize_source_items(
         "xquik": _normalize_x,
         "digg": _normalize_digg,
         "arxiv": _normalize_arxiv,
+        "epicforums": _normalize_epicforums,
         "github": _normalize_github,
     }
     normalizer = normalizers.get(source)
@@ -58,7 +59,7 @@ def normalize_source_items(
         # Simulation" miss: 26 open roles filtered to 3 by a 30-day window).
         # Keep the full board; recency is annotated, not used to drop.
         return normalized
-    return filter_by_date_range(normalized, from_date, to_date)
+    return filter_by_date_range(normalized, from_date, to_date, require_date=source == "epicforums")
 
 
 def _remap_comments(
@@ -291,6 +292,24 @@ def _normalize_digg(
     )
 
 
+def _normalize_epicforums(source, item, index, from_date, to_date) -> schema.SourceItem:
+    title = epicforums.strip_html(item.get("title"))
+    text = epicforums.strip_html(item.get("snippet") or item.get("blurb") or item.get("cooked"))
+    return _source_item(
+        item_id=str(item.get("id") or f"EF{index + 1}"), source=source,
+        title=title, body=f"{title}\n\n{text}", url=str(item.get("url") or ""),
+        author=item.get("author") or None, container=item.get("category") or "Epic Forums",
+        published_at=epicforums.item_date(item, from_date, to_date), date_confidence="high",
+        engagement=item.get("engagement") or {}, relevance_hint=item.get("relevance", 0.5),
+        why_relevant="Epic Developer Community discussion", snippet=text[:600],
+        metadata={"topic_id": item.get("id"), "category_id": item.get("category_id"),
+                  "marketplace_ad": bool(item.get("marketplace_ad")),
+                  "tags": item.get("tags") or [], "created_at": item.get("created_at"),
+                  "last_posted_at": item.get("last_posted_at"), "matched_at": item.get("matched_at"),
+                  "from_date": from_date, "to_date": to_date},
+    )
+
+
 def _normalize_arxiv(
     source: str,
     item: dict[str, Any],
@@ -366,5 +385,3 @@ def _normalize_github(
             "is_pr": metadata.get("is_pr", False),
         },
     )
-
-

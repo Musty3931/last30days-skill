@@ -1,0 +1,1161 @@
+{
+  "captured_at": "2026-09-30T14:39:18.636148+00:00",
+  "url": "https://forums.unrealengine.com/search.json?q=lumen+reflections+after%3A2026-08-31+before%3A2026-10-01+order%3Alatest",
+  "response": {
+    "posts": [
+      {
+        "id": 5234496,
+        "name": "Barrel_Bark",
+        "username": "Barrel_Bark",
+        "avatar_template": "https://d3kjluh73b9h9o.cloudfront.net/original/4X/2/8/5/28502927f1d97ba1051b3b47ccfe17233bf41ef0.png",
+        "created_at": "2026-09-29T14:45:27.589Z",
+        "like_count": 0,
+        "blurb": "🐾 Hey there, developer buddy! 🐾 Looking for a cozy fantasy alchemist workshop to bring your scene to life? You're in the right place. Here's what I packed for you: Modular interior architecture and structure system (Fantasy alchemist house and workshop elements) Authentic fantasy furniture and de...",
+        "post_number": 1,
+        "topic_id": 2835410
+      },
+      {
+        "id": 5234165,
+        "name": "Cloviren",
+        "username": "Cloviren",
+        "avatar_template": "https://d3kjluh73b9h9o.cloudfront.net/original/4X/2/8/5/28502927f1d97ba1051b3b47ccfe17233bf41ef0.png",
+        "created_at": "2026-09-29T00:25:25.123Z",
+        "like_count": 0,
+        "blurb": "https://www.fab.com/sellers/Cloviren OTHER PRODUCTS | https://www.artstation.com/cloviren ARTSTATION | https://twitter.com/CloviRenart TWITTER | https://www.youtube.com/@Cloviren YOUTUBE Demo: https://drive.google.com/file/d/12ndGPbNTqztWbQ72JgYjH8L-1ZI4oy7W/view Nanite Cattail Demo Features Over...",
+        "post_number": 1,
+        "topic_id": 2835175
+      },
+      {
+        "id": 5233792,
+        "name": "igor-mik",
+        "username": "igor-mik",
+        "avatar_template": "https://d3kjluh73b9h9o.cloudfront.net/original/4X/2/8/5/28502927f1d97ba1051b3b47ccfe17233bf41ef0.png",
+        "created_at": "2026-09-28T12:58:02.061Z",
+        "like_count": 0,
+        "blurb": "SuperLumen — every Lumen setting in one window, each one explained, with the fixes for what breaks Lumen in your project. https://drive.google.com/file/d/1ssI7VfsHO4PwVAoRdI3j_eHbof44_Sxt/view Guide Lumen is spread over Project Settings, console variables, Post Process Volumes, lights and scalabi...",
+        "post_number": 1,
+        "topic_id": 2834963
+      },
+      {
+        "id": 5233702,
+        "name": "ClockworkOcean",
+        "username": "ClockworkOcean",
+        "avatar_template": "/user_avatar/forums.unrealengine.com/clockworkocean/{size}/1169999_2.png",
+        "created_at": "2026-09-28T06:42:21.272Z",
+        "like_count": 0,
+        "blurb": "...'? In 5.8 Lumen on medium scalability basically gives you what you used to get on high, at half the cost. But, high is now twice as expensive. I find Lumen reflections in 5.8 a bit too much ( have to tweak some materials ), and was still using SSGI…",
+        "post_number": 2,
+        "topic_id": 2834749
+      },
+      {
+        "id": 5233498,
+        "name": "Andras Gregori",
+        "username": "andgregori",
+        "avatar_template": "/user_avatar/forums.unrealengine.com/andgregori/{size}/1148407_2.png",
+        "created_at": "2026-09-27T16:48:00.354Z",
+        "like_count": 0,
+        "blurb": "0.5.0 update, 2026-09-28 :bullseye: Supports Unreal Engine 5.5, 5.6, 5.7 and 5.8 from one source tree, with 5.5 as the floor. Lighting policy: Lumen, hardware ray tracing, MegaLights and the GI method :light_bulb: TargetFrame can now manage how a scene is lit, as one more rung on the adaptation l...",
+        "post_number": 10,
+        "topic_id": 2706835
+      },
+      {
+        "id": 5232180,
+        "name": "MrAdventure",
+        "username": "MrAdventure",
+        "avatar_template": "https://d3kjluh73b9h9o.cloudfront.net/original/4X/2/8/5/28502927f1d97ba1051b3b47ccfe17233bf41ef0.png",
+        "created_at": "2026-09-24T17:08:49.620Z",
+        "like_count": 0,
+        "blurb": "Summary Build: ++Fortnite+Release-42.20-CL-58011042 (client and UEFN) Hardware / OS: GPU: NVIDIA GeForce RTX 3080, driver 616.92 CPU: AMD Ryzen 9 5900X, 32 GB RAM OS: Windows 10 22H2 (10.0.19045.7725) Client: D3D12, Aftermath on, DLSS on, 2560×1080 windowed Settings: Reflections quality 2, Global...",
+        "post_number": 1,
+        "topic_id": 2834009
+      },
+      {
+        "id": 5231779,
+        "name": "Levent061990",
+        "username": "Levent061990",
+        "avatar_template": "https://d3kjluh73b9h9o.cloudfront.net/original/4X/2/8/5/28502927f1d97ba1051b3b47ccfe17233bf41ef0.png",
+        "created_at": "2026-09-23T22:16:09.257Z",
+        "like_count": 0,
+        "blurb": "Fab mağazası için ürün açıklaması (Description) metnini, STYLIZED WOODEN CARTS &amp; WAGONS KIT paketiyle olan tam uyumluluğunu özellikle vurgulayarak İngilizce olarak hazırladım: Description Bring your medieval villages, rural farms, and fantasy settlements to life with the Stylized Medieval Sheep B...",
+        "post_number": 1,
+        "topic_id": 2833768
+      },
+      {
+        "id": 5231732,
+        "name": "Matei",
+        "username": "Matei",
+        "avatar_template": "https://d3kjluh73b9h9o.cloudfront.net/original/4X/2/8/5/28502927f1d97ba1051b3b47ccfe17233bf41ef0.png",
+        "created_at": "2026-09-23T20:56:41.073Z",
+        "like_count": 0,
+        "blurb": "VIDEO WALKTHROUGH: https://www.youtube.com/watch AAA Sci-Fi Space Station Kit is a modular interior kit for building sci-fi stations, ships and outposts. It ships 99 meshes on a 2 m grid with 4 m wall modules, and a finished example level you can walk: Cargo bay, Command deck, Connecting corridor...",
+        "post_number": 1,
+        "topic_id": 2833728
+      },
+      {
+        "id": 5230952,
+        "name": "Bug-Reporter",
+        "username": "Bug-Reporter",
+        "avatar_template": "/user_avatar/forums.unrealengine.com/bug-reporter/{size}/997076_2.png",
+        "created_at": "2026-09-22T14:01:21.569Z",
+        "like_count": 0,
+        "blurb": "UE-391621 has been 'Closed'. We're unable to reproduce this issue.",
+        "post_number": 10,
+        "topic_id": 2730194
+      },
+      {
+        "id": 5230828,
+        "name": "Yuri9447",
+        "username": "Yuri9447",
+        "avatar_template": "https://d3kjluh73b9h9o.cloudfront.net/original/4X/2/8/5/28502927f1d97ba1051b3b47ccfe17233bf41ef0.png",
+        "created_at": "2026-09-22T08:04:35.453Z",
+        "like_count": 0,
+        "blurb": "Hi, I've tested with both 5.4.4 and 5.8.1 and it might be a bug in early versions of engine. The test: Use the engine provided Starter Content Pack in both engines. Set r.ScreenPercentage to a large value and run PIE in the editor. 5.8.1 works fine but 5.4.4 will have the above artifacts. So this...",
+        "post_number": 6,
+        "topic_id": 2794435
+      },
+      {
+        "id": 5230288,
+        "name": "Oğuzhan Kar",
+        "username": "oguzhan_kar",
+        "avatar_template": "/user_avatar/forums.unrealengine.com/oguzhan_kar/{size}/1069169_2.png",
+        "created_at": "2026-09-21T09:11:16.142Z",
+        "like_count": 0,
+        "blurb": "HERE, YOU CAN CHECK OUR NEW ASSET PLATFORM AND GRAB SOME FREE ENVIRONMENT PACKS https://cosmos.leartesstudios.com/ https://cosmos.leartesstudios.com/ The Machine Environment: Step into a monumental sci-fi sanctuary with this high-fidelity environment pack. Construct imposing futuristic structures...",
+        "post_number": 1,
+        "topic_id": 2832938
+      },
+      {
+        "id": 5214724,
+        "name": "SuddenShrimp7289",
+        "username": "SuddenShrimp7289",
+        "avatar_template": "https://d3kjluh73b9h9o.cloudfront.net/original/4X/2/8/5/28502927f1d97ba1051b3b47ccfe17233bf41ef0.png",
+        "created_at": "2026-09-18T17:42:47.033Z",
+        "like_count": 0,
+        "blurb": "Title: Unreal Engine 5.8 — Next-Gen Performance, Stability &amp; Mobile Optimization Initiative Hello Epic Games / Unreal Engine Team, I would like to share a concept for the continued improvement of Unreal Engine 5.8, focusing on performance, stability, mobile optimization, and the overall reliabili...",
+        "post_number": 1,
+        "topic_id": 2817807
+      },
+      {
+        "id": 5172503,
+        "name": "miky-miky1",
+        "username": "miky-miky1",
+        "avatar_template": "https://d3kjluh73b9h9o.cloudfront.net/original/4X/2/8/5/28502927f1d97ba1051b3b47ccfe17233bf41ef0.png",
+        "created_at": "2026-09-16T10:37:10.365Z",
+        "like_count": 0,
+        "blurb": "Bring a realistic indoor swimming pool environment to your Unreal Engine 5.7 projects. This detailed environment features a large competition-style swimming pool with multiple lanes, starting blocks, lane ropes, poolside equipment, spectator areas, safety elements, tiled surfaces, large windows, ...",
+        "post_number": 1,
+        "topic_id": 2776212
+      },
+      {
+        "id": 5172292,
+        "name": "Barrel_Bark",
+        "username": "Barrel_Bark",
+        "avatar_template": "https://d3kjluh73b9h9o.cloudfront.net/original/4X/2/8/5/28502927f1d97ba1051b3b47ccfe17233bf41ef0.png",
+        "created_at": "2026-09-16T00:25:10.492Z",
+        "like_count": 0,
+        "blurb": "Hey there, developer buddy! 🐾 Black Forest Mountain Wooden Hut Environment with 127 unique meshes. Build breathtaking European historical countryside settlements and traditional rural areas using this high-quality modular pack. Designed for architectural depth and visual wonder, this collection f...",
+        "post_number": 1,
+        "topic_id": 2776088
+      },
+      {
+        "id": 5165677,
+        "name": "Shaun Comly",
+        "username": "comlys",
+        "avatar_template": "/user_avatar/forums.unrealengine.com/comlys/{size}/998665_2.png",
+        "created_at": "2026-09-14T17:51:13.457Z",
+        "like_count": 1,
+        "blurb": "Idk what version of the engine you're on, but you might have to actually click on the checkbox next to \"Method\" Lumen GI and Reflections to enable them in the RT.",
+        "post_number": 4,
+        "topic_id": 2764501
+      },
+      {
+        "id": 5163840,
+        "name": "OnsideSand3726",
+        "username": "OnsideSand3726",
+        "avatar_template": "https://d3kjluh73b9h9o.cloudfront.net/original/4X/2/8/5/28502927f1d97ba1051b3b47ccfe17233bf41ef0.png",
+        "created_at": "2026-09-14T15:06:31.256Z",
+        "like_count": 0,
+        "blurb": "I took these photos early in the morning yesterday and today. I noticed that the street light was bouncing light off the window pane and struck the floor, leaving an arc of light on the floor. Yesterday it rained, so lots of wetness on the floor, and today the floor was dry. If I moved slightly t...",
+        "post_number": 1,
+        "topic_id": 2767959
+      },
+      {
+        "id": 5158806,
+        "name": "krisz_0325",
+        "username": "krisz_0325",
+        "avatar_template": "https://d3kjluh73b9h9o.cloudfront.net/original/4X/2/8/5/28502927f1d97ba1051b3b47ccfe17233bf41ef0.png",
+        "created_at": "2026-09-09T15:17:23.573Z",
+        "like_count": 0,
+        "blurb": "I always wanted to revert all the cinematic next gen ultra super settings of Unreal and make a casual non performance heavy game! I already made quite the progress but one thing is bothering me, in the first image look at the edges of the walls, they are pixelated and not sharp at all, while in o...",
+        "post_number": 1,
+        "topic_id": 2763987
+      },
+      {
+        "id": 5158530,
+        "name": "pistolkingcpny",
+        "username": "pistolkingcpny",
+        "avatar_template": "https://d3kjluh73b9h9o.cloudfront.net/original/4X/2/8/5/28502927f1d97ba1051b3b47ccfe17233bf41ef0.png",
+        "created_at": "2026-09-09T06:11:56.032Z",
+        "like_count": 0,
+        "blurb": "Give players a clear way to tune visuals, sound and controls—with a settings screen you can make your own. Premium Game Options combines an editable Widget Blueprint with C++ settings functionality, visual comparisons and performance recommendations. Keep your project's existing GameUserSettings ...",
+        "post_number": 1,
+        "topic_id": 2763876
+      },
+      {
+        "id": 5158380,
+        "name": "MrNobody2170",
+        "username": "MrNobody2170",
+        "avatar_template": "https://d3kjluh73b9h9o.cloudfront.net/original/4X/2/8/5/28502927f1d97ba1051b3b47ccfe17233bf41ef0.png",
+        "created_at": "2026-09-08T18:08:26.046Z",
+        "like_count": 0,
+        "blurb": "A production-ready, versatile architectural kit designed for rapid construction of commercial and office buildings, covering both exterior and interior spaces. Made primarily for games but can be used in cinematics as well! Built from the ground up for Unreal Engine with clean grid snapping, mate...",
+        "post_number": 1,
+        "topic_id": 2763786
+      },
+      {
+        "id": 5158163,
+        "name": "ShadowBr0kerz",
+        "username": "ShadowBr0kerz",
+        "avatar_template": "/user_avatar/forums.unrealengine.com/shadowbr0kerz/{size}/1201558_2.png",
+        "created_at": "2026-09-08T10:01:24.716Z",
+        "like_count": 0,
+        "blurb": "that mirror groom is usually strand specular way too high or missing roughness. in Groom material set HairShadingModel, drop Specular to 0.1-0.3 and add roughness 0.3-0.6, and make sure Lumen is not tracing groom as opaque: in groom asset disable Cast Shadow toggle or set Shadow Cache Invalidatio...",
+        "post_number": 3,
+        "topic_id": 2756220
+      },
+      {
+        "id": 5156183,
+        "name": "legusha",
+        "username": "legusha",
+        "avatar_template": "https://d3kjluh73b9h9o.cloudfront.net/original/4X/2/8/5/28502927f1d97ba1051b3b47ccfe17233bf41ef0.png",
+        "created_at": "2026-09-04T16:14:46.388Z",
+        "like_count": 0,
+        "blurb": "Real-Time Caustics for Unreal Engine Bring physically-inspired caustics to Unreal Engine in real time - no Path Tracer, no complex setup, and no special UE branch required. Video: Soon Tutorial: Soon https://docs.google.com/document/d/1EgiPifeyZINwClFsvI5xXk3HanfyZZzoZ2gZBWjMP9E/edit Documentatio...",
+        "post_number": 1,
+        "topic_id": 2762666
+      },
+      {
+        "id": 5156109,
+        "name": "Denis Pereladov",
+        "username": "DenisPereladov",
+        "avatar_template": "https://d3kjluh73b9h9o.cloudfront.net/original/4X/2/8/5/28502927f1d97ba1051b3b47ccfe17233bf41ef0.png",
+        "created_at": "2026-09-04T15:11:51.587Z",
+        "like_count": 0,
+        "blurb": "I'm experiencing a similar issue in UE 5.7.4 with rough refraction ( r.Refraction.Blur 1 ). MRQ produces completely black/flickering frames when refraction blur is enabled. The issue depends on the glass object's position(!) in the camera view, even when the object is completely static. When obje...",
+        "post_number": 2,
+        "topic_id": 2753870
+      }
+    ],
+    "topics": [
+      {
+        "fancy_title": "Barrel Bark Interactive - Fantasy Alchemist House Environment ",
+        "id": 2835410,
+        "title": "Barrel Bark Interactive - Fantasy Alchemist House Environment ",
+        "slug": "barrel-bark-interactive-fantasy-alchemist-house-environment",
+        "posts_count": 1,
+        "reply_count": 0,
+        "highest_post_number": 1,
+        "created_at": "2026-09-29T14:45:27.392Z",
+        "last_posted_at": "2026-09-29T14:45:27.589Z",
+        "bumped": true,
+        "bumped_at": "2026-09-29T14:45:27.589Z",
+        "archetype": "regular",
+        "unseen": false,
+        "pinned": false,
+        "unpinned": null,
+        "excerpt": "🐾 Hey there, developer buddy! 🐾  Looking for a cozy fantasy alchemist workshop to bring your scene to life? You&#39;re in the right place.  Here’s what I packed for you:  Modular interior architecture and structure system (F&hellip;",
+        "visible": true,
+        "closed": false,
+        "archived": false,
+        "bookmarked": null,
+        "liked": null,
+        "tags": [
+          {
+            "id": 11497,
+            "name": "fab",
+            "slug": "fab"
+          }
+        ],
+        "tags_descriptions": {},
+        "category_id": 237,
+        "has_accepted_answer": false
+      },
+      {
+        "fancy_title": "Cloviren - Nanite Foliage - Cattail ",
+        "id": 2835175,
+        "title": "Cloviren - Nanite Foliage - Cattail ",
+        "slug": "cloviren-nanite-foliage-cattail",
+        "posts_count": 1,
+        "reply_count": 0,
+        "highest_post_number": 1,
+        "created_at": "2026-09-29T00:25:24.997Z",
+        "last_posted_at": "2026-09-29T00:25:25.123Z",
+        "bumped": true,
+        "bumped_at": "2026-09-29T00:25:25.123Z",
+        "archetype": "regular",
+        "unseen": false,
+        "pinned": false,
+        "unpinned": null,
+        "excerpt": "OTHER PRODUCTS|ARTSTATION|TWITTER|YOUTUBE  Demo: Nanite Cattail DemoFeatures Overview/Getting Started: UE5 - Nanite Grass Getting Started  Nanite Foliage FAQ If you have questions, feel free to comment on my YouTube vide&hellip;",
+        "visible": true,
+        "closed": false,
+        "archived": false,
+        "bookmarked": null,
+        "liked": null,
+        "tags": [
+          {
+            "id": 11497,
+            "name": "fab",
+            "slug": "fab"
+          }
+        ],
+        "tags_descriptions": {},
+        "category_id": 237,
+        "has_accepted_answer": false
+      },
+      {
+        "fancy_title": "mik8design - Super Lumen ",
+        "id": 2834963,
+        "title": "mik8design - Super Lumen ",
+        "slug": "mik8design-super-lumen",
+        "posts_count": 1,
+        "reply_count": 0,
+        "highest_post_number": 1,
+        "created_at": "2026-09-28T12:58:01.939Z",
+        "last_posted_at": "2026-09-28T12:58:02.061Z",
+        "bumped": true,
+        "bumped_at": "2026-09-28T12:58:02.061Z",
+        "archetype": "regular",
+        "unseen": false,
+        "pinned": false,
+        "unpinned": null,
+        "excerpt": "SuperLumen — every Lumen setting in one window, each one explained, with the fixes for what breaks Lumen in your project.  Guide  Lumen is spread over Project Settings, console variables, Post Process Volumes, lights an&hellip;",
+        "visible": true,
+        "closed": false,
+        "archived": false,
+        "bookmarked": null,
+        "liked": null,
+        "tags": [
+          {
+            "id": 11497,
+            "name": "fab",
+            "slug": "fab"
+          }
+        ],
+        "tags_descriptions": {},
+        "category_id": 237,
+        "has_accepted_answer": false
+      },
+      {
+        "fancy_title": "SSGI being deprecated.",
+        "id": 2834749,
+        "title": "SSGI being deprecated.",
+        "slug": "ssgi-being-deprecated",
+        "posts_count": 3,
+        "reply_count": 1,
+        "highest_post_number": 3,
+        "created_at": "2026-09-27T15:21:37.537Z",
+        "last_posted_at": "2026-09-28T09:08:19.122Z",
+        "bumped": true,
+        "bumped_at": "2026-09-28T09:08:19.122Z",
+        "archetype": "regular",
+        "unseen": false,
+        "pinned": false,
+        "unpinned": null,
+        "excerpt": "SSGI is deprecated from ue5.8. Its quite important for my own project as it has to run on medium-spec hardware. \nLumen isnt an option, neither is baked lighting. So I am left with SSGI as the next best thing. \nI would as&hellip;",
+        "visible": true,
+        "closed": false,
+        "archived": false,
+        "bookmarked": null,
+        "liked": null,
+        "tags": [
+          {
+            "id": 705,
+            "name": "unreal-engine",
+            "slug": "unreal-engine"
+          },
+          {
+            "id": 53,
+            "name": "question",
+            "slug": "question"
+          }
+        ],
+        "tags_descriptions": {},
+        "category_id": 50,
+        "has_accepted_answer": false
+      },
+      {
+        "fancy_title": "GregOrigin - TargetFrame: Automatic runtime scalability for mainstream PC&rsquo;s ",
+        "id": 2706835,
+        "title": "GregOrigin - TargetFrame: Automatic runtime scalability for mainstream PC's ",
+        "slug": "gregorigin-targetframe-automatic-runtime-scalability-for-mainstream-pcs",
+        "posts_count": 12,
+        "reply_count": 4,
+        "highest_post_number": 12,
+        "created_at": "2026-03-18T00:05:00.648Z",
+        "last_posted_at": "2026-09-27T17:08:25.806Z",
+        "bumped": true,
+        "bumped_at": "2026-09-27T17:08:25.806Z",
+        "archetype": "regular",
+        "unseen": false,
+        "pinned": false,
+        "unpinned": null,
+        "excerpt": "Watch it in action Read the manual  A functional open source version is available at https://github.com/gregorik/TargetFrame-Core, please file Issues there if appropriate. Fab hosts the fully featured Pro version. The ma&hellip;",
+        "visible": true,
+        "closed": false,
+        "archived": false,
+        "bookmarked": null,
+        "liked": null,
+        "tags": [
+          {
+            "id": 11497,
+            "name": "fab",
+            "slug": "fab"
+          }
+        ],
+        "tags_descriptions": {},
+        "category_id": 237,
+        "has_accepted_answer": false
+      },
+      {
+        "fancy_title": "42.20: Fortnite client GPU hang (DEVICE_HUNG) in LumenReflections when launching a UEFN session; the reset also kills UEFN",
+        "id": 2834009,
+        "title": "42.20: Fortnite client GPU hang (DEVICE_HUNG) in LumenReflections when launching a UEFN session; the reset also kills UEFN",
+        "slug": "42-20-fortnite-client-gpu-hang-device-hung-in-lumenreflections-when-launching-a-uefn-session-the-reset-also-kills-uefn",
+        "posts_count": 3,
+        "reply_count": 1,
+        "highest_post_number": 5,
+        "created_at": "2026-09-24T17:08:49.446Z",
+        "last_posted_at": "2026-09-30T10:00:22.231Z",
+        "bumped": true,
+        "bumped_at": "2026-09-30T10:00:22.231Z",
+        "archetype": "regular",
+        "unseen": false,
+        "pinned": false,
+        "unpinned": null,
+        "excerpt": "Summary\nBuild: ++Fortnite+Release-42.20-CL-58011042 (client and UEFN) \nHardware / OS: \nGPU: NVIDIA GeForce RTX 3080, driver 616.92 \nCPU: AMD Ryzen 9 5900X, 32 GB RAM \nOS: Windows 10 22H2 (10.0.19045.7725) \nClient: D3D12,&hellip;",
+        "visible": true,
+        "closed": false,
+        "archived": false,
+        "bookmarked": null,
+        "liked": null,
+        "tags": [
+          {
+            "id": 11425,
+            "name": "fortnite",
+            "slug": "fortnite"
+          },
+          {
+            "id": 11458,
+            "name": "unreal-editor-for-fortnite",
+            "slug": "unreal-editor-for-fortnite"
+          },
+          {
+            "id": 11459,
+            "name": "fortnite-creative",
+            "slug": "fortnite-creative"
+          },
+          {
+            "id": 64,
+            "name": "bug-report",
+            "slug": "bug-report"
+          },
+          {
+            "id": 2322,
+            "name": "open",
+            "slug": "open"
+          }
+        ],
+        "tags_descriptions": {},
+        "category_id": 172,
+        "has_accepted_answer": false
+      },
+      {
+        "fancy_title": "CUBIC HAVEN - STYLIZED MEDIEVAL SHEEP PEN &amp; BARN KIT ",
+        "id": 2833768,
+        "title": "CUBIC HAVEN - STYLIZED MEDIEVAL SHEEP PEN & BARN KIT ",
+        "slug": "cubic-haven-stylized-medieval-sheep-pen-barn-kit",
+        "posts_count": 1,
+        "reply_count": 0,
+        "highest_post_number": 1,
+        "created_at": "2026-09-23T22:16:09.125Z",
+        "last_posted_at": "2026-09-23T22:16:09.257Z",
+        "bumped": true,
+        "bumped_at": "2026-09-23T22:16:09.257Z",
+        "archetype": "regular",
+        "unseen": false,
+        "pinned": false,
+        "unpinned": null,
+        "excerpt": "Fab mağazası için ürün açıklaması (Description) metnini, STYLIZED WOODEN CARTS &amp; WAGONS KIT paketiyle olan tam uyumluluğunu özellikle vurgulayarak İngilizce olarak hazırladım:   DescriptionBring your medieval villages, r&hellip;",
+        "visible": true,
+        "closed": false,
+        "archived": false,
+        "bookmarked": null,
+        "liked": null,
+        "tags": [
+          {
+            "id": 11497,
+            "name": "fab",
+            "slug": "fab"
+          }
+        ],
+        "tags_descriptions": {},
+        "category_id": 237,
+        "has_accepted_answer": false
+      },
+      {
+        "fancy_title": "Mathew81 - AAA Sci-Fi Space Station Kit ",
+        "id": 2833728,
+        "title": "Mathew81 - AAA Sci-Fi Space Station Kit ",
+        "slug": "mathew81-aaa-sci-fi-space-station-kit",
+        "posts_count": 1,
+        "reply_count": 0,
+        "highest_post_number": 1,
+        "created_at": "2026-09-23T20:56:40.960Z",
+        "last_posted_at": "2026-09-23T20:56:41.073Z",
+        "bumped": true,
+        "bumped_at": "2026-09-23T20:56:41.073Z",
+        "archetype": "regular",
+        "unseen": false,
+        "pinned": false,
+        "unpinned": null,
+        "excerpt": "VIDEO WALKTHROUGH: https://www.youtube.com/watch?v=wQsaCiBb7H4  AAA Sci-Fi Space Station Kit is a modular interior kit for building sci-fi stations, ships and outposts. It ships 99 meshes on a 2 m grid with 4 m wall modu&hellip;",
+        "visible": true,
+        "closed": false,
+        "archived": false,
+        "bookmarked": null,
+        "liked": null,
+        "tags": [
+          {
+            "id": 11497,
+            "name": "fab",
+            "slug": "fab"
+          }
+        ],
+        "tags_descriptions": {},
+        "category_id": 237,
+        "has_accepted_answer": false
+      },
+      {
+        "fancy_title": "UE 5.8 Release - Lumen Reflections not working unless Lumen GI enabled",
+        "id": 2730194,
+        "title": "UE 5.8 Release - Lumen Reflections not working unless Lumen GI enabled",
+        "slug": "ue-5-8-release-lumen-reflections-not-working-unless-lumen-gi-enabled",
+        "posts_count": 7,
+        "reply_count": 0,
+        "highest_post_number": 10,
+        "created_at": "2026-06-20T23:23:55.384Z",
+        "last_posted_at": "2026-09-22T14:01:21.569Z",
+        "bumped": true,
+        "bumped_at": "2026-09-22T14:01:21.569Z",
+        "archetype": "regular",
+        "unseen": false,
+        "pinned": false,
+        "unpinned": null,
+        "excerpt": "Summary\nIn UE 5.8, I am unable to get Lumen Reflections to function unless Lumen Global Illumination is enabled. \nIt works fine in my 5.7 editor but not in 5.8. \nWhat Type of Bug are you experiencing?\nRendering (Graphics&hellip;",
+        "visible": true,
+        "closed": false,
+        "archived": false,
+        "bookmarked": null,
+        "liked": null,
+        "tags": [
+          {
+            "id": 705,
+            "name": "unreal-engine",
+            "slug": "unreal-engine"
+          },
+          {
+            "id": 11525,
+            "name": "closed",
+            "slug": "closed"
+          }
+        ],
+        "tags_descriptions": {},
+        "category_id": 243,
+        "has_accepted_answer": false
+      },
+      {
+        "fancy_title": "Visible splits in lumen reflections(the rendered frame) when using large screenpercentage",
+        "id": 2794435,
+        "title": "Visible splits in lumen reflections(the rendered frame) when using large screenpercentage",
+        "slug": "visible-splits-in-lumen-reflections-the-rendered-frame-when-using-large-screenpercentage",
+        "posts_count": 6,
+        "reply_count": 2,
+        "highest_post_number": 6,
+        "created_at": "2026-09-17T06:44:56.704Z",
+        "last_posted_at": "2026-09-22T08:04:35.453Z",
+        "bumped": true,
+        "bumped_at": "2026-09-22T08:04:35.453Z",
+        "archetype": "regular",
+        "unseen": false,
+        "pinned": false,
+        "unpinned": null,
+        "excerpt": "Hi, Everyone. I noticed that if you settting r.ScreenPercentage to a very large value(in my case 200), and you enabled Lumen reflections and hardware raytracing, there will be visible split lines across the rendered fram&hellip;",
+        "visible": true,
+        "closed": false,
+        "archived": false,
+        "bookmarked": null,
+        "liked": null,
+        "tags": [
+          {
+            "id": 705,
+            "name": "unreal-engine",
+            "slug": "unreal-engine"
+          },
+          {
+            "id": 53,
+            "name": "question",
+            "slug": "question"
+          },
+          {
+            "id": 170,
+            "name": "Rendering",
+            "slug": "rendering"
+          },
+          {
+            "id": 30,
+            "name": "Lumen",
+            "slug": "lumen"
+          }
+        ],
+        "tags_descriptions": {
+          "Rendering": ""
+        },
+        "category_id": 36,
+        "has_accepted_answer": false
+      },
+      {
+        "fancy_title": "Leartes Studios - The Machine ",
+        "id": 2832938,
+        "title": "Leartes Studios - The Machine ",
+        "slug": "leartes-studios-the-machine",
+        "posts_count": 1,
+        "reply_count": 0,
+        "highest_post_number": 1,
+        "created_at": "2026-09-21T09:11:16.024Z",
+        "last_posted_at": "2026-09-21T09:11:16.142Z",
+        "bumped": true,
+        "bumped_at": "2026-09-21T09:11:16.142Z",
+        "archetype": "regular",
+        "unseen": false,
+        "pinned": false,
+        "unpinned": null,
+        "excerpt": "HERE, YOU CAN CHECK OUR NEW ASSET PLATFORM AND GRAB SOME FREE ENVIRONMENT PACKS https://cosmos.leartesstudios.com/  The Machine Environment: Step into a monumental sci-fi sanctuary with this high-fidelity environment pac&hellip;",
+        "visible": true,
+        "closed": false,
+        "archived": false,
+        "bookmarked": null,
+        "liked": null,
+        "tags": [
+          {
+            "id": 11497,
+            "name": "fab",
+            "slug": "fab"
+          }
+        ],
+        "tags_descriptions": {},
+        "category_id": 237,
+        "has_accepted_answer": false
+      },
+      {
+        "fancy_title": "Unreal Engine 5.8 — Next-Gen Performance, Stability &amp; Mobile Optimization Initiative ",
+        "id": 2817807,
+        "title": "Unreal Engine 5.8 — Next-Gen Performance, Stability & Mobile Optimization Initiative ",
+        "slug": "unreal-engine-5-8-next-gen-performance-stability-mobile-optimization-initiative",
+        "posts_count": 1,
+        "reply_count": 0,
+        "highest_post_number": 1,
+        "created_at": "2026-09-18T17:42:46.878Z",
+        "last_posted_at": "2026-09-18T17:42:47.033Z",
+        "bumped": true,
+        "bumped_at": "2026-09-18T17:42:47.033Z",
+        "archetype": "regular",
+        "unseen": false,
+        "pinned": false,
+        "unpinned": null,
+        "excerpt": "Title: Unreal Engine 5.8 — Next-Gen Performance, Stability &amp; Mobile Optimization Initiative \nHello Epic Games / Unreal Engine Team, \nI would like to share a concept for the continued improvement of Unreal Engine 5.8, foc&hellip;",
+        "visible": true,
+        "closed": false,
+        "archived": false,
+        "bookmarked": null,
+        "liked": null,
+        "tags": [
+          {
+            "id": 705,
+            "name": "unreal-engine",
+            "slug": "unreal-engine"
+          },
+          {
+            "id": 34,
+            "name": "Performance",
+            "slug": "performance"
+          },
+          {
+            "id": 985,
+            "name": "Mobile",
+            "slug": "mobile"
+          },
+          {
+            "id": 67,
+            "name": "feedback",
+            "slug": "feedback"
+          },
+          {
+            "id": 250,
+            "name": "Optimization",
+            "slug": "optimization"
+          },
+          {
+            "id": 266,
+            "name": "suggestion",
+            "slug": "suggestion"
+          }
+        ],
+        "tags_descriptions": {
+          "Mobile": "",
+          "Optimization": ""
+        },
+        "category_id": 50,
+        "has_accepted_answer": false
+      },
+      {
+        "fancy_title": "MikyMiky - Indoor Swimming Pool Environment – Unreal Engine Scene ",
+        "id": 2776212,
+        "title": "MikyMiky - Indoor Swimming Pool Environment – Unreal Engine Scene ",
+        "slug": "mikymiky-indoor-swimming-pool-environment-unreal-engine-scene",
+        "posts_count": 1,
+        "reply_count": 0,
+        "highest_post_number": 1,
+        "created_at": "2026-09-16T10:37:10.225Z",
+        "last_posted_at": "2026-09-16T10:37:10.365Z",
+        "bumped": true,
+        "bumped_at": "2026-09-16T10:37:10.365Z",
+        "archetype": "regular",
+        "unseen": false,
+        "pinned": false,
+        "unpinned": null,
+        "excerpt": "Bring a realistic indoor swimming pool environment to your Unreal Engine 5.7 projects. This detailed environment features a large competition-style swimming pool with multiple lanes, starting blocks, lane ropes, poolside&hellip;",
+        "visible": true,
+        "closed": false,
+        "archived": false,
+        "bookmarked": null,
+        "liked": null,
+        "tags": [
+          {
+            "id": 11497,
+            "name": "fab",
+            "slug": "fab"
+          }
+        ],
+        "tags_descriptions": {},
+        "category_id": 237,
+        "has_accepted_answer": false
+      },
+      {
+        "fancy_title": "Barrel Bark Interactive - Black Forest Mountain Wooden Hut ",
+        "id": 2776088,
+        "title": "Barrel Bark Interactive - Black Forest Mountain Wooden Hut ",
+        "slug": "barrel-bark-interactive-black-forest-mountain-wooden-hut",
+        "posts_count": 1,
+        "reply_count": 0,
+        "highest_post_number": 1,
+        "created_at": "2026-09-16T00:25:10.345Z",
+        "last_posted_at": "2026-09-16T00:25:10.492Z",
+        "bumped": true,
+        "bumped_at": "2026-09-16T00:25:10.492Z",
+        "archetype": "regular",
+        "unseen": false,
+        "pinned": false,
+        "unpinned": null,
+        "excerpt": "Hey there, developer buddy! 🐾  Black Forest Mountain Wooden Hut Environment with 127 unique meshes.  Build breathtaking European historical countryside settlements and traditional rural areas using this high-quality modu&hellip;",
+        "visible": true,
+        "closed": false,
+        "archived": false,
+        "bookmarked": null,
+        "liked": null,
+        "tags": [
+          {
+            "id": 11497,
+            "name": "fab",
+            "slug": "fab"
+          }
+        ],
+        "tags_descriptions": {},
+        "category_id": 237,
+        "has_accepted_answer": false
+      },
+      {
+        "fancy_title": "UE5 Render Target looks weird ",
+        "id": 2764501,
+        "title": "UE5 Render Target looks weird ",
+        "slug": "ue5-render-target-looks-weird",
+        "posts_count": 6,
+        "reply_count": 4,
+        "highest_post_number": 6,
+        "created_at": "2026-09-10T17:06:29.855Z",
+        "last_posted_at": "2026-09-16T19:05:03.606Z",
+        "bumped": true,
+        "bumped_at": "2026-09-16T19:05:03.606Z",
+        "archetype": "regular",
+        "unseen": false,
+        "pinned": false,
+        "unpinned": null,
+        "excerpt": "Hello everyone! I am working on a vehicle with cameras in UE5. I have a camera attached to said vehicle with a RenderTarget. \nRay tracing is enabled, and global Gamma is 2.2; when global Gamma is default, the image looks&hellip;",
+        "visible": true,
+        "closed": false,
+        "archived": false,
+        "bookmarked": null,
+        "liked": null,
+        "tags": [
+          {
+            "id": 705,
+            "name": "unreal-engine",
+            "slug": "unreal-engine"
+          },
+          {
+            "id": 53,
+            "name": "question",
+            "slug": "question"
+          }
+        ],
+        "tags_descriptions": {},
+        "category_id": 36,
+        "has_accepted_answer": false
+      },
+      {
+        "fancy_title": "Real Life: Lighting Observation ",
+        "id": 2767959,
+        "title": "Real Life: Lighting Observation ",
+        "slug": "real-life-lighting-observation",
+        "posts_count": 1,
+        "reply_count": 0,
+        "highest_post_number": 1,
+        "created_at": "2026-09-14T15:06:31.025Z",
+        "last_posted_at": "2026-09-14T15:06:31.256Z",
+        "bumped": true,
+        "bumped_at": "2026-09-14T15:06:31.256Z",
+        "archetype": "regular",
+        "unseen": false,
+        "pinned": false,
+        "unpinned": null,
+        "excerpt": "I took these photos early in the morning yesterday and today. I noticed that the street light was bouncing light off the window pane and struck the floor, leaving an arc of light on the floor. Yesterday it rained, so lot&hellip;",
+        "visible": true,
+        "closed": false,
+        "archived": false,
+        "bookmarked": null,
+        "liked": null,
+        "tags": [
+          {
+            "id": 705,
+            "name": "unreal-engine",
+            "slug": "unreal-engine"
+          },
+          {
+            "id": 120,
+            "name": "Lighting",
+            "slug": "lighting"
+          },
+          {
+            "id": 1172,
+            "name": "reference",
+            "slug": "reference"
+          }
+        ],
+        "tags_descriptions": {
+          "Lighting": ""
+        },
+        "category_id": 57,
+        "has_accepted_answer": false
+      },
+      {
+        "fancy_title": "How can I fix Unreal&rsquo;s visual blurriness and make it sharp like unity",
+        "id": 2763987,
+        "title": "How can I fix Unreal's visual blurriness and make it sharp like unity",
+        "slug": "how-can-i-fix-unreals-visual-blurriness-and-make-it-sharp-like-unity",
+        "posts_count": 4,
+        "reply_count": 1,
+        "highest_post_number": 4,
+        "created_at": "2026-09-09T15:17:23.424Z",
+        "last_posted_at": "2026-09-18T13:00:38.724Z",
+        "bumped": true,
+        "bumped_at": "2026-09-18T13:00:38.724Z",
+        "archetype": "regular",
+        "unseen": false,
+        "pinned": false,
+        "unpinned": null,
+        "excerpt": "I always wanted to revert all the cinematic next gen ultra super settings of Unreal and make a casual non performance heavy game! \nI already made quite the progress but one thing is bothering me, in the first image look &hellip;",
+        "visible": true,
+        "closed": false,
+        "archived": false,
+        "bookmarked": null,
+        "liked": null,
+        "tags": [
+          {
+            "id": 705,
+            "name": "unreal-engine",
+            "slug": "unreal-engine"
+          },
+          {
+            "id": 53,
+            "name": "question",
+            "slug": "question"
+          },
+          {
+            "id": 170,
+            "name": "Rendering",
+            "slug": "rendering"
+          },
+          {
+            "id": 348,
+            "name": "Anti-Aliasing",
+            "slug": "anti-aliasing"
+          },
+          {
+            "id": 1753,
+            "name": "blurry",
+            "slug": "blurry"
+          },
+          {
+            "id": 496,
+            "name": "visual",
+            "slug": "visual"
+          }
+        ],
+        "tags_descriptions": {
+          "Rendering": "",
+          "Anti-Aliasing": ""
+        },
+        "category_id": 36,
+        "has_accepted_answer": true
+      },
+      {
+        "fancy_title": "pistolkingcpny - Premium Game Options – Settings UI &amp; Performance Advisor ",
+        "id": 2763876,
+        "title": "pistolkingcpny - Premium Game Options – Settings UI & Performance Advisor ",
+        "slug": "pistolkingcpny-premium-game-options-settings-ui-performance-advisor",
+        "posts_count": 1,
+        "reply_count": 0,
+        "highest_post_number": 1,
+        "created_at": "2026-09-09T06:11:55.828Z",
+        "last_posted_at": "2026-09-09T06:11:56.032Z",
+        "bumped": true,
+        "bumped_at": "2026-09-09T06:11:56.032Z",
+        "archetype": "regular",
+        "unseen": false,
+        "pinned": false,
+        "unpinned": null,
+        "excerpt": "Give players a clear way to tune visuals, sound and controls—with a settings screen you can make your own. Premium Game Options combines an editable Widget Blueprint with C++ settings functionality, visual comparisons an&hellip;",
+        "visible": true,
+        "closed": false,
+        "archived": false,
+        "bookmarked": null,
+        "liked": null,
+        "tags": [
+          {
+            "id": 11497,
+            "name": "fab",
+            "slug": "fab"
+          }
+        ],
+        "tags_descriptions": {},
+        "category_id": 237,
+        "has_accepted_answer": false
+      },
+      {
+        "fancy_title": "Nordt Van Hoeydonck - Modular Modern Office / Commercial Building Kit (Interior + Exterior)",
+        "id": 2763786,
+        "title": "Nordt Van Hoeydonck - Modular Modern Office / Commercial Building Kit (Interior + Exterior)",
+        "slug": "nordt-van-hoeydonck-modular-modern-office-commercial-building-kit-interior-exterior",
+        "posts_count": 1,
+        "reply_count": 0,
+        "highest_post_number": 1,
+        "created_at": "2026-09-08T18:08:25.951Z",
+        "last_posted_at": "2026-09-08T18:08:26.046Z",
+        "bumped": true,
+        "bumped_at": "2026-09-08T18:08:26.046Z",
+        "archetype": "regular",
+        "unseen": false,
+        "pinned": false,
+        "unpinned": null,
+        "excerpt": "A production-ready, versatile architectural kit designed for rapid construction of commercial and office buildings, covering both exterior and interior spaces. Made primarily for games but can be used in cinematics as we&hellip;",
+        "visible": true,
+        "closed": false,
+        "archived": false,
+        "bookmarked": null,
+        "liked": null,
+        "tags": [
+          {
+            "id": 11497,
+            "name": "fab",
+            "slug": "fab"
+          }
+        ],
+        "tags_descriptions": {},
+        "category_id": 237,
+        "has_accepted_answer": false
+      },
+      {
+        "fancy_title": "Groom asset with reflection problem ",
+        "id": 2756220,
+        "title": "Groom asset with reflection problem ",
+        "slug": "groom-asset-with-reflection-problem",
+        "posts_count": 3,
+        "reply_count": 0,
+        "highest_post_number": 3,
+        "created_at": "2026-09-02T17:19:54.257Z",
+        "last_posted_at": "2026-09-08T10:01:24.716Z",
+        "bumped": true,
+        "bumped_at": "2026-09-08T10:01:24.716Z",
+        "archetype": "regular",
+        "unseen": false,
+        "pinned": false,
+        "unpinned": null,
+        "excerpt": "Hello guys \nI have a problem for months now with groom asset in unreal. When my groom is in level, any levels (even calibrated one, good lighting value, etc..) my groom reflects the whole environment. \nIm working in lume&hellip;",
+        "visible": true,
+        "closed": false,
+        "archived": false,
+        "bookmarked": null,
+        "liked": null,
+        "tags": [
+          {
+            "id": 705,
+            "name": "unreal-engine",
+            "slug": "unreal-engine"
+          },
+          {
+            "id": 53,
+            "name": "question",
+            "slug": "question"
+          },
+          {
+            "id": 1572,
+            "name": "lighting-problem",
+            "slug": "lighting-problem"
+          },
+          {
+            "id": 2330,
+            "name": "reflection",
+            "slug": "reflection"
+          },
+          {
+            "id": 613,
+            "name": "characters",
+            "slug": "characters"
+          }
+        ],
+        "tags_descriptions": {},
+        "category_id": 36,
+        "has_accepted_answer": false
+      },
+      {
+        "fancy_title": "Lehusha&rsquo;s store - Caustics | PRISMIX ",
+        "id": 2762666,
+        "title": "Lehusha's store - Caustics | PRISMIX ",
+        "slug": "lehushas-store-caustics-prismix",
+        "posts_count": 1,
+        "reply_count": 0,
+        "highest_post_number": 1,
+        "created_at": "2026-09-04T16:14:46.253Z",
+        "last_posted_at": "2026-09-04T16:14:46.388Z",
+        "bumped": true,
+        "bumped_at": "2026-09-04T16:14:46.388Z",
+        "archetype": "regular",
+        "unseen": false,
+        "pinned": false,
+        "unpinned": null,
+        "excerpt": "Real-Time Caustics for Unreal Engine Bring physically-inspired caustics to Unreal Engine in real time - no Path Tracer, no complex setup, and no special UE branch required. Video: Soon    Tutorial: Soon   Documentation P&hellip;",
+        "visible": true,
+        "closed": false,
+        "archived": false,
+        "bookmarked": null,
+        "liked": null,
+        "tags": [
+          {
+            "id": 11497,
+            "name": "fab",
+            "slug": "fab"
+          }
+        ],
+        "tags_descriptions": {},
+        "category_id": 237,
+        "has_accepted_answer": false
+      },
+      {
+        "fancy_title": "[UE 5.8.1][D3D12] Rough refraction destroys the scene-capture alpha channel ",
+        "id": 2753870,
+        "title": "[UE 5.8.1][D3D12] Rough refraction destroys the scene-capture alpha channel ",
+        "slug": "ue-5-8-1-d3d12-rough-refraction-destroys-the-scene-capture-alpha-channel",
+        "posts_count": 2,
+        "reply_count": 0,
+        "highest_post_number": 2,
+        "created_at": "2026-09-01T17:09:58.544Z",
+        "last_posted_at": "2026-09-04T15:11:51.587Z",
+        "bumped": true,
+        "bumped_at": "2026-09-04T15:11:51.587Z",
+        "archetype": "regular",
+        "unseen": false,
+        "pinned": false,
+        "unpinned": null,
+        "excerpt": "Summary\nRough refraction destroys the scene-capture alpha channel\nSummary\nWith Substrate and Alpha Output enabled, a translucent material that uses the Index of Refraction refraction method writes an alpha of 1.0 (“nothi&hellip;",
+        "visible": true,
+        "closed": false,
+        "archived": false,
+        "bookmarked": null,
+        "liked": null,
+        "tags": [
+          {
+            "id": 705,
+            "name": "unreal-engine",
+            "slug": "unreal-engine"
+          }
+        ],
+        "tags_descriptions": {},
+        "category_id": 243,
+        "has_accepted_answer": false
+      }
+    ],
+    "users": [],
+    "categories": [],
+    "tags": [],
+    "groups": [],
+    "grouped_search_result": {
+      "more_posts": null,
+      "more_users": null,
+      "more_categories": null,
+      "term": "lumen reflections after:2026-08-31 before:2026-10-01 order:latest",
+      "search_log_id": 8785360,
+      "more_full_page_results": null,
+      "can_create_topic": false,
+      "error": null,
+      "extra": {},
+      "post_ids": [
+        5234496,
+        5234165,
+        5233792,
+        5233702,
+        5233498,
+        5232180,
+        5231779,
+        5231732,
+        5230952,
+        5230828,
+        5230288,
+        5214724,
+        5172503,
+        5172292,
+        5165677,
+        5163840,
+        5158806,
+        5158530,
+        5158380,
+        5158163,
+        5156183,
+        5156109
+      ],
+      "user_ids": [],
+      "category_ids": [],
+      "tag_ids": [],
+      "group_ids": []
+    }
+  }
+}

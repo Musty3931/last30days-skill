@@ -42,6 +42,7 @@ FIRST_PARTY_AUTHOR_CREDIT = 5.0
 _DISCOVERY_ENGAGEMENT_FIELDS = {
     "reddit": ("score", "num_comments"),
     "digg": ("postCount", "uniqueAuthors"),
+    "epicforums": ("likes", "replies", "views"),
     "x": ("likes", "reposts", "replies", "quotes"),
 }
 
@@ -585,6 +586,10 @@ def _candidate_haystack(candidate: schema.Candidate) -> str:
     are in top comments. Now checks all text surfaces a human would see.
     """
     parts: list[str] = [candidate.title or "", candidate.snippet or ""]
+    # The official forum supplies the Unreal/Epic context that its thread
+    # authors naturally omit; alternate Discourse hosts get no such credit.
+    if candidate.source == "epicforums" and candidate.url.startswith("https://forums.unrealengine.com/t/"):
+        parts.append("Unreal Engine Epic UE4 UE5")
     metadata = candidate.metadata or {}
 
     for tc in metadata.get("top_comments") or []:
@@ -752,6 +757,13 @@ def _final_score(candidate: schema.Candidate) -> float:
     # at final_score level so engagement signal can't mask the demotion.
     if candidate.explanation and "entity-miss" in candidate.explanation:
         base = max(0.0, base - ENTITY_MISS_FINAL_PENALTY)
+    if candidate.source == "epicforums":
+        primary = schema.candidate_primary_item(candidate)
+        metadata = primary.metadata if primary else {}
+        if metadata.get("epic_staff_answered") and candidate.local_relevance >= 0.15:
+            base = min(100.0, base + 15.0)
+        if metadata.get("marketplace_ad"):
+            base *= 0.6
     # Recency contract: out-of-window evidence never leads the ranked output.
     if schema.candidate_out_of_window(candidate):
         base *= OUT_OF_WINDOW_FINAL_MULTIPLIER

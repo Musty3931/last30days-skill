@@ -6,6 +6,7 @@ from typing import Any
 
 
 ENDPOINT_OVERRIDE_KEYS = {
+    "LAST30DAYS_EPICFORUMS_BASE",
     "OPENAI_BASE_URL",
     "XAI_BASE_URL",
 }

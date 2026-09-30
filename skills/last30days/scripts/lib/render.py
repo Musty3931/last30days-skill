@@ -216,6 +216,7 @@ SOURCE_LABELS = {
     "github": "GitHub",
     "digg": "Digg",
     "arxiv": "arXiv",
+    "epicforums": "Epic Forums",
 }
 
 # Legacy markers. Older saved briefs wrapped a private local-files section in
@@ -1676,6 +1677,7 @@ def render_full(report: schema.Report, save_path: str | None = None) -> str:
         "github",
         "digg",
         "arxiv",
+        "epicforums",
     ]
     # The list above fixes the display order for the sources it names, but it
     # is not the source registry and drifts every time one is added: newly
@@ -2018,6 +2020,8 @@ def _render_candidate(
         _format_engagement(primary),
         f"score:{candidate.final_score:.0f}",
     ]
+    if primary and primary.source == "epicforums" and primary.metadata.get("epic_staff_answered"):
+        detail_parts.append("Epic staff answered")
     if candidate.fun_score is not None and candidate.fun_score >= 50:
         detail_parts.append(f"fun:{candidate.fun_score:.0f}")
     # First-party interaction tag: this is the subject's own post directed at
@@ -2199,6 +2203,7 @@ _FOOTER_SOURCES: list[tuple[str, str, str, str, list[tuple[str, str]]]] = [
         [("postCount", "posts"), ("uniqueAuthors", "authors")],
     ),
     ("arxiv", "📄", "arXiv", "paper", []),
+    ("epicforums", "🎮", "Epic Forums", "topic", [("likes", "likes"), ("replies", "replies"), ("views", "views")]),
 ]
 
 
@@ -2424,6 +2429,7 @@ def _format_actor(item: schema.SourceItem | None) -> str | None:
 
 # Per-source engagement display fields: list of (field_name, label) tuples.
 ENGAGEMENT_DISPLAY: dict[str, list[tuple[str, str]]] = {
+    "epicforums": [("likes", "likes"), ("replies", "replies"), ("views", "views")],
     "reddit": [("score", "pts"), ("num_comments", "cmt")],
     "x": [("likes", "likes"), ("reposts", "rt"), ("replies", "re")],
     "github": [

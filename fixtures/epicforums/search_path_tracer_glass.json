@@ -1,0 +1,121 @@
+{
+  "captured_at": "2026-09-30T14:39:14.515739+00:00",
+  "url": "https://forums.unrealengine.com/search.json?q=path+tracer+glass+after%3A2026-08-31+before%3A2026-10-01+order%3Alatest",
+  "response": {
+    "posts": [
+      {
+        "id": 5230438,
+        "name": "RafucoS",
+        "username": "RafucoS",
+        "avatar_template": "https://d3kjluh73b9h9o.cloudfront.net/original/4X/2/8/5/28502927f1d97ba1051b3b47ccfe17233bf41ef0.png",
+        "created_at": "2026-09-21T15:30:57.554Z",
+        "like_count": 0,
+        "blurb": "See your character through walls, roofs, trees and props - with ONE Material Function. No actor tags. No traces. No C++. No runtime material swaps. The material knows where the camera is looking, so with top-down and isometric-style perspective cameras it opens a clean hole between the camera and...",
+        "post_number": 1,
+        "topic_id": 2833033
+      },
+      {
+        "id": 5156183,
+        "name": "legusha",
+        "username": "legusha",
+        "avatar_template": "https://d3kjluh73b9h9o.cloudfront.net/original/4X/2/8/5/28502927f1d97ba1051b3b47ccfe17233bf41ef0.png",
+        "created_at": "2026-09-04T16:14:46.388Z",
+        "like_count": 0,
+        "blurb": "Real-Time Caustics for Unreal Engine Bring physically-inspired caustics to Unreal Engine in real time - no Path Tracer, no complex setup, and no special UE branch required. Video: Soon Tutorial: Soon https://docs.google.com/document/d/1EgiPifeyZINwClFsvI5xXk3HanfyZZzoZ2gZBWjMP9E/edit Documentatio...",
+        "post_number": 1,
+        "topic_id": 2762666
+      }
+    ],
+    "topics": [
+      {
+        "fancy_title": "RafaSC - See-Through Occlusion Material ",
+        "id": 2833033,
+        "title": "RafaSC - See-Through Occlusion Material ",
+        "slug": "rafasc-see-through-occlusion-material",
+        "posts_count": 1,
+        "reply_count": 0,
+        "highest_post_number": 1,
+        "created_at": "2026-09-21T15:30:57.432Z",
+        "last_posted_at": "2026-09-21T15:30:57.554Z",
+        "bumped": true,
+        "bumped_at": "2026-09-21T15:30:57.554Z",
+        "archetype": "regular",
+        "unseen": false,
+        "pinned": false,
+        "unpinned": null,
+        "excerpt": "See your character through walls, roofs, trees and props - with ONE Material Function. No actor tags. No traces. No C++. No runtime material swaps. The material knows where the camera is looking, so with top-down and iso&hellip;",
+        "visible": true,
+        "closed": false,
+        "archived": false,
+        "bookmarked": null,
+        "liked": null,
+        "tags": [
+          {
+            "id": 11497,
+            "name": "fab",
+            "slug": "fab"
+          }
+        ],
+        "tags_descriptions": {},
+        "category_id": 237,
+        "has_accepted_answer": false
+      },
+      {
+        "fancy_title": "Lehusha&rsquo;s store - Caustics | PRISMIX ",
+        "id": 2762666,
+        "title": "Lehusha's store - Caustics | PRISMIX ",
+        "slug": "lehushas-store-caustics-prismix",
+        "posts_count": 1,
+        "reply_count": 0,
+        "highest_post_number": 1,
+        "created_at": "2026-09-04T16:14:46.253Z",
+        "last_posted_at": "2026-09-04T16:14:46.388Z",
+        "bumped": true,
+        "bumped_at": "2026-09-04T16:14:46.388Z",
+        "archetype": "regular",
+        "unseen": false,
+        "pinned": false,
+        "unpinned": null,
+        "excerpt": "Real-Time Caustics for Unreal Engine Bring physically-inspired caustics to Unreal Engine in real time - no Path Tracer, no complex setup, and no special UE branch required. Video: Soon    Tutorial: Soon   Documentation P&hellip;",
+        "visible": true,
+        "closed": false,
+        "archived": false,
+        "bookmarked": null,
+        "liked": null,
+        "tags": [
+          {
+            "id": 11497,
+            "name": "fab",
+            "slug": "fab"
+          }
+        ],
+        "tags_descriptions": {},
+        "category_id": 237,
+        "has_accepted_answer": false
+      }
+    ],
+    "users": [],
+    "categories": [],
+    "tags": [],
+    "groups": [],
+    "grouped_search_result": {
+      "more_posts": null,
+      "more_users": null,
+      "more_categories": null,
+      "term": "path tracer glass after:2026-08-31 before:2026-10-01 order:latest",
+      "search_log_id": 8785359,
+      "more_full_page_results": null,
+      "can_create_topic": false,
+      "error": null,
+      "extra": {},
+      "post_ids": [
+        5230438,
+        5156183
+      ],
+      "user_ids": [],
+      "category_ids": [],
+      "tag_ids": [],
+      "group_ids": []
+    }
+  }
+}

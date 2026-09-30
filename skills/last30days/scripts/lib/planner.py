@@ -7,7 +7,7 @@ import re
 import unicodedata
 from collections import Counter
 
-from . import categories, competitors, entity_extract, http, providers, query, relevance, schema
+from . import categories, competitors, entity_extract, epicforums, http, providers, query, relevance, schema
 
 # Hebrew Unicode block: U+0590–U+05FF
 _HEBREW_RE = re.compile(r'[\u0590-\u05FF]')
@@ -94,24 +94,24 @@ ALLOWED_INTENTS = {
 ALLOWED_CLUSTER_MODES = {"none", "story", "workflow", "market", "debate"}
 
 QUICK_SOURCE_PRIORITY = {
-    "factual": ["reddit", "x", "xquik", "github", "digg"],
-    "product": ["reddit", "x", "xquik", "github", "digg"],
-    "concept": ["reddit", "x", "xquik", "arxiv", "digg"],
-    "opinion": ["reddit", "x", "xquik", "digg"],
-    "how_to": ["reddit", "x", "xquik", "github"],
-    "comparison": ["reddit", "x", "xquik", "github", "digg"],
-    "breaking_news": ["x", "xquik", "reddit", "digg"],
-    "prediction": ["x", "xquik", "reddit", "digg"],
+    "factual": ["epicforums", "reddit", "x", "xquik", "github", "digg"],
+    "product": ["epicforums", "reddit", "x", "xquik", "github", "digg"],
+    "concept": ["epicforums", "reddit", "x", "xquik", "arxiv", "digg"],
+    "opinion": ["epicforums", "reddit", "x", "xquik", "digg"],
+    "how_to": ["epicforums", "reddit", "x", "xquik", "github"],
+    "comparison": ["epicforums", "reddit", "x", "xquik", "github", "digg"],
+    "breaking_news": ["epicforums", "x", "xquik", "reddit", "digg"],
+    "prediction": ["epicforums", "x", "xquik", "reddit", "digg"],
 }
 SOURCE_PRIORITY = {
-    "factual": ["reddit", "x", "github", "digg", "arxiv"],
-    "product": ["reddit", "x", "github", "digg"],
-    "concept": ["reddit", "x", "arxiv", "digg", "github"],
-    "opinion": ["reddit", "x", "digg"],
-    "how_to": ["reddit", "x", "github"],
-    "comparison": ["reddit", "x", "github", "digg"],
-    "breaking_news": ["x", "reddit", "digg"],
-    "prediction": ["x", "reddit", "digg"],
+    "factual": ["epicforums", "reddit", "x", "github", "digg", "arxiv"],
+    "product": ["epicforums", "reddit", "x", "github", "digg"],
+    "concept": ["epicforums", "reddit", "x", "arxiv", "digg", "github"],
+    "opinion": ["epicforums", "reddit", "x", "digg"],
+    "how_to": ["epicforums", "reddit", "x", "github"],
+    "comparison": ["epicforums", "reddit", "x", "github", "digg"],
+    "breaking_news": ["epicforums", "x", "reddit", "digg"],
+    "prediction": ["epicforums", "x", "reddit", "digg"],
 }
 SOURCE_LIMITS = {
     "quick": {
@@ -130,6 +130,7 @@ SOURCE_LIMITS = {
 }
 INTENT_SOURCE_EXCLUSIONS: dict[str, set[str]] = {}
 SOURCE_CAPABILITIES = {
+    "epicforums": {"discussion", "reference", "analysis", "link"},
     "reddit": {"discussion", "social"},
     "x": {"discussion", "social"},
     "xquik": {"discussion", "social"},
@@ -319,6 +320,17 @@ def build_drill_plan(
         ],
     )
 
+def topic_sources(topic: str, available: list[str], requested: list[str] | None = None) -> list[str]:
+    """Epic Forums is keyless, but only relevant topics spend its request budget.
+
+    Explicit source selection supports research on other Discourse hosts too.
+    This gate applies equally to external, LLM, and deterministic plans.
+    """
+    if epicforums.is_relevant(topic) or "epicforums" in (requested or []):
+        return list(available)
+    return [source for source in available if source != "epicforums"]
+
+
 def plan_query(
     *,
     topic: str,
@@ -338,6 +350,7 @@ def plan_query(
     fan-out sub-runs are engine-internal and the warning is a false positive
     there. Default False preserves the warning on every user-facing invocation.
     """
+    available_sources = topic_sources(topic, available_sources, requested_sources)
     if _should_force_deterministic_plan(topic):
         return _fallback_plan(
             topic,
@@ -446,6 +459,7 @@ def _sanitize_plan(
     depth: str,
 ) -> schema.QueryPlan:
     intent_hint = str(raw.get("intent") or _infer_intent(topic)).strip()
+    available_sources = topic_sources(topic, available_sources, requested_sources)
     if intent_hint not in ALLOWED_INTENTS:
         intent_hint = _infer_intent(topic)
     requested = set(requested_sources or [])
@@ -483,6 +497,8 @@ def _sanitize_plan(
             sources = [source for source in sources if source in requested]
         if not sources:
             sources = list(source_weights)
+        if "epicforums" in eligible_sources and "epicforums" not in sources:
+            sources.append("epicforums")
         search_query = str(subquery.get("search_query") or "").strip()
         ranking_query = str(subquery.get("ranking_query") or "").strip()
         if not search_query or not ranking_query:
@@ -610,6 +626,10 @@ def _trim_subqueries_for_depth(
                 break
             if source not in preferred_sources:
                 preferred_sources.append(source)
+        # Related Epic topics always include their specialist forum, even when
+        # the host plan omitted it or quick depth filled both generic slots.
+        if "epicforums" in available_sources and "epicforums" not in preferred_sources:
+            preferred_sources.append("epicforums")
         trimmed.append(
             schema.SubQuery(
                 label=subquery.label,
@@ -630,7 +650,8 @@ def _fallback_plan(
     note: str = "fallback-plan",
 ) -> schema.QueryPlan:
     intent = _infer_intent(topic)
-    allowed_sources = requested_sources or available_sources
+    available_sources = topic_sources(topic, available_sources, requested_sources)
+    allowed_sources = [s for s in available_sources if not requested_sources or s in requested_sources]
     source_weights = _default_source_weights(intent, allowed_sources)
     core = query.extract_core_subject(topic, max_words=6, strip_suffixes=True)
     base_search = _keyword_query(topic, core)

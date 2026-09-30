@@ -1,7 +1,7 @@
 ---
 name: last30days
 version: "3.23.0"
-description: "Research what people actually say about any topic in the last 30 days. Pulls posts and engagement from Reddit, X, GitHub, Digg, and arXiv. Includes a doctor health check to diagnose broken or missing sources."
+description: "Research what people actually say about any topic in the last 30 days. Pulls posts and engagement from Reddit, X, GitHub, Digg, arXiv, and Epic Forums. Includes a doctor health check to diagnose broken or missing sources."
 argument-hint: 'last30days nvidia earnings reaction | last30days AI video tools | last30days what users want in react'
 allowed-tools: Bash, Read, Write, AskUserQuestion, WebSearch
 homepage: https://github.com/mvanhorn/last30days-skill
@@ -398,7 +398,7 @@ If your Bash call to `last30days.py` does NOT include the FULL pre-flight checkl
 
 > **Permissions overview:** Reads public web/platform data and optionally saves research briefings to `LAST30DAYS_MEMORY_DIR` (defaults to `~/Documents/Last30Days`). X/Twitter search uses optional user-provided tokens (AUTH_TOKEN/CT0 env vars), an xAI or Xquik API key, or a consented browser-cookie read. On hosts with `uv` and no Python 3.12+, the preflight may install a uv-managed CPython 3.12 (one-time ~28MB download, announced on stderr). All credential usage and data writes are documented in the [Security & Permissions](#security--permissions) section.
 
-Research ANY topic across five sources: Reddit, X, GitHub, Digg, and arXiv. Surface what people are actually discussing, recommending, shipping, and debating right now.
+Research ANY topic across five sources: Reddit, X, GitHub, Digg, arXiv, and Epic Forums. Surface what people are actually discussing, recommending, shipping, and debating right now.
 
 ## Runtime Preflight
 
@@ -496,7 +496,7 @@ If the preflight script (including the uv fallback above) emits `ERROR: last30da
 
 WebSearch-only synthesis is not equivalent to running the engine — it misses Reddit community data, X/Twitter timelines, GitHub activity, Digg story clusters, and arXiv papers. Presenting it without disclosure misleads the user about what was actually searched. This is the same category of failure as a WebSearch-only run with no engine footer.
 
-**General web coverage is yours, not the engine's.** The engine searches exactly five sources (Reddit, X, GitHub, Digg, arXiv) and has no web-search backend. Blogs, news, and docs come from your own WebSearch tool in Step 0.55 (pre-research) and Step 2 (supplements). If you have no web-search tool, the report simply has no general-web layer; say so in the synthesis only if it matters to the answer.
+**General web coverage is yours, not the engine's.** The engine searches exactly six sources (Reddit, X, GitHub, Digg, arXiv) and has no web-search backend. Blogs, news, and docs come from your own WebSearch tool in Step 0.55 (pre-research) and Step 2 (supplements). If you have no web-search tool, the report simply has no general-web layer; say so in the synthesis only if it matters to the answer.
 
 ## Configuration
 
@@ -538,7 +538,7 @@ The engine reads `LAST30DAYS_MEMORY_DIR` from either the process env or `~/.conf
 **Step 2 - Welcome + setup choice (one modal).** Call AskUserQuestion with EXACTLY this question and these options. Reproduce the question verbatim, including the welcome pitch on the first lines:
 
 Question:
-"Welcome to /last30days! I research any topic across Reddit, X, GitHub, Digg & arXiv - what people actually said in the last 30 days. Let's get you set up (~30s).
+"Welcome to /last30days! I research any topic across Reddit, X, GitHub, Digg, arXiv & Epic Forums - what people actually said in the last 30 days. Let's get you set up (~30s).
 
 How would you like to set up?"
 
@@ -680,9 +680,12 @@ The magic of /last30days is Reddit comments + X posts together - and both are fr
 **arXiv (free, keyless):**
 - Run `npx @mvanhorn/printing-press-library install arxiv --cli-only` - installs the arXiv CLI. Activates when `arxiv-pp-cli` is on your PATH; fires on research/technical topics and stays quiet otherwise.
 
+**Epic Forums (free, keyless):**
+- No setup needed. Automatically searches Epic Developer Community forums for Unreal Engine, UE5, Fortnite/UEFN, MetaHuman, Nanite, and Lumen topics. `LAST30DAYS_EPICFORUMS=off` disables it.
+
 **Reasoning provider (optional, headless runs only):** when you drive the skill from an agent host YOU are the planner (`--plan`), so none of these are needed. For cron/CI runs without a hosting model, set one of `OPENAI_API_KEY`, `GOOGLE_API_KEY` / `GEMINI_API_KEY`, or `XAI_API_KEY` and optionally pin it with `LAST30DAYS_REASONING_PROVIDER`.
 
-There are no other sources. Do not offer TikTok, Instagram, YouTube, Hacker News, Polymarket, web-search keys, or any INCLUDE_SOURCES tier - the engine searches exactly Reddit, X, GitHub, Digg, and arXiv.
+There are no other sources. Do not offer TikTok, Instagram, YouTube, Hacker News, Polymarket, web-search keys, or any INCLUDE_SOURCES tier - the engine searches exactly Reddit, X, GitHub, Digg, arXiv, and Epic Forums.
 
 **CRITICAL: NEVER overwrite an existing `.env`.** Before writing ANY key:
 1. Check if the file exists: `test -f ~/.config/last30days/.env`
@@ -737,10 +740,10 @@ SKILL_DIR="<absolute path of the directory containing the SKILL.md you just Read
 "${LAST30DAYS_PYTHON}" "${SKILL_DIR}/scripts/last30days.py" --diagnose
 ```
 
-`--diagnose` prints JSON. `ACTIVE_SOURCES_LIST` is its `available_sources` array — the engine's authoritative source set, computed after credential resolution. Map the tokens to display names: `reddit`→Reddit, `x`→X, `github`→GitHub, `digg`→Digg, `arxiv`→arXiv. Those five are the complete source set; there are no others, so never list, offer, or plan for YouTube, TikTok, Hacker News, Polymarket, web search, or any other source name.
+`--diagnose` prints JSON. `ACTIVE_SOURCES_LIST` is its `available_sources` array — the engine's authoritative source set, computed after credential resolution. Map the tokens to display names: `reddit`→Reddit, `x`→X, `github`→GitHub, `digg`→Digg, `arxiv`→arXiv, `epicforums`→Epic Forums. Those six are the complete source set; there are no others, so never list, offer, or plan for YouTube, TikTok, Hacker News, Polymarket, web search, or any other source name.
 
 - If EXCLUDE_SOURCES is set (comma-separated, case-insensitive): drop any matching source from ACTIVE_SOURCES_LIST before displaying
-- `--search` (or `LAST30DAYS_DEFAULT_SEARCH` in `.env`) narrows a run to an explicit subset. Valid values: `reddit`, `x`, `github`, `digg`, `arxiv`; `xquik` is accepted as an alias for `x` (Xquik is an X backend, not its own source). `--search` is replace-not-add: list every source you still want.
+- `--search` (or `LAST30DAYS_DEFAULT_SEARCH` in `.env`) narrows a run to an explicit subset. Valid values: `reddit`, `x`, `github`, `digg`, `arxiv`, `epicforums`; `xquik` is accepted as an alias for `x` (Xquik is an X backend, not its own source). `--search` is replace-not-add: list every source you still want.
 
 **Reddit backend pin:** Reddit defaults to the free keyless backend. When `SCRAPECREATORS_API_KEY` is available, ScrapeCreators Reddit **search** backfills only if that free path returns **no items** (empty-only — a thin but non-empty free scrape does not spend credits). If the user wants paid coverage on thin free runs, tell them to set `LAST30DAYS_REDDIT_SC_MIN_ITEMS=<N>` (backfill when free yield is below N). If they say public Reddit is shallow, bot-gated, or missing nested comments, tell them they can set `LAST30DAYS_REDDIT_BACKEND=scrapecreators` alongside `SCRAPECREATORS_API_KEY` to make ScrapeCreators primary and keep the free path as fallback. Do not set either automatically for normal runs.
 
@@ -1265,7 +1268,7 @@ Only show lines for platforms where something was resolved. Skip empty lines. On
 
 **Rules for your plan:**
 - Emit 1 to 4 subqueries (more for complex/multi-faceted topics, fewer for simple ones)
-- **CRITICAL: Your PRIMARY subquery MUST include every applicable source from `ACTIVE_SOURCES_LIST` among reddit, x, github, digg, arxiv.** Never invent an unavailable source. Preserve X whenever it is active; when it is unavailable, continue with the rest. Never omit active Reddit (highest-signal discussion) or active GitHub (live shipping signal for code topics). Secondary subqueries can target specific platforms.
+- **CRITICAL: Your PRIMARY subquery MUST include every applicable source from `ACTIVE_SOURCES_LIST` among reddit, x, github, digg, arxiv, epicforums (Epic Forums only for relevant topics).** Never invent an unavailable source. Preserve X whenever it is active; when it is unavailable, continue with the rest. Never omit active Reddit (highest-signal discussion) or active GitHub (live shipping signal for code topics). Secondary subqueries can target specific platforms.
 - `search_query` should be concise and keyword-heavy - match how content is TITLED on platforms
 - `ranking_query` should read like a natural language question
 - **X disambiguation:** express your disambiguation intent in `ranking_query` (e.g., "What are people saying about Rome the city in Italy, not AS Roma or Rome Odunze?") — do not phrase-quote `search_query` for X or invent X operators; the engine handles X query compilation internally.
@@ -1280,7 +1283,9 @@ Only show lines for platforms where something was resolved. Skip empty lines. On
 - For how_to: prioritize Reddit (guides) and GitHub (issues + READMEs)
 - Primary subquery weight = 1.0, secondary = 0.6-0.8, peripheral = 0.3-0.5
 
-**Available sources (include every active one in the primary subquery):** use the engine's `ACTIVE_SOURCES_LIST`. The only valid source names are reddit, x, github, digg, and arxiv. Reddit and GitHub are always on; X is part of the normal set when a backend is authenticated and is simply omitted when unavailable; digg and arxiv are on only when `digg-pp-cli` / `arxiv-pp-cli` are on PATH. Any other name in a plan is rejected.
+**Epic Forums routing:** Include `epicforums` whenever the topic names Unreal Engine/UE4/UE5, Epic, Fortnite, UEFN, MetaHuman, Nanite, Lumen, Twinmotion, RealityCapture, or Megascans and the source is active. It supports factual, product, concept, comparison, opinion, how-to, and news queries. Skip it on unrelated topics unless the user explicitly requests that source (translate this to `--search` with the full desired source list). For example, `/last30days Unreal Engine 5.8 path tracer glass` should include forum subqueries such as `path tracer glass` and `path tracing glass reflections`; the engine supplies Discourse date operators. No accounts, cookies, or installation are needed. `LAST30DAYS_EPICFORUMS=off` disables it; `LAST30DAYS_EPICFORUMS_BASE` can target another Discourse host. Keep category names and topic/reply dates attached to evidence, treat old topic bodies as background context, and relay the engine's **Epic Forums** footer line with likes/replies/views.
+
+**Available sources (include every active one in the primary subquery):** use the engine's `ACTIVE_SOURCES_LIST`. The only valid source names are reddit, x, github, digg, arxiv, and epicforums. Epic Forums is keyless and enabled by default for Unreal/Epic-related topics; Reddit and GitHub are always on; X is part of the normal set when a backend is authenticated and is simply omitted when unavailable; digg and arxiv are on only when `digg-pp-cli` / `arxiv-pp-cli` are on PATH. Any other name in a plan is rejected.
 
 **Intent → freshness_mode mapping:**
 - breaking_news, prediction → `strict_recent`
@@ -1382,7 +1387,7 @@ The script will automatically:
 - Run Reddit / X / GitHub / Digg / arXiv searches in parallel
 - Output ALL results including Reddit top comments, X posts and replies, GitHub issues/PRs/releases with live star counts, Digg story clusters with inline quotes, and arXiv abstracts
 
-**Read the ENTIRE output.** Evidence is grouped into clusters (see the Judge Agent section), and the items inside them come from up to five sources: Reddit, X, GitHub, Digg, and arXiv. If you skim only the first cluster or two, you will produce incomplete stats and miss the community comments LAW 9 requires.
+**Read the ENTIRE output.** Evidence is grouped into clusters (see the Judge Agent section), and the items inside them come from up to six sources: Reddit, X, GitHub, Digg, arXiv, and Epic Forums. If you skim only the first cluster or two, you will produce incomplete stats and miss the community comments LAW 9 requires.
 
 **GitHub items in the output** carry live numbers (`(live: NNK stars)`, PR velocity, release notes). Prefer them over any star count or version quoted by a Reddit or X post. **Digg items** are story clusters with attributable inline quotes from X accounts; cite the quoted account, not "Digg". **arXiv items** are papers with abstracts; cite the paper title and first author, and never treat an abstract as community opinion.
 

@@ -1,6 +1,6 @@
 # last30days Skill
 
-Agent Skills package for researching any topic across exactly five sources: Reddit, X, GitHub, Digg, and arXiv. This is a personal fork (`Musty3931/last30days-skill`) of `mvanhorn/last30days-skill` with every other upstream source removed. Installable across Claude Code (most common host), Codex, Cursor, GitHub Copilot, Gemini CLI, Grok (xAI), and 50+ other [Agent Skills](https://agentskills.io) hosts. Python scripts with multi-source search aggregation.
+Agent Skills package for researching any topic across exactly six sources: Reddit, X, GitHub, Digg, arXiv, and Epic Forums. This is a personal fork (`Musty3931/last30days-skill`) of `mvanhorn/last30days-skill` with every other upstream source removed. Installable across Claude Code (most common host), Codex, Cursor, GitHub Copilot, Gemini CLI, Grok (xAI), and 50+ other [Agent Skills](https://agentskills.io) hosts. Python scripts with multi-source search aggregation.
 
 ## Structure
 - `skills/last30days/SKILL.md` — canonical skill definition / runtime spec the model reads when the slash command fires
@@ -57,7 +57,8 @@ Agents open most PRs. Follow this so `CHANGELOG.md` stops conflicting and versio
 - `lib/__init__.py` must be bare package marker (comment only, NO eager imports)
 - One-time setup: `npx skills add . -g -y` copies the skill into `~/.agents/skills/<name>/` (real directory) and, for harnesses that support symlinked skill dirs, drops a per-host symlink pointing at that copy. **Working-tree edits do NOT propagate automatically** — the `~/.agents/skills/<name>/` copy is frozen at install time. To sync after edits, re-run `npx skills add . -g -y`. For live-edit on a dev machine, replace the install copy with a symlink to the working tree: `ln -sfn "$PWD/skills/last30days" ~/.agents/skills/last30days` (run from the repo root).
 - Git remote: origin = `Musty3931/last30days-skill` (personal fork); upstream = `mvanhorn/last30days-skill`. Never push to upstream.
-- **Five sources only.** The engine searches Reddit, X (backends: bird/browser cookies, xAI, xurl, xquik, opt-in grok), GitHub, Digg (`digg-pp-cli`), and arXiv (`arxiv-pp-cli`). Do not reintroduce a removed source, a web-search backend, or a flag for one; `build_parser()` in `scripts/last30days.py` is the authoritative flag list and `lib/env.py` the authoritative env-key list. Docs must never advertise a source or key that is not there.
+- **Six sources only.** The engine searches Reddit, X (backends: bird/browser cookies, xAI, xurl, xquik, opt-in grok), GitHub, Digg (`digg-pp-cli`), arXiv (`arxiv-pp-cli`), and Epic Developer Community forums (`epicforums`, anonymous Discourse JSON). Do not reintroduce a removed source, a web-search backend, or a flag for one; `build_parser()` in `scripts/last30days.py` is the authoritative flag list and `lib/env.py` the authoritative env-key list. Docs must never advertise a source or key that is not there.
+- **Epic Forums** uses anonymous Discourse JSON, is enabled by default for Epic/Unreal-related topics, and is disabled by `LAST30DAYS_EPICFORUMS=off`. `LAST30DAYS_EPICFORUMS_BASE` supports another Discourse host with explicit source selection. Share the depth-scaled request budget across all subqueries and enrichment, pace at no more than one request per second, and preserve the requested date window.
 - Do not reduce `fail_under` in `pyproject.toml` (`[tool.coverage.report]`) without documenting why in the PR. The coverage gate is a floor meant to rise over time, not to be relaxed when new code is under-tested.
 - Every `lib/*.py` call to `log.source_log(...)` must pass `tty_only=False`. The default is `True`, which silently drops every line when stderr isn't a TTY (Claude Code, Codex, CI, captured output) — turning source observability into invisible failure. Enforced by `tests/test_source_log_visibility.py`.
 - **CLI-gated optional sources** (Digg via `digg-pp-cli`, arXiv via `arxiv-pp-cli`) activate only when `shutil.which` resolves the binary on the **agent subprocess PATH** — not merely when the file exists on disk. First-run setup installs both through `@mvanhorn/printing-press-library` (default `$HOME/.local/bin`); Hermes/OpenClaw gateways often need that directory on PATH. Setup must distinguish PATH-visible installs from off-PATH binaries and must not claim "now active" unless the engine gate would pass. See `docs/solutions/integration-issues/digg-cli-agent-path-setup-wizard.md`.
@@ -106,7 +107,7 @@ The repo doubles as a native Grok Build plugin via `.grok-plugin/plugin.json` + 
    ```json
    {
      "name": "last30days",
-     "description": "Research any topic across Reddit, X, GitHub, Digg, and arXiv. AI agent scores by upvotes, likes, and stars - not editors.",
+     "description": "Research any topic across Reddit, X, GitHub, Digg, arXiv, and Epic Forums. AI agent scores by upvotes, likes, and stars - not editors.",
      "category": "productivity",
      "source": {
        "source": "url",

@@ -25,6 +25,7 @@ from . import (
     dates,
     dedupe,
     digg,
+    epicforums,
     entity_extract,
     env,
     github,
@@ -131,6 +132,7 @@ MOCK_AVAILABLE_SOURCES = [
     "github",
     "digg",
     "arxiv",
+    "epicforums",
 ]
 
 
@@ -178,6 +180,8 @@ def available_sources(
     # GitHub is reachable via the unauthenticated REST tier too, so it is
     # available even without a token/gh CLI (a token only raises rate limits).
     available.append("github")
+    if epicforums.enabled(config):
+        available.append("epicforums")
     if which("digg-pp-cli"):
         available.append("digg")
     # arXiv is default-on when its Printing Press CLI is installed (zero auth).
@@ -1752,6 +1756,10 @@ def run(
     internal_subrun: bool = False,
     save_dir: Path | str | None = None,
 ) -> schema.Report:
+    # Each run (including discovery/competitor subruns) gets one shared client;
+    # never leak request counters into a later run via the caller's config.
+    config = dict(config)
+    config["_epicforums_client"] = None
     settings = _resolve_depth_settings(depth, config)
     requested_sources = normalize_requested_sources(requested_sources)
     # Wall-clock origin for budget-aware enrichment lanes.
@@ -1771,6 +1779,9 @@ def run(
         raise RuntimeError("No sources are available for this run.")
 
     planner_requested_sources = requested_sources
+    available = planner.topic_sources(topic, available, requested_sources)
+    if "epicforums" in available and not mock:
+        config["_epicforums_client"] = epicforums.Client(config, depth)
 
     if external_plan is not None:
         # External plan provided (e.g., from Claude Code via --plan flag).
@@ -2573,6 +2584,15 @@ def _finalize_items_by_source(
             else:
                 digg.enrich_source_items(items, top_k=3)
                 http.fixture_source_record(enrichment_request, schema.to_dict(items))
+        if source == "epicforums" and items and not mock:
+            matched, replayed = http.fixture_source_replay(enrichment_request)
+            if matched:
+                items = _merge_replayed_enrichment(items, replayed)
+            else:
+                client = (config or {}).get("_epicforums_client")
+                if client is not None:
+                    epicforums.enrich_source_items(items, client)
+                    http.fixture_source_record(enrichment_request, schema.to_dict(items))
         finalized[source] = items
     return finalized
 
@@ -2595,6 +2615,11 @@ def _merge_replayed_enrichment(
         record = replayed_by_id.get(item.item_id)
         if record and record.get("metadata"):
             item.metadata.update(record["metadata"])
+            if item.source == "epicforums" and item.metadata.get("topic_body"):
+                item.body = f"{item.title}\n\n{item.metadata['topic_body']}\n\n{item.snippet}"
+                item.engagement.update(record.get("engagement") or {})
+                if item.metadata.get("epic_staff_answered"):
+                    item.source_quality = 1.0
     return items
 
 
@@ -3482,6 +3507,7 @@ def _retrieve_stream(*args, **kwargs) -> tuple[list[dict], dict]:
         "x",
         "digg",
         "arxiv",
+        "epicforums",
         "github",
     }
     if module_backed:
@@ -3857,6 +3883,18 @@ def _retrieve_stream_impl(
         # _finalize_items_by_source so it runs on the items that actually
         # survive dedupe rather than on top-K of the raw fanout.
         return items, _result_outcome_artifact(source, result)
+    if source == "epicforums":
+        result = epicforums.search_epicforums(
+            subquery.search_query, from_date, to_date, depth=depth,
+            client=config.get("_epicforums_client") or epicforums.Client(config, depth),
+        )
+        artifact = _result_outcome_artifact(source, result)
+        artifact["epicforums"] = {key: result[key] for key in ("requests", "request_limit", "more_results") if key in result}
+        if result.get("warnings"):
+            artifact["_warnings"] = result["warnings"]
+        if result.get("more_results"):
+            artifact.setdefault("_warnings", []).append("Epic Forums: additional matches exist beyond the bounded search results")
+        return epicforums.parse_epicforums_response(result, query=raw_topic or topic), artifact
     if source == "arxiv":
         result = arxiv.search_arxiv(subquery.search_query, from_date, to_date, depth=depth)
         # Relevance keys off the stable research topic, not the per-subquery
@@ -3895,6 +3933,14 @@ def _mock_stream_results(source: str, subquery: schema.SubQuery) -> tuple[list[d
     # this fixture one topic per subquery, so the slug keeps them distinct.
     slug = re.sub(r"[^a-z0-9]+", "-", subquery.search_query.lower()).strip("-") or "topic"
     payloads = {
+        "epicforums": [{
+            "id": 123, "title": f"{subquery.search_query} forum discussion",
+            "url": f"https://forums.unrealengine.com/t/{slug}/123",
+            "date": dates.get_date_range(3)[0], "author": "example",
+            "snippet": f"Community experience with {subquery.search_query}.",
+            "category": "Rendering", "engagement": {"likes": 5, "replies": 12, "views": 200},
+            "relevance": 0.85,
+        }],
         "reddit": [
             {
                 "id": "R1",
