@@ -151,6 +151,7 @@ SOURCE_ORDER = (
     "digg",
     "arxiv",
     "epicforums",
+    "youtube",
     "library",
 )
 
@@ -160,6 +161,7 @@ SOURCE_ORDER = (
 # listed is keyless - it needs no CLI. gh is OPTIONAL for GitHub (the REST tier
 # works without it), so its absence is a note, never a failure.
 CLI_DEPENDENCIES = {
+    "youtube": "yt-dlp",
     "digg": "digg-pp-cli",
     "arxiv": "arxiv-pp-cli",
     "github": "gh",
@@ -458,6 +460,23 @@ def _epicforums_record(config):
     return _record(status=health.OK, requires="none (anonymous Discourse JSON)",
                    detail=f"{base}; runs for Epic/Unreal topics or explicit source selection")
 
+def _youtube_record(config):
+    from . import subproc, youtube_yt
+    requires = "yt-dlp on PATH or LAST30DAYS_YTDLP (no account/cookies)"
+    if not youtube_yt.is_enabled(config):
+        return _record(status="opt-in", detail="LAST30DAYS_YOUTUBE=off", requires=requires)
+    command = youtube_yt.ytdlp_command(config)
+    if not command:
+        return _record(status="opt-in", detail="yt-dlp not installed", requires=requires,
+                       fix="Install yt-dlp (brew install yt-dlp on macOS) or set LAST30DAYS_YTDLP")
+    try:
+        result = subproc.run_with_timeout(command + ["--ignore-config", "--version"], timeout=5)
+        return _record(status=health.OK if result.returncode == 0 else health.ERROR,
+                       detail=result.stdout.strip() if result.returncode == 0 else result.stderr.strip()[-300:],
+                       requires=requires)
+    except (OSError, subproc.SubprocTimeout) as exc:
+        return _record(status=health.ERROR, detail=str(exc), requires=requires)
+
 
 def _arxiv_record(config):
     return _cli_gated_record(config, "arxiv-pp-cli", "arxiv")
@@ -522,6 +541,7 @@ _SOURCE_BUILDERS: Dict[str, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
     "digg": _digg_record,
     "arxiv": _arxiv_record,
     "epicforums": _epicforums_record,
+    "youtube": _youtube_record,
     "library": _library_record,
 }
 
@@ -719,6 +739,10 @@ def build_report(config: Dict[str, Any]) -> Dict[str, Any]:
     for source, cli_name in CLI_DEPENDENCIES.items():
         record = sources.get(source)
         if record is None:
+            continue
+        if source == "youtube":
+            record["cli"] = {"name": cli_name, "status": record["status"],
+                             "off_path": False, "detail": record.get("detail", ""), "optional": False}
             continue
         try:
             probe = health.probe_dependency(cli_name)
@@ -1087,7 +1111,7 @@ _SECRET_CONFIG_VARS = KEY_PRESENCE_VARS + (
 
 # Backend pin vars folded into the config fingerprint. Pin values are
 # backend names (e.g. "bird"), never secrets.
-_FINGERPRINT_PIN_VARS = (env.X_BACKEND_PIN_VAR, env.REDDIT_BACKEND_PIN_VAR)
+_FINGERPRINT_PIN_VARS = (env.X_BACKEND_PIN_VAR, env.REDDIT_BACKEND_PIN_VAR, "LAST30DAYS_YOUTUBE", "LAST30DAYS_YTDLP")
 
 # Top-level report keys the renderers read unguarded; a cached report
 # missing any of them is treated as corrupt (absent), never rendered.
@@ -1340,6 +1364,9 @@ def _probe_source(name: str, config: Dict[str, Any], timeout: float) -> Optional
             return {"ok": ok, "detail": "Discourse search JSON" if ok else "invalid search JSON schema", "probed": True}
         except (http.HTTPError, ValueError) as exc:
             return {"ok": False, "detail": str(exc), "probed": True}
+    if name == "youtube":
+        from . import youtube_yt
+        return youtube_yt.live_probe(config, timeout)
     url = _HTTP_PROBE_URLS.get(name)
     if url:
         ok, detail = _http_ok(

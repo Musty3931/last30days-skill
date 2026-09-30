@@ -1,4 +1,4 @@
-"""Contract tests for the first-run NUX wizard in SKILL.md (five-source fork).
+"""Contract tests for the first-run NUX wizard in SKILL.md (seven-source fork).
 
 Step 0 has two branches: a **Claude Code Modal Flow** (AskUserQuestion-driven,
 the restored v3.0.0 NUX) and a **Non-Modal Prose Flow** for hosts without modals
@@ -6,7 +6,7 @@ the restored v3.0.0 NUX) and a **Non-Modal Prose Flow** for hosts without modals
 guarantees of both branches, plus the cross-cutting copy rules: the hard
 "Step 0 before Step 1" gate, Digg threaded alongside arXiv (the only two CLIs
 setup installs), the 10,000-free-calls credit count, ScrapeCreators framed ONLY
-as the Reddit search backup, and every removed source (YouTube, TikTok,
+as the Reddit search backup, and every removed source (TikTok,
 Instagram, Threads, Pinterest, Hacker News, Polymarket, Techmeme, ...) kept out
 of onboarding entirely. They read SKILL.md as text - the model's runtime
 contract - matching tests/test_runtime_preflight_contract.py.
@@ -25,8 +25,6 @@ ROOT = Path(__file__).resolve().parents[1]
 SKILL_MD = ROOT / "skills" / "last30days" / "SKILL.md"
 
 REMOVED_SOURCES = (
-    "YouTube",
-    "yt-dlp",
     "TikTok",
     "Instagram",
     "Threads",
@@ -230,7 +228,7 @@ class TestOnboardingContract(unittest.TestCase):
     # --- Removed sources stay out of onboarding; no INCLUDE_SOURCES tiers ---
 
     def test_removed_sources_absent_from_step0_offers(self):
-        """The five-source fork never offers, installs, or tiers a removed source.
+        """The seven-source fork never offers, installs, or tiers a removed source.
         The one allowed mention is the Manual Setup Guide's explicit 'do not offer'
         sentence, so the check runs over the modal and prose flows."""
         for gone in REMOVED_SOURCES:
@@ -239,7 +237,7 @@ class TestOnboardingContract(unittest.TestCase):
 
     def test_manual_guide_denies_removed_sources_explicitly(self):
         self.assertIn("There are no other sources.", self.manual)
-        self.assertIn("exactly Reddit, X, GitHub, Digg, arXiv, and Epic Forums", self.manual)
+        self.assertIn("exactly Reddit, X, GitHub, Digg, arXiv, Epic Forums, and YouTube", self.manual)
 
     def test_no_source_tier_step(self):
         """The old Step 5 INCLUDE_SOURCES opt-in (TikTok/Instagram/comments tiers)
@@ -301,13 +299,13 @@ class TestOnboardingContract(unittest.TestCase):
         # The non-modal flow still uses the engine welcome command.
         self.assertIn("last30days.py --welcome", self.prose)
 
-    def test_engine_welcome_names_the_five_sources_only(self):
+    def test_engine_welcome_names_the_seven_sources_only(self):
         """The engine-owned welcome (relayed verbatim on prose hosts) names exactly
-        the five sources and none of the removed ones."""
+        the seven sources and none of the removed ones."""
         welcome = setup_wizard.render_welcome()
-        for source in ("Reddit", "X", "GitHub", "Digg", "arXiv"):
+        for source in ("Reddit", "X", "GitHub", "Digg", "arXiv", "Epic Forums", "YouTube"):
             self.assertIn(source, welcome, source)
-        for gone in ("YouTube", "TikTok", "Instagram", "Hacker News", "HN", "Polymarket", "Techmeme", "StockTwits"):
+        for gone in ("TikTok", "Instagram", "Hacker News", "HN", "Polymarket", "Techmeme", "StockTwits"):
             self.assertNotIn(gone, welcome, gone)
 
     # --- Honest GitHub device-code copy (U4/U7) ---
@@ -332,10 +330,10 @@ class TestOnboardingContract(unittest.TestCase):
     # --- Welcome must render before the modal (U1) ---
 
     def test_welcome_pitch_is_in_the_modal_question(self):
-        """The welcome pitch names the five sources inside the modal question, so
+        """The welcome pitch names the seven sources inside the modal question, so
         the user sees it without expanding folded tool output. The old skip-prone
         'IMMEDIATELY call AskUserQuestion' wording stays gone."""
-        for source in ("Reddit", "X,", "GitHub", "Digg", "arXiv"):
+        for source in ("Reddit", "X,", "GitHub", "Digg", "arXiv", "Epic Forums", "YouTube"):
             self.assertIn(source, self.modal, source)
         self.assertNotIn("Then IMMEDIATELY call AskUserQuestion", self.modal)
 

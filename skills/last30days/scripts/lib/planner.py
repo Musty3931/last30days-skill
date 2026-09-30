@@ -94,24 +94,24 @@ ALLOWED_INTENTS = {
 ALLOWED_CLUSTER_MODES = {"none", "story", "workflow", "market", "debate"}
 
 QUICK_SOURCE_PRIORITY = {
-    "factual": ["epicforums", "reddit", "x", "xquik", "github", "digg"],
-    "product": ["epicforums", "reddit", "x", "xquik", "github", "digg"],
-    "concept": ["epicforums", "reddit", "x", "xquik", "arxiv", "digg"],
-    "opinion": ["epicforums", "reddit", "x", "xquik", "digg"],
-    "how_to": ["epicforums", "reddit", "x", "xquik", "github"],
-    "comparison": ["epicforums", "reddit", "x", "xquik", "github", "digg"],
-    "breaking_news": ["epicforums", "x", "xquik", "reddit", "digg"],
-    "prediction": ["epicforums", "x", "xquik", "reddit", "digg"],
+    "factual": ["epicforums", "reddit", "x", "xquik", "github", "digg", "youtube"],
+    "product": ["epicforums", "reddit", "x", "xquik", "github", "digg", "youtube"],
+    "concept": ["epicforums", "reddit", "x", "xquik", "arxiv", "digg", "youtube"],
+    "opinion": ["epicforums", "reddit", "x", "xquik", "digg", "youtube"],
+    "how_to": ["epicforums", "reddit", "x", "xquik", "github", "youtube"],
+    "comparison": ["epicforums", "reddit", "x", "xquik", "github", "digg", "youtube"],
+    "breaking_news": ["epicforums", "x", "xquik", "reddit", "digg", "youtube"],
+    "prediction": ["epicforums", "x", "xquik", "reddit", "digg", "youtube"],
 }
 SOURCE_PRIORITY = {
-    "factual": ["epicforums", "reddit", "x", "github", "digg", "arxiv"],
-    "product": ["epicforums", "reddit", "x", "github", "digg"],
-    "concept": ["epicforums", "reddit", "x", "arxiv", "digg", "github"],
-    "opinion": ["epicforums", "reddit", "x", "digg"],
-    "how_to": ["epicforums", "reddit", "x", "github"],
-    "comparison": ["epicforums", "reddit", "x", "github", "digg"],
-    "breaking_news": ["epicforums", "x", "reddit", "digg"],
-    "prediction": ["epicforums", "x", "reddit", "digg"],
+    "factual": ["epicforums", "reddit", "x", "github", "digg", "arxiv", "youtube"],
+    "product": ["epicforums", "reddit", "x", "github", "digg", "youtube"],
+    "concept": ["epicforums", "reddit", "x", "arxiv", "digg", "github", "youtube"],
+    "opinion": ["epicforums", "reddit", "x", "digg", "youtube"],
+    "how_to": ["epicforums", "reddit", "x", "github", "youtube"],
+    "comparison": ["epicforums", "reddit", "x", "github", "digg", "youtube"],
+    "breaking_news": ["epicforums", "x", "reddit", "digg", "youtube"],
+    "prediction": ["epicforums", "x", "reddit", "digg", "youtube"],
 }
 SOURCE_LIMITS = {
     "quick": {
@@ -136,6 +136,7 @@ SOURCE_CAPABILITIES = {
     "xquik": {"discussion", "social"},
     "digg": {"discussion", "social", "link"},
     "arxiv": {"reference", "analysis", "link"},
+    "youtube": {"video", "video_longform", "discussion"},
     "github": {"discussion", "link"},
 }
 
@@ -793,7 +794,7 @@ def _default_source_weights(intent: str, sources: list[str]) -> dict[str, float]
             if source in base:
                 base[source] += bonus
     elif intent == "how_to":
-        for source, bonus in {"github": 0.8, "reddit": 0.5}.items():
+        for source, bonus in {"github": 0.8, "reddit": 0.5, "youtube": 2.0}.items():
             if source in base:
                 base[source] += bonus
     elif intent == "factual":

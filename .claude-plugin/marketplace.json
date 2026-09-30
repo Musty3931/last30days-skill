@@ -10,7 +10,7 @@
   "plugins": [
     {
       "name": "last30days",
-      "description": "Research any topic across Reddit, X, GitHub, Digg, and arXiv. AI agent scores by upvotes, likes, and stars - not editors.",
+      "description": "Research any topic across Reddit, X, GitHub, Digg, arXiv, Epic Forums, and YouTube. AI agent scores by upvotes, likes, and stars - not editors.",
       "version": "3.23.0",
       "author": {
         "name": "Matt Van Horn",

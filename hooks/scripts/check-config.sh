@@ -238,17 +238,17 @@ if [[ -z "$SETUP_COMPLETE" && -z "$CONFIG_FILE" && -z "${ENV_OPENAI_API_KEY:-${O
   # printf, NOT cat-with-heredoc: see the bash 5.3 heredoc deadlock note above.
   printf '%s\n' \
     '/last30days: Ready to use. Run /last30days to get started — setup takes 30 seconds.' \
-    '  Research any topic across Reddit, X, GitHub, Digg, arXiv (last 30 days).' \
+    '  Research any topic across Reddit, X, GitHub, Digg, arXiv, Epic Forums, YouTube (last 30 days).' \
     '' \
-    'Reddit and GitHub work out of the box.' \
-    'The setup wizard can unlock X/Twitter, Digg, and arXiv.'
+    'Reddit and GitHub work out of the box; Epic Forums supports Epic/Unreal topics.' \
+    'The setup wizard can unlock X/Twitter, Digg, and arXiv; install yt-dlp for YouTube.'
   if [[ -n "$LAST_RUN_LINE" ]]; then
     echo "$LAST_RUN_LINE"
   fi
   exit 0
 fi
 
-# Setup done: count the active sources (reddit, x, github, digg, arxiv).
+# Setup done: count the seven supported sources using dependency gates.
 HAS_SCRAPECREATORS="${ENV_SCRAPECREATORS_API_KEY:-${SCRAPECREATORS_API_KEY:-}}"
 HAS_X=""
 if [[ -n "${ENV_AUTH_TOKEN:-${AUTH_TOKEN:-}}" && -n "${ENV_CT0:-${CT0:-}}" ]]; then
@@ -270,8 +270,27 @@ if command -v arxiv-pp-cli &>/dev/null; then
   SOURCE_COUNT=$((SOURCE_COUNT + 1))
 fi
 
+# Reuse the engine's gates for the two new lanes, including quoted yt-dlp
+# argv overrides. Only resolve executables here; never run yt-dlp or a probe.
+SKILL_SCRIPTS="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../skills/last30days/scripts" && pwd)"
+if OPTIONAL_SOURCE_COUNT=$(python3 -c '
+import sys
+sys.path.insert(0, sys.argv[1])
+from lib import epicforums, youtube_yt
+config = dict(zip(("LAST30DAYS_EPICFORUMS", "LAST30DAYS_YOUTUBE", "LAST30DAYS_YTDLP", "EXCLUDE_SOURCES"), sys.argv[2:]))
+excluded = {s.strip().lower() for s in config["EXCLUDE_SOURCES"].split(",")}
+print(int(epicforums.enabled(config) and "epicforums" not in excluded)
+      + int(youtube_yt.is_enabled(config) and youtube_yt.is_ytdlp_installed(config) and "youtube" not in excluded))
+' "$SKILL_SCRIPTS" \
+  "${LAST30DAYS_EPICFORUMS-${ENV_LAST30DAYS_EPICFORUMS-on}}" \
+  "${LAST30DAYS_YOUTUBE-${ENV_LAST30DAYS_YOUTUBE-on}}" \
+  "${LAST30DAYS_YTDLP-${ENV_LAST30DAYS_YTDLP-}}" \
+  "${EXCLUDE_SOURCES-${ENV_EXCLUDE_SOURCES-}}" 2>/dev/null); then
+  SOURCE_COUNT=$((SOURCE_COUNT + OPTIONAL_SOURCE_COUNT))
+fi
+
 echo "/last30days: Ready — ${SOURCE_COUNT} sources active."
-echo "  Research any topic across Reddit, X, GitHub, Digg, arXiv (last 30 days)."
+echo "  Research any topic across Reddit, X, GitHub, Digg, arXiv, Epic Forums, YouTube (last 30 days)."
 if [[ -n "$LAST_RUN_LINE" ]]; then
   echo "$LAST_RUN_LINE"
 fi

@@ -3,7 +3,7 @@
   "name": "last30days-pp-mcp",
   "display_name": "Last30Days",
   "version": "3.6.0",
-  "description": "Research any topic across Reddit, X, GitHub, Digg, and arXiv - last 30 days, scored by upvotes, likes, and stars.",
+  "description": "Research any topic across Reddit, X, GitHub, Digg, arXiv, Epic Forums, and YouTube - last 30 days, scored by upvotes, likes, and stars.",
   "author": {
     "name": "Matt Van Horn",
     "url": "https://github.com/Musty3931/last30days-skill"

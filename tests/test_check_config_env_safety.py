@@ -118,6 +118,28 @@ def _run_hook(
     )
 
 
+def test_hook_counts_both_new_lanes_with_command_override(tmp_path):
+    """An argv override is resolved without executing a command from config."""
+    project = tmp_path / "repo"
+    project.mkdir()
+    config = tmp_path / "config"
+    config.mkdir()
+    (config / ".env").write_text("SETUP_COMPLETE=true\n")
+    overrides = {"LAST30DAYS_CONFIG_DIR": str(config),
+                 "LAST30DAYS_MEMORY_DIR": str(tmp_path / "memory"),
+                 "LAST30DAYS_EPICFORUMS": "off", "LAST30DAYS_YOUTUBE": "off",
+                 "LAST30DAYS_YTDLP": "python3 --this-must-not-be-executed",
+                 "EXCLUDE_SOURCES": ""}
+    def count(values):
+        result = _run_hook(shutil.which("bash"), project, tmp_path, values)
+        assert result.returncode == 0, result.stderr
+        return int(re.search(r"Ready — (\d+) sources active", result.stdout)[1])
+    baseline = count(overrides)
+    enabled = {**overrides, "LAST30DAYS_EPICFORUMS": "on", "LAST30DAYS_YOUTUBE": "on"}
+    assert count(enabled) == baseline + 2
+    assert count({**enabled, "EXCLUDE_SOURCES": "epicforums,youtube"}) == baseline
+
+
 @pytest.fixture(params=_bash_binaries())
 def bash_path(request: pytest.FixtureRequest) -> str:
     return request.param

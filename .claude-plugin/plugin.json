@@ -1,7 +1,7 @@
 {
   "name": "last30days",
   "version": "3.23.0",
-  "description": "Research any topic across Reddit, X, GitHub, Digg, and arXiv. AI agent scores by upvotes, likes, and stars - not editors.",
+  "description": "Research any topic across Reddit, X, GitHub, Digg, arXiv, Epic Forums, and YouTube. AI agent scores by upvotes, likes, and stars - not editors.",
   "author": {
     "name": "Matt Van Horn",
     "email": "mvanhorn@gmail.com",

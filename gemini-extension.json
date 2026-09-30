@@ -1,7 +1,7 @@
 {
   "name": "last30days-skill",
   "version": "3.23.0",
-  "description": "Research a topic from the last 30 days across Reddit, X, GitHub, Digg, and arXiv.",
+  "description": "Research a topic from the last 30 days across Reddit, X, GitHub, Digg, arXiv, Epic Forums, and YouTube.",
   "settings": [
     {
       "name": "Extension Directory",

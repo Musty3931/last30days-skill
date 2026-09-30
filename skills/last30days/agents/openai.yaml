@@ -1,7 +1,7 @@
 interface:
   display_name: "Last 30 Days"
-  short_description: "Research any topic across Reddit, X, GitHub, Digg, and arXiv from the last 30 days. Returns synthesized expert answers and copy-paste prompts."
-  default_prompt: "Research this topic from the last 30 days across Reddit, X, GitHub, Digg, and arXiv. Synthesize what people are actually saying, upvoting, and shipping right now."
+  short_description: "Research any topic across Reddit, X, GitHub, Digg, arXiv, Epic Forums, and YouTube from the last 30 days. Returns synthesized expert answers and copy-paste prompts."
+  default_prompt: "Research this topic from the last 30 days across Reddit, X, GitHub, Digg, arXiv, Epic Forums, and YouTube. Synthesize what people are actually saying, upvoting, and shipping right now."
   brand_color: "#FF6B35"
 
 policy:

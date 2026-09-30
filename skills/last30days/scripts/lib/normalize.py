@@ -44,6 +44,7 @@ def normalize_source_items(
         "arxiv": _normalize_arxiv,
         "epicforums": _normalize_epicforums,
         "github": _normalize_github,
+        "youtube": _normalize_youtube,
     }
     normalizer = normalizers.get(source)
     if normalizer is None:
@@ -59,7 +60,7 @@ def normalize_source_items(
         # Simulation" miss: 26 open roles filtered to 3 by a 30-day window).
         # Keep the full board; recency is annotated, not used to drop.
         return normalized
-    return filter_by_date_range(normalized, from_date, to_date, require_date=source == "epicforums")
+    return filter_by_date_range(normalized, from_date, to_date, require_date=source in {"epicforums", "youtube"})
 
 
 def _remap_comments(
@@ -384,4 +385,47 @@ def _normalize_github(
             "state": metadata.get("state", ""),
             "is_pr": metadata.get("is_pr", False),
         },
+    )
+
+
+
+
+def _normalize_youtube(
+    source: str,
+    item: dict[str, Any],
+    index: int,
+    from_date: str,
+    to_date: str,
+) -> schema.SourceItem:
+    transcript = str(item.get("transcript_snippet") or "").strip()
+    description = str(item.get("description") or "").strip()
+    title = str(item.get("title") or "").strip()
+    highlights = item.get("transcript_highlights") or []
+    metadata: dict[str, Any] = {"transcript_snippet": transcript, "channel_boost": item.get("channel_boost", 0)}
+    if highlights:
+        metadata["transcript_highlights"] = highlights
+    if item.get("captions_disabled"):
+        # Surfaced for quality_nudge: uploader disabled captions, so this
+        # video should be subtracted from the degraded-transcript-ratio
+        # denominator (it was never going to produce a transcript).
+        metadata["captions_disabled"] = True
+    metadata["top_comments"] = _remap_comments(
+        item.get("top_comments") or [],
+        score_keys=("score", "likes"),
+        excerpt_keys=("excerpt", "text"),
+    )
+    return _source_item(
+        item_id=str(item.get("video_id") or item.get("id") or f"YT{index + 1}"),
+        source=source,
+        title=title,
+        body="\n".join(part for part in [title, description, transcript] if part),
+        url=str(item.get("url") or ""),
+        author=str(item.get("channel_name") or ""),
+        published_at=item.get("date"),
+        date_confidence=_date_confidence(item, from_date, to_date, default="high"),
+        engagement=item.get("engagement") or {},
+        relevance_hint=item.get("relevance", 0.5),
+        why_relevant=str(item.get("why_relevant") or ""),
+        snippet=transcript,
+        metadata=metadata,
     )

@@ -13,7 +13,7 @@ Per-client patterns and the experimental beta channel are at the bottom.
 
 ## Why this document exists
 
-This is a focused **configuration reference** maintained alongside the engine. The runtime contract (the voice rules, the planner protocol, the LAWs the synthesizing model follows) lives in [`skills/last30days/SKILL.md`](skills/last30days/SKILL.md) - that file is authoritative when the two ever differ. This file's job is narrower: surface every knob a user or operator can turn, in one place, kept current with the code so client-facing setups stay reliable. This fork searches exactly six sources - Reddit, X, GitHub, Digg, arXiv, and Epic Forums - so every knob below belongs to one of those, to the reasoning provider, or to output/storage. New configuration knobs added to the engine should be reflected here in the same PR.
+This is a focused **configuration reference** maintained alongside the engine. The runtime contract (the voice rules, the planner protocol, the LAWs the synthesizing model follows) lives in [`skills/last30days/SKILL.md`](skills/last30days/SKILL.md) - that file is authoritative when the two ever differ. This file's job is narrower: surface every knob a user or operator can turn, in one place, kept current with the code so client-facing setups stay reliable. This fork searches exactly seven sources - Reddit, X, GitHub, Digg, arXiv, Epic Forums, and YouTube - so every knob below belongs to one of those, to the reasoning provider, or to output/storage. New configuration knobs added to the engine should be reflected here in the same PR.
 
 ---
 
@@ -47,7 +47,7 @@ The engine's `.env` reader doesn't expand `$HOME` — only the tilde, via `Path(
 - `--output <file>` - write the rendered output to an exact file path, using the format selected by `--emit`.
 - `--json-profile {agent,raw}` - select the research JSON shape used with `--emit=json`. `agent` is the default, versioned workflow contract; `raw` preserves the full internal `Report` dump for debugging and power users. See the [JSON export reference](docs/reference/json-export.md).
 - `--register {default,exec,dev,creator,eli5}` - shape a standard single-topic Markdown or HTML research brief for its audience. `exec` is decisions-first with five core findings and numbers up top; `dev` gives GitHub, code, and technical signals more room; `creator` leads with hooks, Best Takes, community reactions, and virality metrics; `eli5` keeps the established evidence layout and asks the synthesizing agent for accessible language. Registers do not change retrieval, JSON exports, discovery, drill, library feed/search, or comparison output.
-- `--discover [domain]` - trending discovery, two-stage: a river-listing sweep NOMINATES candidate topics, then each nomination gets a full research pass (Reddit with comments, X, GitHub, Digg, arXiv, and Epic Forums for relevant topics) before ranking. Bare `--discover` (no domain) is **global trending**: every feed's own hot list (r/all rising/top-week, Digg clusters when `digg-pp-cli` is on PATH) with no keyword gate; with a domain, the sweep is category-scoped and keyword-gated, and broad X activity joins when an X backend is authenticated. Every topic must clear a confidence floor (cross-source confirmation or a genuinely strong single-source spike); when nothing clears it the run reports "Nothing solid this window" instead of ranked noise. Run without a positional topic; it is mutually exclusive with `--drill`. `--emit=json` uses the separate versioned discovery contract (now with `outcome`, `weak_signal`, per-topic `top_comment` and `corroboration_count`) documented in the [JSON export reference](docs/reference/json-export.md).
+- `--discover [domain]` - trending discovery, two-stage: a river-listing sweep NOMINATES candidate topics, then each nomination gets a full research pass (Reddit with comments, X, GitHub, Digg, arXiv, Epic Forums, and YouTube for relevant topics) before ranking. Bare `--discover` (no domain) is **global trending**: every feed's own hot list (r/all rising/top-week, Digg clusters when `digg-pp-cli` is on PATH) with no keyword gate; with a domain, the sweep is category-scoped and keyword-gated, and broad X activity joins when an X backend is authenticated. Every topic must clear a confidence floor (cross-source confirmation or a genuinely strong single-source spike); when nothing clears it the run reports "Nothing solid this window" instead of ranked noise. Run without a positional topic; it is mutually exclusive with `--drill`. `--emit=json` uses the separate versioned discovery contract (now with `outcome`, `weak_signal`, per-topic `top_comment` and `corroboration_count`) documented in the [JSON export reference](docs/reference/json-export.md).
 - `--discover-shallow` - skip discovery's per-topic research passes and rank on listing evidence only. Faster and thinner; the confidence floor still applies. An explicit `--search` source list bounds both the sweep and the research passes. On a protocol run (below), adding it to the `--nominate-only` leg marks the bundle quick-tier so the resume leg uses the faster shallow research pass.
 - `--nominate-only` - leg 1 of the three-command host-judged discovery protocol (agent hosts; SKILL.md drives it - one-shot `--discover` stays the scripting/cron form with deterministic topic names and no angles). With `--discover [domain]`: sweep the listings, write the nominations bundle (`discover-nominations.json` in the save dir, TTL one hour) for host judgment, print a judging digest, and stop - no enrichment, no queue writes. A zero-nomination sweep prints the nothing-solid brief directly.
 - `--judgments <path>` - leg 2: resume from the nominations bundle, applying the host judgments file (`{"bundle_id": "...", "judgments": [{"id", "name", "junk", "worthiness"}, ...]}`, bound to the bundle by `bundle_id`). Runs the per-topic research passes (deep tier by default; budget tunable via `LAST30DAYS_ENRICH_BUDGET_SECONDS` below), writes the pending report (`discover-pending.json`), and prints per-topic angle inputs. Requires `--discover`.
@@ -56,7 +56,7 @@ The engine's `.env` reader doesn't expand `$HOME` — only the tilde, via `Path(
 - `--drill <target>` - deep follow-up over the fresh `~/.config/last30days/last-report.json` cache. Accepts a 1-based index (`--drill "cluster 3"` or `--drill "3"`) or a fuzzy cluster title/entity description. It re-fetches only sources that contributed to the matched cluster, enables their deep comment enrichment paths, merges/dedupes the evidence, and replaces the cache so drills can chain. Run it without a positional topic; if the cache is absent or expired, run a normal research pass first.
 - `--verify-freshness` - opt into an act-time verification pass for conservatively extracted, source-grounded claims (GitHub star counts and explicit status assertions). With a topic, verification runs after research; without a topic, it re-verifies the fresh `last-report.json` cache without repeating research. Verdicts are `current`, `stale`, `contradicted`, or `unsupported` and include evidence timestamps. Set `LAST30DAYS_VERIFY_FRESHNESS=on` in `.env` to make the pass default for normal research runs.
 - `--save-suffix <name>` - distinguish runs of the same topic (e.g. per client: `--save-suffix=acme`).
-- `--search <list>` - comma-separated source subset for this run. Valid names: `reddit`, `x`, `github`, `digg`, `arxiv`, `epicforums`; `xquik` is accepted as an alias for `x`. Replace-not-add: list every source you still want. See `LAST30DAYS_DEFAULT_SEARCH` below for the persistent form.
+- `--search <list>` - comma-separated source subset for this run. Valid names: `reddit`, `x`, `github`, `digg`, `arxiv`, `epicforums`, `youtube`; `xquik` is accepted as an alias for `x`. Replace-not-add: list every source you still want. See `LAST30DAYS_DEFAULT_SEARCH` below for the persistent form.
 - `--x-handle <handle>` / `--x-related <h1,h2>` - targeted X lanes (the entity's own posts, plus related voices at lower weight).
 - `--subreddits <s1,s2>` / `--dedicated-subreddits <s1,s2>` - broad Reddit communities (relevance-floored) and entity-home subreddits (pulled in full, floor-exempt).
 - `--github-user <user>` / `--github-repo <owner/repo,...>` - GitHub person-mode (PR velocity, top repos, releases) and project-mode (live stars, README, top issues).
@@ -125,9 +125,10 @@ The project-scoped file is useful for **intentional per-client setups**: drop a 
 | Digg | `digg-pp-cli` on PATH (auto-installed during first-run setup via `npx -y @mvanhorn/printing-press-library@0.1.16 install digg --cli-only`; binary defaults to `$HOME/.local/bin` — Hermes/OpenClaw agent subprocesses must inherit that dir on PATH for Digg to activate) | always on if `digg-pp-cli` on PATH | yes (free, keyless, read-only) |
 | arXiv | `arxiv-pp-cli` on PATH (auto-installed during first-run setup via `npx -y @mvanhorn/printing-press-library@0.1.16 install arxiv --cli-only`) | always on if `arxiv-pp-cli` on PATH; fires on research/technical topics and stays quiet otherwise (relevance + recency gating) | yes (free, keyless) |
 | Epic Forums | none; anonymous Discourse JSON | automatic for Epic/Unreal topics, or explicitly selected with `--search epicforums` | yes (free, keyless) |
+| YouTube | `yt-dlp` on PATH or `LAST30DAYS_YTDLP` | videos and captions; no API key, cookies, or audio downloads | yes |
 | Planner / reranker (headless runs only) | one of `GOOGLE_API_KEY` / `GEMINI_API_KEY` / `GOOGLE_GENAI_API_KEY`, `OPENAI_API_KEY`, `XAI_API_KEY`; pin with `LAST30DAYS_REASONING_PROVIDER` | internal query planning + reranking when no hosting model passes `--plan` | provider pricing; unused when an agent host drives the skill |
 
-That table is exhaustive. There is no YouTube, TikTok, Instagram, Hacker News, Polymarket, web-search, or Perplexity key to set, and `INCLUDE_SOURCES` / `EXCLUDE_SOURCES` only accept the six names above.
+That table is exhaustive. There is no YouTube, TikTok, Instagram, Hacker News, Polymarket, web-search, or Perplexity key to set, and `EXCLUDE_SOURCES` / `LAST30DAYS_DEFAULT_SEARCH` select from the seven source names above.
 
 **Reddit keyless pacing.** Unauthenticated reddit.com requests (RSS, listing partials, shreddit) share one token bucket. The default is `1` request per second with a burst of 2, slow enough that engine fan-out does not trip HTTP 429 on a typical home IP. Set `LAST30DAYS_REDDIT_KEYLESS_RATE` to a float req/sec to trade wall-clock for coverage: higher finishes faster and loses more sub-requests to 429; lower is safer and slower. Invalid or non-positive values fall back to `1`. A 429'd RSS or listing sub-request is retried once after a short jittered pause, still through the limiter. Identical reddit.com requests within one command (subreddit listings, listing feeds, comment pages, which repeat across subqueries) are fetched once and memoized, so a typical four-subquery run issues roughly a quarter of the requests it used to. Comment enrichment covers 4 / 8 / 12 threads per subquery at quick / default / deep depth. This does not change ScrapeCreators routing (`LAST30DAYS_REDDIT_BACKEND` / `LAST30DAYS_REDDIT_SC_MIN_ITEMS`).
 
@@ -187,7 +188,7 @@ CT0=<your-ct0-token>
 # OR pin a backend explicitly (bird / xai / xurl / xquik / grok)
 # LAST30DAYS_X_BACKEND=xai
 
-# Source set (six supported sources; Epic Forums is topic-gated; trim with either of these)
+# Source set (seven supported sources; Epic Forums is topic-gated; trim with either of these)
 # EXCLUDE_SOURCES=arxiv
 # LAST30DAYS_DEFAULT_SEARCH=reddit,x,github
 ```
@@ -300,7 +301,7 @@ By default the engine decides the source set per query (everything available, mi
 LAST30DAYS_DEFAULT_SEARCH=reddit,x,github
 ```
 
-Accepts the same comma-separated names as `--search` (`reddit`, `x`, `github`, `digg`, `arxiv`); the only alias is `xquik` → `x`, because Xquik is a backend of the single X source rather than a source of its own. Precedence: an explicit `--search` on the command line always wins; `LAST30DAYS_DEFAULT_SEARCH` applies only when the flag is omitted; when neither is set, per-query behavior is unchanged. `INCLUDE_SOURCES` / `EXCLUDE_SOURCES` keep their existing additive/subtractive roles on whichever set is selected.
+Accepts the same comma-separated names as `--search` (`reddit`, `x`, `github`, `digg`, `arxiv`, `epicforums`, `youtube`); the only alias is `xquik` → `x`, because Xquik is a backend of the single X source rather than a source of its own. Precedence: an explicit `--search` on the command line always wins; `LAST30DAYS_DEFAULT_SEARCH` applies only when the flag is omitted; when neither is set, per-query behavior is unchanged. `EXCLUDE_SOURCES` removes sources from whichever set is selected.
 
 ### Audience register (`LAST30DAYS_REGISTER`)
 
@@ -384,6 +385,40 @@ Add `--debug` to any run to emit verbose `[DEBUG]` log lines to stderr from the 
 **Always-on alternative:** set `LAST30DAYS_DEBUG=true` in your `.env` or export it from your shell. The flag still works as before; the env var is purely additive — works whether shell-exported or set in `.env`.
 
 ---
+
+### YouTube (yt-dlp and captions)
+
+`/last30days Unreal Engine 5.8 archviz glass` searches YouTube automatically when
+`yt-dlp` is on the **agent subprocess PATH**. Install it on macOS with
+`brew install yt-dlp`. This lane needs no API key, account, cookies, audio
+transcription package, or audio download.
+
+| Setting | Default | Effect |
+| --- | --- | --- |
+| `LAST30DAYS_YOUTUBE` | `on` | `off` disables the lane, including its live probe. |
+| `LAST30DAYS_YTDLP` | `yt-dlp` on PATH | Executable path or shell-quoted argument list, e.g. `/opt/homebrew/bin/yt-dlp` or `uvx yt-dlp`; executed without a shell. Quote paths containing spaces. |
+| `LAST30DAYS_YT_SUB_LANGS` | `en,es,pt` | Caption-language priority; manual captions and auto-subs are supported. |
+| `LAST30DAYS_YOUTUBE_CHANNELS` | empty | Optional comma-separated exact channel names, e.g. `Unreal Engine,Unreal Sensei`; adds at most 0.03 to relevance for already relevant videos. Normal relevance, recency, and engagement ranking still applies. |
+
+These settings support process environment > global `.env` > defaults.
+Doctor checks the configured command and `doctor --probe` performs a bounded live
+search. A working binary alone does not prove that YouTube permits live access.
+Bot-check warnings (including successful yt-dlp exits with incomplete metadata)
+and HTTP 429 responses report `rate-limited`; other extraction failures report
+an error. An empty result from a refused fetch is unavailable coverage, not
+evidence that there are no videos in the window.
+For development or scripting, `python3 skills/last30days/scripts/last30days.py
+"Unreal Engine 5.8 archviz glass" --search youtube --emit compact` isolates the lane.
+
+The compatible search prefix is `ytsearchN:` (not `ytsearchdate`). Flat search
+lacks upload dates, so the adapter fetches metadata for only its best candidates
+in a pool of two, caching metadata and captions within the run. Quick/default/deep
+use at most 1/2/3 searches, 6/8/16 metadata calls **per search**, and 0/2/8 caption
+attempts across merged results: at most 7/20/59 yt-dlp invocations per source
+retrieval, less when cached. One YouTube retrieval stream runs per research pass.
+Both date bounds are enforced; undated, old, and future videos are excluded even
+if no recent results remain. Each transcript is capped at 5,000 words and its
+short highlights appear as attributed evidence. No paid or audio fallback runs.
 
 ## Trend monitoring (`--store` + watchlist + briefings)
 

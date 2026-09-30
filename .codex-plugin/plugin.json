@@ -1,7 +1,7 @@
 {
   "name": "last30days",
   "version": "3.23.0",
-  "description": "Research any topic across Reddit, X, GitHub, Digg, and arXiv.",
+  "description": "Research any topic across Reddit, X, GitHub, Digg, arXiv, Epic Forums, and YouTube.",
   "author": {
     "name": "Matt Van Horn",
     "email": "mvanhorn@gmail.com",
@@ -26,7 +26,7 @@
   "interface": {
     "displayName": "last30days",
     "shortDescription": "Research what people are saying about a topic now.",
-    "longDescription": "last30days adds a Codex skill for researching any topic based on recent discussion and engagement signals across Reddit, X, GitHub, Digg, and arXiv.",
+    "longDescription": "last30days adds a Codex skill for researching any topic based on recent discussion and engagement signals across Reddit, X, GitHub, Digg, arXiv, Epic Forums, and YouTube.",
     "developerName": "Matt Van Horn",
     "category": "Research",
     "capabilities": [

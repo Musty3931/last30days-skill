@@ -476,6 +476,10 @@ def get_config(policy: ConfigLoadPolicy | None = None) -> dict[str, Any]:
         ('LAST30DAYS_RERANK_MODEL', None),
         ('LAST30DAYS_X_MODEL', None),
         ('LAST30DAYS_X_BACKEND', None),
+        ('LAST30DAYS_YOUTUBE', 'on'),
+        ('LAST30DAYS_YTDLP', None),
+        ('LAST30DAYS_YT_SUB_LANGS', None),
+        ('LAST30DAYS_YOUTUBE_CHANNELS', None),
         ('LAST30DAYS_REDDIT_BACKEND', None),
         ('LAST30DAYS_EPICFORUMS', 'on'),
         ('LAST30DAYS_EPICFORUMS_BASE', None),
@@ -546,6 +550,9 @@ def get_config(policy: ConfigLoadPolicy | None = None) -> dict[str, Any]:
     # Export debug flag to os.environ so log.py's lazy os.environ.get()
     # picks up .env values. setdefault ensures a shell-exported value is
     # never overwritten by the (lower-priority) .env value.
+    for key in ('LAST30DAYS_YOUTUBE', 'LAST30DAYS_YTDLP', 'LAST30DAYS_YT_SUB_LANGS', 'LAST30DAYS_YOUTUBE_CHANNELS'):
+        if config.get(key) is not None:
+            os.environ.setdefault(key, str(config[key]))
     if config.get('LAST30DAYS_DEBUG'):
         os.environ.setdefault('LAST30DAYS_DEBUG', config['LAST30DAYS_DEBUG'])
 

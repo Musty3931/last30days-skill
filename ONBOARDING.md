@@ -1,14 +1,14 @@
-# last30days (six-source fork) - install and setup
+# last30days (seven-source fork) - install and setup
 
 You are Claude Code, helping a teammate install Shane Barnard's fork of the `last30days` research skill. Walk through every step below in order, run the commands yourself where a command is shown, and confirm each check before moving on. Stop and ask the user only where a step says so.
 
 ## What this is
 
-`/last30days <topic>` researches what people said about a topic in the last 30 days across exactly six sources: Reddit, X, GitHub, Digg, arXiv, and Epic Forums. It is a stripped-down fork of `mvanhorn/last30days-skill`; every other source (YouTube, Hacker News, web search, Perplexity, and about twenty more) has been removed on purpose. Do not try to enable them.
+`/last30days <topic>` researches what people said about a topic in the last 30 days across exactly seven sources: Reddit, X, GitHub, Digg, arXiv, Epic Forums, and YouTube. It is a stripped-down fork of `mvanhorn/last30days-skill`; every other source (Hacker News, web search, Perplexity, and about twenty more) has been removed on purpose. Do not try to enable them.
 
 - Repo: https://github.com/Musty3931/last30days-skill
 - Plugin: `last30days@last30days-skill`
-- Free, no keys: Reddit and GitHub work immediately; Epic Forums works for Unreal/Epic topics. Digg and arXiv need two small CLIs. X needs a browser login or an API key.
+- Free, no keys: Reddit and GitHub work immediately; Epic Forums works for Unreal/Epic topics. Digg and arXiv need two small CLIs; YouTube needs `yt-dlp`. X needs a browser login or an API key.
 
 ## Step 1 - prerequisites (macOS)
 
@@ -28,6 +28,7 @@ brew install python@3.12   # only if python3 is below 3.12
 brew install node          # only if missing
 brew install go            # required for Step 4
 brew install gh            # optional
+brew install yt-dlp        # enables YouTube search and captions
 ```
 
 Also confirm `~/.local/bin` is on the user's PATH, because the Digg and arXiv binaries land there:
@@ -91,7 +92,7 @@ No browser login? Alternatives, any one of them added to `~/.config/last30days/.
 - `XQUIK_API_KEY=...` (paid)
 - `AUTH_TOKEN=...` and `CT0=...` copied from x.com cookies by hand
 
-## Step 6 - verify all six sources
+## Step 6 - verify all seven sources
 
 Run the engine's diagnose from the installed plugin:
 
@@ -100,7 +101,7 @@ SKILL_DIR=$(find "$HOME/.claude/plugins/cache/last30days-skill/last30days" -maxd
 python3 "$SKILL_DIR/scripts/last30days.py" --diagnose 2>/dev/null | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['available_sources'])"
 ```
 
-Expected: `['reddit', 'x', 'github', 'digg', 'arxiv']`. If `x` is missing, redo Step 5. If `digg` or `arxiv` is missing, redo Step 4 and re-check PATH.
+Expected with all dependencies available: `['reddit', 'x', 'github', 'epicforums', 'digg', 'arxiv', 'youtube']`. If `x` is missing, redo Step 5. If `digg` or `arxiv` is missing, redo Step 4 and re-check PATH. If `youtube` is missing, check that `yt-dlp` resolves on the agent subprocess PATH, or set `LAST30DAYS_YTDLP`. Epic Forums needs no install and is selected automatically for Epic/Unreal topics; `LAST30DAYS_EPICFORUMS=off` disables it.
 
 Then run a real query to prove the live path:
 
@@ -117,12 +118,13 @@ Expected: a `Research complete` line with non-zero counts for Reddit and X.
 - Person topics work best when the skill can find their X handle and GitHub user. Product topics work best with a GitHub repo.
 - `/last30days trending` or `/last30days what's hot in AI agents` runs discovery mode across Reddit, Digg, and X.
 - "A vs B" topics run a comparison. The skill names the peers itself; there is no automatic competitor discovery.
-- Results save to `LAST30DAYS_MEMORY_DIR`, which defaults to `~/Documents/Last30Days`. Ask "search my library for X" to query past runs.
+- `LAST30DAYS_MEMORY_DIR` defaults to `~/Documents/Last30Days`; set it to change where results save. Ask "search my library for X" to query past runs.
 
 ## Known limits of this fork
 
 - No general web search inside the engine. Blog and news context comes from Claude's own web search during the run.
 - arXiv only returns papers submitted inside the 30-day window, so many topics legitimately show zero papers.
+- YouTube can refuse requests from datacenter IPs even when `yt-dlp` is installed. A bot-check or rate-limit status means coverage is unavailable; it is not evidence that no videos exist. Captions require no cookies or audio downloads.
 - X depends on the browser session. If the user logs out of x.com, X silently drops out of runs until they log back in.
 - Updates: `claude plugin update last30days@last30days-skill`. The fork does not track upstream automatically.
 
