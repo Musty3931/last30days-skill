@@ -187,9 +187,9 @@ def available_sources(
         available.append("epicforums")
     if which("digg-pp-cli"):
         available.append("digg")
-    # arXiv is default-on when its Printing Press CLI is installed (zero auth).
+    # OpenAlex needs no CLI/key; the direct CLI remains available as fallback.
     # The adapter relevance-and-recency gates so it stays quiet off-topic.
-    if which("arxiv-pp-cli"):
+    if which("arxiv-pp-cli") or arxiv.get_backend(config) == "openalex":
         available.append("arxiv")
     if youtube_yt.is_enabled(config) and youtube_yt.is_ytdlp_installed(config):
         available.append("youtube")

@@ -96,7 +96,7 @@ Both share the same consent points:
 
 **Two macOS gotchas the wizard cannot fix for you:**
 
-- **Digg and arXiv CLIs need Go.** The Printing Press installer builds them from source; without Go it fails with "Go is required to install Printing Press CLIs". Run `brew install go`, then `npx -y @mvanhorn/printing-press-library@0.1.16 install digg --cli-only` and `... install arxiv --cli-only`. Both binaries land in `~/.local/bin`, which must be on the PATH the agent's subprocesses see.
+- **Digg and arXiv CLIs need Go.** The Printing Press installer builds them from source; without Go it fails with "Go is required to install Printing Press CLIs". Run `brew install go`, then `npx -y @mvanhorn/printing-press-library@0.1.16 install digg --cli-only` and `... install arxiv --cli-only`. Both binaries land in `~/.local/bin`, which must be on the PATH the agent's subprocesses see. arXiv already works through OpenAlex without Go or either CLI; its CLI is an optional fallback.
 - **Chromium browsers are found but not pinned.** Setup reports "X cookies found in chrome/brave/edge" but deliberately does not write `FROM_BROWSER` for Chromium browsers (to avoid surprise Keychain prompts on every run), so steady-state runs still skip X. Add `FROM_BROWSER=brave` (or `chrome`, `edge`, ...) to `~/.config/last30days/.env` yourself and choose "Always Allow" on the one-time Keychain dialog. Firefox and Safari are pinned automatically.
 
 Re-run onboarding by deleting `~/.config/last30days/.env`. The mechanical work lives in `scripts/lib/setup_wizard.py`; the consent conversation and both host flows are specified in `skills/last30days/SKILL.md` Step 0. The original v3.0.0 wizard is captured at `docs/reference/old-nux-wizard-v3.0.0.md`.
@@ -123,7 +123,7 @@ The project-scoped file is useful for **intentional per-client setups**: drop a 
 | X / Twitter | one of: `AUTH_TOKEN` + `CT0` (browser cookies, Bird CLI), `FROM_BROWSER` (consented cookie-jar read), `XAI_API_KEY`, the `xurl` CLI (OAuth2), `XQUIK_API_KEY`, or a signed-in `grok` CLI (opt-in: `LAST30DAYS_X_BACKEND=grok`) | X items in results | cookie-jar / Bird = free; xAI / Xquik = key-based; grok = Grok plan, opt-in only |
 | GitHub | none required. `gh` CLI auth or `GITHUB_TOKEN` raises the rate limit and deepens person-mode (`--github-user`) / project-mode (`--github-repo`) fetches | always on | yes |
 | Digg | `digg-pp-cli` on PATH (auto-installed during first-run setup via `npx -y @mvanhorn/printing-press-library@0.1.16 install digg --cli-only`; binary defaults to `$HOME/.local/bin` — Hermes/OpenClaw agent subprocesses must inherit that dir on PATH for Digg to activate) | always on if `digg-pp-cli` on PATH | yes (free, keyless, read-only) |
-| arXiv | `arxiv-pp-cli` on PATH (auto-installed during first-run setup via `npx -y @mvanhorn/printing-press-library@0.1.16 install arxiv --cli-only`) | always on if `arxiv-pp-cli` on PATH; fires on research/technical topics and stays quiet otherwise (relevance + recency gating) | yes (free, keyless) |
+| arXiv | none for OpenAlex (default); optional `OPENALEX_API_KEY`. `arxiv-pp-cli` on PATH for fallback or `LAST30DAYS_ARXIV_BACKEND=cli` | always available with OpenAlex; relevance + recency gating keeps results on-topic | yes (keyless daily budget) |
 | Epic Forums | none; anonymous Discourse JSON | automatic for Epic/Unreal topics, or explicitly selected with `--search epicforums` | yes (free, keyless) |
 | YouTube | `yt-dlp` on PATH or `LAST30DAYS_YTDLP` | videos and captions; no API key, cookies, or audio downloads | yes |
 | Planner / reranker (headless runs only) | one of `GOOGLE_API_KEY` / `GEMINI_API_KEY` / `GOOGLE_GENAI_API_KEY`, `OPENAI_API_KEY`, `XAI_API_KEY`; pin with `LAST30DAYS_REASONING_PROVIDER` | internal query planning + reranking when no hosting model passes `--plan` | provider pricing; unused when an agent host drives the skill |
@@ -131,6 +131,27 @@ The project-scoped file is useful for **intentional per-client setups**: drop a 
 That table is exhaustive. There is no YouTube, TikTok, Instagram, Hacker News, Polymarket, web-search, or Perplexity key to set, and `EXCLUDE_SOURCES` / `LAST30DAYS_DEFAULT_SEARCH` select from the seven source names above.
 
 **Reddit keyless pacing.** Unauthenticated reddit.com requests (RSS, listing partials, shreddit) share one token bucket. The default is `1` request per second with a burst of 2, slow enough that engine fan-out does not trip HTTP 429 on a typical home IP. Set `LAST30DAYS_REDDIT_KEYLESS_RATE` to a float req/sec to trade wall-clock for coverage: higher finishes faster and loses more sub-requests to 429; lower is safer and slower. Invalid or non-positive values fall back to `1`. A 429'd RSS or listing sub-request is retried once after a short jittered pause, still through the limiter. Identical reddit.com requests within one command (subreddit listings, listing feeds, comment pages, which repeat across subqueries) are fetched once and memoized, so a typical four-subquery run issues roughly a quarter of the requests it used to. Comment enrichment covers 4 / 8 / 12 threads per subquery at quick / default / deep depth. This does not change ScrapeCreators routing (`LAST30DAYS_REDDIT_BACKEND` / `LAST30DAYS_REDDIT_SC_MIN_ITEMS`).
+
+**arXiv backend.** OpenAlex is the default and works without a key or CLI.
+`LAST30DAYS_ARXIV_BACKEND=openalex` (default) or `auto` searches OpenAlex first
+and falls back to `arxiv-pp-cli` on errors; `cli` uses the original arXiv API
+path. Set these in the shell or `~/.config/last30days/.env` (shell wins):
+
+```bash
+LAST30DAYS_ARXIV_BACKEND=openalex
+# Optional free key from https://openalex.org/settings/api:
+# OPENALEX_API_KEY=<your-openalex-key>
+# Optional contact address in the request User-Agent:
+# LAST30DAYS_MAILTO=you@example.org
+```
+
+OpenAlex searches title/abstract metadata within the requested date window,
+capped at the existing 365-day paper limit, with 5/10/20 results for quick/default/deep; a zero-result multi-term
+query retries once with Boolean OR. Each request has a 20-second timeout.
+The CLI fallback retains its 50-second timeout and quoted/AND retry. Doctor
+shows the selected backend and key presence; its CLI health row is optional
+when OpenAlex is selected. OpenAlex may lag arXiv and has a daily usage budget;
+see [current limits](https://help.openalex.org/api/authentication/).
 
 **X backend priority (bird first).** The default X backend chain is bird (browser cookies) → xai (API key) → xurl (OAuth2 CLI) → xquik (API key). Cookies beat `XAI_API_KEY` when both are present. A leftover grok login never steals the X lane; see below.
 
@@ -352,7 +373,7 @@ Slash-command form: `/last30days doctor`. Reporting problems is a successful run
 
 `doctor --postmortem` reads the last run's `last-report.json` (any age, labeled) and reports what actually happened per source — Failed / Partial / Succeeded / Skipped, with details and fix hints — so a run that returned less than expected can be diagnosed after the fact. It makes no network calls.
 
-**Network note:** plain `doctor` with a fresh run, `--cached`, and `--json` make **no** network calls. `doctor --probe` — and a plain `doctor` when there is **no** fresh run to learn from — run a **bounded** live test to verify WORKING instead of guessing. The probe is scoped to free HTTP endpoints (Reddit, GitHub, Epic Forums) plus the keyless Digg and arXiv CLIs; credit- or auth-gated lanes (X backends, the ScrapeCreators Reddit backup) are never probed, so no ScrapeCreators credits are spent and no auth rate limits are tripped. Each source is probed concurrently under a per-source deadline so a slow source can never hang the command.
+**Network note:** plain `doctor` with a fresh run, `--cached`, and `--json` make **no** network calls. `doctor --probe` — and a plain `doctor` when there is **no** fresh run to learn from — run a **bounded** live test to verify WORKING instead of guessing. The probe is scoped to free HTTP endpoints (Reddit, GitHub, Epic Forums) plus the keyless Digg CLI and the arXiv CLI when selected. OpenAlex uses research-run evidence instead of extra health-check searches against its daily budget; credit- or auth-gated lanes (X backends, the ScrapeCreators Reddit backup) are never probed, so no ScrapeCreators credits are spent and no auth rate limits are tripped. Each source is probed concurrently under a per-source deadline so a slow source can never hang the command.
 
 Every live run writes its JSON result to `~/.config/last30days/doctor-cache.json` (beside `last-run.json`; honors `LAST30DAYS_CONFIG_DIR`). `doctor --cached` returns that stored report when it is younger than the TTL, and falls through to a live run — rewriting the cache — when it is stale, absent, or corrupt. The cache also self-invalidates on configuration change: the payload carries a schema stamp plus a fingerprint of non-secret config signals (which credentials are present as booleans, the `LAST30DAYS_X_BACKEND` / `LAST30DAYS_REDDIT_BACKEND` pin values, and `INCLUDE_SOURCES`), so adding or removing a key, changing a pin, or toggling an opt-in source makes the next `--cached` call run live — no raw secret ever enters the fingerprint or the file. Every report also carries `from_cache` (true/false) and `generated_at` (when the report was built), in the `--json` top level and as a final `generated: … (cached|live)` text line, so you can always tell how old a cached answer is. A failed cache write is never fatal — doctor prints a one-line stderr warning and continues. An explicit `doctor` without `--cached` always runs live and refreshes the cache.
 

@@ -9,7 +9,15 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
+import pytest
+
 from lib import arxiv
+
+
+@pytest.fixture(autouse=True)
+def _cli_backend(monkeypatch):
+    """These legacy tests exercise the direct CLI backend without network."""
+    monkeypatch.setattr(arxiv.env, "get_config", lambda: {"LAST30DAYS_ARXIV_BACKEND": "cli"})
 
 
 NOW = datetime(2026, 6, 27, tzinfo=timezone.utc)

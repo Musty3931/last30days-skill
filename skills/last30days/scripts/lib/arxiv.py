@@ -1,37 +1,43 @@
 """arXiv research-paper source for last30days.
 
-Shells out to ``arxiv-pp-cli`` (open Atom API, no auth) to surface recent
-research papers relevant to a topic. arXiv carries no engagement signal, so
-ranking leans on relevance (the CLI's own relevance sort plus token overlap)
-and recency.
-
-Activation gate: this source is only available when ``arxiv-pp-cli`` is on
-PATH. ``pipeline.available_sources`` checks ``shutil.which`` before including
-``arxiv``. The functions below also detect the missing-binary case defensively.
-
-Default-on safety (two gates, both required):
-  1. Query construction. arXiv is queried with a *quoted* phrase and
-     ``--sort-by relevance``. Sorting by submitted-date instead returns the
-     newest cs.* papers regardless of topic -- topic-blind noise.
-  2. Recency cutoff. Entries older than ``RECENCY_DAYS`` are dropped. Research
-     does not trend on a 30-day clock, so this window is wider than the social
-     sources' 30 days; it keeps arXiv current while dropping stale keyword
-     matches (e.g. a 2017 sports-statistics paper that an off-topic query like
-     "Golden State Warriors" would otherwise surface).
+OpenAlex is the default backend, with arxiv-pp-cli as a fallback on errors.
+LAST30DAYS_ARXIV_BACKEND=cli preserves the direct Atom API path; auto uses
+OpenAlex first too. OpenAlex searches titles/abstracts with relevance sorting;
+the CLI uses a quoted phrase then an AND-term retry. Both feed the same parser
+and RECENCY_DAYS cutoff, keeping old keyword matches out of current research.
 """
 
 from __future__ import annotations
 
 import json
+import re
 import shutil
-from datetime import datetime, timezone
+import urllib.error
+import urllib.parse
+import urllib.request
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
-from . import log, subproc
+from . import env, log, subproc
 from .relevance import token_overlap_relevance
 
 
 CLI_BIN = "arxiv-pp-cli"
+OPENALEX_URL = "https://api.openalex.org/works"
+OPENALEX_SOURCE = "S4306400194"
+OPENALEX_TIMEOUT = 20
+OPENALEX_FIELDS = (
+    "id,doi,ids,title,publication_date,authorships,primary_location,"
+    "abstract_inverted_index,relevance_score"
+)
+
+
+def get_backend(config: Optional[Dict[str, Any]] = None) -> str:
+    """Resolve the active primary backend; auto is OpenAlex-first."""
+    if config is None:
+        config = env.get_config()
+    selected = str(config.get("LAST30DAYS_ARXIV_BACKEND") or "openalex").strip().lower()
+    return "cli" if selected == "cli" else "openalex"
 
 # Per-depth result counts.
 DEPTH_CONFIG = {
@@ -45,7 +51,7 @@ DEPTH_CONFIG = {
 # the genuinely-relevant work from the last few months.
 RECENCY_DAYS = 365
 
-SEARCH_TIMEOUT = 30
+SEARCH_TIMEOUT = 50
 
 
 def _log(msg: str) -> None:
@@ -177,7 +183,7 @@ def _is_entry_envelope(data: Any) -> bool:
     )
 
 
-def search_arxiv(
+def _search_cli(
     topic: str,
     from_date: str,
     to_date: str,
@@ -196,17 +202,129 @@ def search_arxiv(
         return {"results": []}
     limit = DEPTH_CONFIG.get(depth, DEPTH_CONFIG["default"])
     cmd = _build_search_args(topic, limit)
-    _log(f"query '{topic}' (relevance, max={limit})")
+    _log(f"cli query '{topic}' (relevance, max={limit})")
     response = _run_cli(cmd, timeout=SEARCH_TIMEOUT)
-    _log(f"found {len(response.get('results') or [])} entries")
+    _log(f"cli found {len(response.get('results') or [])} entries")
     # Retry a clean zero-result phrase match with individually quoted AND terms.
     # CLI failures, malformed responses, and missing binaries skip the retry.
     if not response.get("error") and not response.get("results"):
         retry_cmd = _build_search_args(topic, limit, quoted=False)
-        _log(f"quoted phrase matched nothing; retrying unquoted for '{topic}'")
+        _log(f"cli quoted phrase matched nothing; retrying unquoted for '{topic}'")
         response = _run_cli(retry_cmd, timeout=SEARCH_TIMEOUT)
-        _log(f"unquoted retry found {len(response.get('results') or [])} entries")
+        _log(f"cli unquoted retry found {len(response.get('results') or [])} entries")
     return response
+
+
+def _openalex_entry(work: Dict[str, Any]) -> Dict[str, Any]:
+    """Translate one OpenAlex work to the Atom entry shape the parser expects."""
+    inverted = work.get("abstract_inverted_index") or {}
+    summary = " ".join(
+        word for _, word in sorted(
+            (position, word)
+            for word, positions in inverted.items()
+            for position in positions
+        )
+    )
+    ids = work.get("ids") or {}
+    arxiv_id = str(ids.get("arxiv") or "").strip()
+    if arxiv_id:
+        arxiv_id = re.sub(r"^https?://(?:www\.)?arxiv\.org/(?:abs|pdf)/", "", arxiv_id)
+        arxiv_id = re.sub(r"^arxiv:", "", arxiv_id, flags=re.IGNORECASE)
+        url = f"https://arxiv.org/abs/{arxiv_id.removesuffix('.pdf')}"
+    else:
+        doi = str(work.get("doi") or ids.get("doi") or "").strip()
+        match = re.fullmatch(
+            r"(?:https?://(?:dx\.)?doi\.org/)?10\.48550/arxiv\.(.+)",
+            doi, flags=re.IGNORECASE,
+        )
+        url = (f"https://arxiv.org/abs/{match.group(1)}" if match else
+               str((work.get("primary_location") or {}).get("landing_page_url") or ""))
+    published = work.get("publication_date")
+    timestamp = f"{published}T00:00:00Z" if published else ""
+    return {
+        "id": url or work.get("id") or "",
+        "title": work.get("title") or "",
+        "summary": summary,
+        "published": timestamp,
+        "updated": timestamp,
+        "authors": [
+            {"name": authorship["author"]["display_name"]}
+            for authorship in work.get("authorships") or []
+            if (authorship.get("author") or {}).get("display_name")
+        ],
+        "links": [{"rel": "alternate", "href": url}] if url else [],
+    }
+
+
+def _query_openalex(
+    query: str, limit: int, config: Dict[str, Any], from_date: str, to_date: str,
+) -> Dict[str, Any]:
+    # The downstream normalizer enforces the caller's window too. Keep old
+    # high-relevance papers from consuming slots that it would then discard.
+    cutoff = max((_today() - timedelta(days=RECENCY_DAYS)).date().isoformat(), from_date)
+    params = {
+        "filter": (f"primary_location.source.id:{OPENALEX_SOURCE},"
+                   f"from_publication_date:{cutoff},to_publication_date:{to_date},"
+                   f"title_and_abstract.search:{query}"),
+        "sort": "relevance_score:desc",
+        "per_page": limit,
+        "select": OPENALEX_FIELDS,
+    }
+    if config.get("OPENALEX_API_KEY"):
+        params["api_key"] = config["OPENALEX_API_KEY"]
+    user_agent = "last30days/3.23.0"
+    mailto = str(config.get("LAST30DAYS_MAILTO") or "").strip()
+    if mailto:
+        user_agent += f" (+mailto:{mailto})"
+    request = urllib.request.Request(
+        f"{OPENALEX_URL}?{urllib.parse.urlencode(params)}",
+        headers={"User-Agent": user_agent, "Accept": "application/json"},
+    )
+    with urllib.request.urlopen(request, timeout=OPENALEX_TIMEOUT) as response:
+        data = json.load(response)
+    if not isinstance(data, dict) or not isinstance(data.get("results"), list):
+        raise ValueError("unrecognized OpenAlex response")
+    entries = [_openalex_entry(work) for work in data["results"]]
+    _log(f"openalex query '{query}' -> {len(entries)} entries")
+    return {"results": entries}
+
+
+def search_arxiv(
+    topic: str,
+    from_date: str,
+    to_date: str,
+    depth: str = "default",
+) -> Dict[str, Any]:
+    """Search OpenAlex (default/auto), falling back to the unchanged CLI path."""
+    if not topic or not _clean_phrase(topic):
+        return {"results": []}
+    config = env.get_config()
+    if get_backend(config) == "cli":
+        return _search_cli(topic, from_date, to_date, depth)
+    limit = DEPTH_CONFIG.get(depth, DEPTH_CONFIG["default"])
+    # Commas and pipes delimit OpenAlex filters; they must remain topic text,
+    # never broaden or inject a source/date filter. Quotes are cleaned as CLI.
+    phrase = _clean_phrase(topic.replace(",", " ").replace("|", " "))
+    if not phrase:
+        return {"results": []}
+    try:
+        response = _query_openalex(phrase, limit, config, from_date, to_date)
+        if not response["results"] and len(phrase.split()) >= 2:
+            # Documented Boolean OR syntax; quote each term as literal text.
+            retry = " OR ".join(f'"{term}"' for term in phrase.split())
+            response = _query_openalex(retry, limit, config, from_date, to_date)
+        return response
+    except Exception as exc:
+        # HTTPError/URLError, timeout, bad JSON, or mapping failure all preserve
+        # the CLI escape hatch. Never print a URL containing the API key.
+        reason = f"HTTP {exc.code}" if isinstance(exc, urllib.error.HTTPError) else str(exc)
+        key = config.get("OPENALEX_API_KEY")
+        if key:
+            reason = reason.replace(key, "[redacted]").replace(
+                urllib.parse.quote_plus(key), "[redacted]"
+            )
+        _log(f"openalex failed ({type(exc).__name__}: {reason}); falling back to cli")
+        return _search_cli(topic, from_date, to_date, depth)
 
 
 def _parse_published(published: Optional[str]) -> Optional[datetime]:
