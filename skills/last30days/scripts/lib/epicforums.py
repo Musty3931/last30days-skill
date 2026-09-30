@@ -23,8 +23,8 @@ USER_AGENT = "last30days-skill (Epic Forums research; https://github.com/Musty39
 # Hard caps include categories, search pages, retries, and topic bodies.
 DEPTH_CONFIG = {
     "quick": {"requests": 5, "search": 2, "results": 8, "enrich": 1},
-    "default": {"requests": 9, "search": 5, "results": 16, "enrich": 3},
-    "deep": {"requests": 15, "search": 9, "results": 30, "enrich": 5},
+    "default": {"requests": 22, "search": 18, "results": 16, "enrich": 3},
+    "deep": {"requests": 32, "search": 24, "results": 30, "enrich": 5},
 }
 _RELEVANT = re.compile(
     r"\b(?:unreal(?:\s+engine)?|ue[45](?:\.\d+)?|epic(?:\s+games)?|fortnite|"
@@ -110,6 +110,12 @@ class Client:
         self.cache: dict[str, dict] = {}
         with _hosts_lock:
             self.host = _hosts.setdefault(urlsplit(self.base).netloc.lower(), _Host())
+
+    def budget(self) -> dict:
+        with self.lock:
+            return {"requests": self.requests, "request_limit": self.settings["requests"],
+                    "remaining_requests": max(0, self.settings["requests"] - self.requests),
+                    "remaining_search_requests": max(0, self.settings["search"] - self.search_requests)}
 
     def get(self, path: str, *, search: bool = False) -> dict:
         with self.lock:
@@ -201,7 +207,7 @@ def search_epicforums(topic: str, from_date: str, to_date: str, depth: str = "de
     client = client or Client(depth=depth)
     # Discourse before: excludes that day; use the next day for an inclusive end.
     end = (date.fromisoformat(to_date) + timedelta(days=1)).isoformat()
-    result = {"posts": [], "topics": [], "base_url": client.base, "categories": {}, "from_date": from_date, "to_date": to_date, "result_limit": client.settings["results"]}
+    result = {"posts": [], "topics": [], "base_url": client.base, "categories": {}, "from_date": from_date, "to_date": to_date, "result_limit": client.settings["results"], "search_query": topic}
     seen = set()
     try:
         for terms in query_variants(topic, depth):
@@ -216,19 +222,17 @@ def search_epicforums(topic: str, from_date: str, to_date: str, depth: str = "de
                     result["topics"].append(row)
                     seen.add(row.get("id"))
             result["more_results"] = result.get("more_results", False) or bool((data.get("grouped_search_result") or {}).get("more_full_page_results"))
-        if result["topics"]:
-            try:
-                result["categories"] = client.categories()
-            except (http.HTTPError, ValueError) as exc:
-                result.setdefault("warnings", []).append(f"Category names unavailable: {exc}")
-                _log(result["warnings"][-1])
+        # Category names and topic bodies are optional enrichment; leave the
+        # shared budget available to every planner search stream first.
+    except RequestBudgetExceeded as exc:
+        result.setdefault("warnings", []).append(str(exc))
+        result["more_results"] = True
     except (http.HTTPError, ValueError) as exc:
         result["error"] = str(exc)
         _log(f"search failed: {exc}")
-    result["requests"] = client.requests
-    result["request_limit"] = client.settings["requests"]
+    result.update(client.budget())
     result["more_results"] = result.get("more_results", False) or len(result["topics"]) > client.settings["results"]
-    _log(f"found {len(result['topics'])} topics ({client.requests}/{client.settings['requests']} requests)")
+    _log(f"found {len(result['topics'])} topics ({client.requests}/{client.settings['requests']} requests; {result['remaining_requests']} remaining)")
     return result
 
 
@@ -268,7 +272,7 @@ def parse_epicforums_response(response: dict, query: str = "") -> list[dict]:
         if not published:
             continue
         seen.add(topic["id"])
-        snippet = strip_html(post.get("blurb") or post.get("cooked"))
+        snippet = strip_html(post.get("blurb") or post.get("cooked") or topic.get("excerpt"))
         engagement = {"likes": topic.get("like_count", post.get("like_count", 0)), "replies": max(_count(topic.get("reply_count")), _count(topic.get("posts_count")) - 1), "views": topic.get("views", 0)}
         category = categories.get(topic.get("category_id"), categories.get(str(topic.get("category_id")), "Epic Forums"))
         tags = [t.get("name", "") if isinstance(t, dict) else str(t) for t in topic.get("tags") or []]
@@ -278,10 +282,23 @@ def parse_epicforums_response(response: dict, query: str = "") -> list[dict]:
             url=f"{base}/t/{quote(str(topic.get('slug') or 'topic'), safe='')}/{topic['id']}",
             author=post.get("username") or "", snippet=snippet,
             category=category, marketplace_ad=ad,
-            engagement=engagement, relevance=token_overlap_relevance(query, f"{title} {snippet}") if query else 0.5,
+            engagement=engagement, relevance=content_relevance(query, f"{title} {snippet}", base) if query else 0.5,
+            search_query=response.get("search_query", query),
         ))
-    results.sort(key=lambda item: item["marketplace_ad"])
+    results.sort(key=lambda item: (item["marketplace_ad"], -item["relevance"]))
     return results[:response.get("result_limit", len(results))]
+
+
+def content_relevance(query: str, text: str, url: str) -> float:
+    """Credit official host context only when the text matches the topic too."""
+    def terms(value):
+        return re.sub(r"\bpath[ -]?(?:tracer|tracing)\b", "path tracer", value, flags=re.I)
+
+    query, text = terms(query), terms(text)
+    score = token_overlap_relevance(query, text)
+    if urlsplit(url).hostname == "forums.unrealengine.com" and score >= 0.15:
+        score = max(score, token_overlap_relevance(query, text + " Unreal Engine Epic UE4 UE5"))
+    return score
 
 
 def _count(value) -> int:
@@ -296,7 +313,18 @@ def is_epic_staff(post: dict) -> bool:
 
 
 def enrich_source_items(items, client: Client) -> None:
-    for item in items[:client.settings["enrich"]]:
+    # Search evidence decides the slots, after cross-stream dedupe. A newer,
+    # weak match must not spend the body budget ahead of an on-topic thread.
+    ranked = sorted(items, key=lambda i: (bool(i.metadata.get("marketplace_ad")),
+                    -(i.local_relevance or 0), -(i.local_rank_score or 0)))
+    unique = {}
+    for item in ranked:
+        unique.setdefault(item.metadata.get("topic_id"), item)
+    selected = list(unique.values())[:client.settings["enrich"]]
+    for item in selected:
+        if not client.budget()["remaining_requests"]:
+            item.metadata["enrichment_skipped"] = "request budget exhausted"
+            continue
         try:
             data = client.get(f"/t/{int(item.metadata['topic_id'])}.json")
             for key, field in (("likes", "like_count"), ("views", "views")):
@@ -327,3 +355,12 @@ def enrich_source_items(items, client: Client) -> None:
         except (http.HTTPError, ValueError, KeyError, TypeError) as exc:
             item.metadata["enrichment_error"] = str(exc)
             _log(f"topic enrichment unavailable: {exc}")
+    if items and client.budget()["remaining_requests"]:
+        try:
+            categories = client.categories()
+            for item in items:
+                item.container = categories.get(item.metadata.get("category_id"), item.container)
+        except (http.HTTPError, ValueError) as exc:
+            _log(f"Category names unavailable: {exc}")
+    budget = client.budget()
+    _log(f"enrichment complete ({budget['requests']}/{budget['request_limit']} requests; {budget['remaining_requests']} remaining)")

@@ -140,7 +140,7 @@ That table is exhaustive. There is no YouTube, TikTok, Instagram, Hacker News, P
 
 - `LAST30DAYS_EPICFORUMS=off` disables the lane (default `on`). `EXCLUDE_SOURCES=epicforums` also excludes it.
 - `LAST30DAYS_EPICFORUMS_BASE=https://forums.unrealengine.com` changes the Discourse host; HTTP(S) URLs without credentials, query, or fragment are accepted. For other communities, explicitly select `epicforums` (through the skill or `--search epicforums` in direct engine scripts).
-- Requests are anonymous, at most one per second per host in the process, with backoff on HTTP 429. Quick/default/deep runs share hard caps of 5/9/15 requests across all subqueries, categories, retries, and enrichment; at most 1/3/5 top topic bodies are enriched. Categories are cached in-process. Search uses `after:` and `before:` and locally enforces the requested date window. Results may be partial when Discourse has more matches or the budget is exhausted.
+- Requests are anonymous, at most one per second per host in the process, with backoff on HTTP 429. Quick/default/deep runs share hard caps of 5/22/32 requests across all subqueries, categories, retries, and enrichment, including at most 2/18/24 search requests. All search streams finish before category and topic enrichment; deduplication and search relevance select at most 1/3/5 topic bodies. The default and deep budgets cover five planner angles plus retries and enrichment. Categories are cached in-process. Search uses `after:` and `before:` and locally enforces the requested date window, including for evergreen plans. Stderr and report artifacts include remaining request counts. Results may be partial when Discourse has more matches or the budget is exhausted.
 
 **X on cookie-less hosts.** Bird (the free X source) scrapes X using your logged-in browser cookies (`AUTH_TOKEN`/`CT0`), which agent hosts like OpenClaw, CI, or headless runs often can't supply — and scraping carries some account risk. On those, set `XQUIK_API_KEY` (or `XAI_API_KEY`) for full, ranked X coverage from a single API key: the same engagement-based ranking, first-party authorship, and handle (from/mentions) lanes the native X source gets. `--diagnose` reports whether the key is working (and flags an unpaid key).
 
@@ -413,15 +413,19 @@ For development or scripting, `python3 skills/last30days/scripts/last30days.py
 Search uses YouTube's upload-date filter: today for a one-day window, this week
 for up to 7 days, this month for up to 31, and this year for up to 365. Historical
 `--as-of` windows widen the filter to reach their start date; windows starting
-more than a year ago use unfiltered search. Empty or unsupported URL searches
-get one compatible `ytsearchN:` fallback; bot checks and rate limits stop that
-search without a fallback. Flat search lacks upload dates, so the adapter fetches
+more than a year ago use unfiltered search. Empty or unsupported URL searches,
+and searches whose metadata yields no in-window videos, get one compatible
+`ytsearchN:` relevance fallback. Bot checks and rate limits stop that search
+without a fallback. Flat search lacks upload dates, so the adapter fetches
 metadata for only its best candidates in a pool of two, caching metadata and
-captions within the run. Quick/default/deep use at most 1/2/3 queries, 8/12/16
-metadata calls **per query**, and 0/2/8 caption attempts across merged results.
-Each query examines at most 24/36/48 flat entries per search attempt, including
-its optional fallback: at most 10/30/62 yt-dlp invocations per source retrieval,
-less when cached. One YouTube retrieval stream runs per research pass.
+captions within the run. Quick/default/deep use the first 1/2/3 distinct planner
+`search_query` strings, with 8/12/16 metadata calls **per search attempt** and
+0/2/8 caption attempts across merged results. Planner queries receive no extra
+content-type suffix; direct engine helpers also omit the full/complete/official
+variant for how-to or evergreen plans. Each query examines at most 24/36/48 flat
+entries per search attempt, including its optional fallback: at most 18/54/110
+yt-dlp invocations per source retrieval, less when cached. One YouTube retrieval
+stream runs per research pass; thin-source retries do not repeat this batch.
 Both date bounds are enforced; undated, old, and future videos are excluded even
 if no recent results remain. Each transcript is capped at 5,000 words and its
 short highlights appear as attributed evidence. No paid or audio fallback runs.

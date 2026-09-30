@@ -8,7 +8,7 @@ from unittest import mock
 
 import pytest
 
-from lib import doctor, health, normalize, pipeline, render, schema, signals, youtube_yt as yt
+from lib import doctor, health, normalize, pipeline, providers, render, schema, signals, youtube_yt as yt
 from lib.subproc import SubprocResult, SubprocTimeout
 
 FROM = "2026-08-31"
@@ -296,3 +296,70 @@ def test_run_command_uses_argv_override_without_shell(monkeypatch):
     with mock.patch.object(yt.subproc, "run_with_timeout", return_value=result()) as run:
         yt._run_ytdlp(["yt-dlp", "--version"], timeout=1)
     run.assert_called_once_with(["uvx", "yt-dlp", "--version"], timeout=1)
+
+
+@pytest.mark.parametrize("primary_date", ["20260101", "20261001", None, "20260999"])
+def test_relevance_fallback_when_search_candidates_have_no_usable_dates(monkeypatch, primary_date):
+    monkeypatch.setattr(yt, "is_ytdlp_installed", lambda: True)
+    calls = []
+    rows = {VIDEO_ID: video(date=primary_date), "Example0002": video("Example0002"),
+            "Example0003": video("Example0003", "20260101")}
+
+    def run(cmd, **kwargs):
+        calls.append(cmd)
+        if "--flat-playlist" in cmd:
+            fallback = any(arg.startswith("ytsearch") for arg in cmd)
+            ids = list(rows) if fallback else [VIDEO_ID]
+            return result([{k: v for k, v in rows[vid].items() if k != "upload_date"} for vid in ids])
+        return result([rows[cmd[-1].split("v=")[-1]]])
+
+    monkeypatch.setattr(yt, "_run_ytdlp", run)
+    found = yt.search_youtube("path tracer glass", FROM, TO, "quick")
+    assert [item["video_id"] for item in found["items"]] == ["Example0002"]
+    assert "error" not in found
+    assert len(calls) == 5  # two searches, three unique metadata fetches
+    assert sum(any(arg.startswith("ytsearch") for arg in cmd) for cmd in calls) == 1
+
+
+@pytest.mark.parametrize("depth,cap", [("quick", 8), ("default", 12), ("deep", 16)])
+def test_fallback_metadata_is_bounded_per_attempt(monkeypatch, depth, cap):
+    monkeypatch.setattr(yt, "is_ytdlp_installed", lambda: True)
+    calls = []
+
+    def run(cmd, **kwargs):
+        calls.append(cmd)
+        if "--flat-playlist" in cmd:
+            offset = 100 if any(arg.startswith("ytsearch") for arg in cmd) else 0
+            return result([video(f"Example{i:04d}") for i in range(offset, offset + 50)])
+        vid = cmd[-1].split("v=")[-1]
+        return result([video(vid, "20260915" if int(vid[-4:]) >= 100 else "20260101")])
+
+    monkeypatch.setattr(yt, "_run_ytdlp", run)
+    found = yt.search_youtube("path tracer glass", FROM, TO, depth)
+    assert len(found["items"]) == cap
+    assert len(calls) == 2 + 2 * cap
+
+
+@pytest.mark.parametrize("intent,freshness", [("how_to", "balanced_recent"), ("concept", "evergreen_ok")])
+def test_technical_queries_omit_full_complete_official(intent, freshness):
+    queries = yt.expand_youtube_queries("path tracer glass", "deep", intent=intent, freshness_mode=freshness)
+    assert not any("full" in q or "complete" in q or "official" in q for q in queries)
+
+
+def test_pipeline_searches_planner_youtube_angles_in_one_stream(monkeypatch):
+    monkeypatch.setattr(pipeline, "available_sources", lambda *a: ["youtube"])
+    monkeypatch.setattr(providers, "resolve_runtime", lambda c, d: (providers.mock_runtime(c, d), None))
+    queries = ["Unreal Engine path tracer glass", "UE5 curtain wall reflections", "UE5 thin translucent"]
+    calls = []
+
+    def search(query, *args):
+        calls.append(query)
+        return {"items": []}
+
+    monkeypatch.setattr(yt, "search_youtube", search)
+    plan = {"intent": "how_to", "freshness_mode": "evergreen_ok", "cluster_mode": "thematic",
+            "subqueries": [{"label": str(i), "search_query": q, "ranking_query": q, "sources": ["youtube"]}
+                           for i, q in enumerate(queries)]}
+    pipeline.run(topic="photoreal architectural glass in unreal engine 5: path tracer glass, curtain wall reflections, thin translucent",
+                 config={}, depth="deep", requested_sources=["youtube"], external_plan=plan, as_of_date=TO)
+    assert calls == queries

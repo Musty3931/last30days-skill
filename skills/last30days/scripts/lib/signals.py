@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 from collections.abc import Iterable
 
-from . import dates, relevance, schema
+from . import dates, epicforums, relevance, schema
 
 # Editorial signal-to-noise scores on a 1.0 baseline; social platforms are
 # discounted for noise.
@@ -34,6 +34,15 @@ def local_relevance(
     )
     hashtags = item.metadata.get("hashtags") if isinstance(item.metadata, dict) else None
     score = relevance.token_overlap_relevance(ranking_query, text, hashtags=hashtags)
+
+    if item.source == "epicforums":
+        query = ranking_query.raw if isinstance(ranking_query, relevance.PreparedQuery) else ranking_query
+        score = epicforums.content_relevance(query, text, item.url)
+        # A focused planner angle can match one part of a long technical ask.
+        # Require overlap with the ranking query before using that angle.
+        search_query = item.metadata.get("search_query")
+        if search_query and score >= 0.15:
+            score = max(score, epicforums.content_relevance(search_query, text, item.url))
 
     # Project-mode GitHub floor: items fetched via --github-repo are explicitly
     # requested by the user and relevant by construction. Without this floor,
@@ -216,7 +225,10 @@ def annotate_stream(
             max_days=max_days,
         )
         item.engagement_score = eng_score
-        item.source_quality = source_quality(item.source)
+        item.source_quality = (
+            1.0 if item.source == "epicforums" and item.metadata.get("epic_staff_answered")
+            else source_quality(item.source)
+        )
         item.local_rank_score = (
             0.65 * item.local_relevance
             + 0.25 * (item.freshness / 100.0)

@@ -7,7 +7,7 @@ import math
 import re
 from datetime import datetime
 
-from . import http, providers, relevance, schema, signals
+from . import epicforums, http, providers, relevance, schema, signals
 
 
 # Penalty applied when a candidate does not mention the primary entity
@@ -658,7 +658,21 @@ def _fallback_tuple(
     # head token, not the phrase.
     if primary_entity:
         haystack = _candidate_haystack(candidate)
-        if haystack.strip() and not _entity_grounded(haystack, primary_entity):
+        # Technical forum asks are often multi-aspect descriptions, not a
+        # named entity (e.g. "photoreal architectural glass ... path tracer").
+        # Require strong local evidence AND raw-topic overlap; host provenance
+        # alone cannot rescue an unrelated or marketplace thread.
+        forum_grounded = (
+            candidate.source == "epicforums"
+            and candidate.local_relevance >= FALLBACK_ENTITY_MISS_CONFIDENCE_ESCAPE
+            and epicforums.content_relevance(
+                primary_entity,
+                " ".join([candidate.title or "", candidate.snippet or "",
+                          *(item.body or "" for item in candidate.source_items)]),
+                candidate.url,
+            ) >= FALLBACK_ENTITY_MISS_TOPIC_ESCAPE
+        )
+        if haystack.strip() and not _entity_grounded(haystack, primary_entity) and not forum_grounded:
             score -= ENTITY_MISS_PENALTY
             reason = "fallback-local-score (entity-miss demotion)"
     return max(0.0, min(100.0, score)), reason

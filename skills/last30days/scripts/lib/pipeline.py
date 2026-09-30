@@ -1839,6 +1839,11 @@ def run(
     else:
         print("[Planner]   (no subqueries in plan)", file=sys.stderr)
 
+    # YouTube has one retrieval stream so captions remain a run-wide budget,
+    # but that stream searches the planner's distinct YouTube angles.
+    config["_youtube_search_queries"] = [sq.search_query for sq in plan.subqueries if "youtube" in sq.sources]
+    config["_plan_intent"] = plan.intent
+    config["_plan_freshness_mode"] = plan.freshness_mode
     bundle = schema.RetrievalBundle(artifacts={"stream_artifacts": []})
     # Handles the user named explicitly. Available before any retrieval, unlike
     # the entity-extracted set, so Phase 1 and quick-depth runs get first-party
@@ -2084,11 +2089,11 @@ def run(
     )
 
     # Phase 2b: retry thin sources with simplified query
-    # Note: _github_skip_sources tells the retry to not re-run GitHub keyword search
-    # when project-mode or person-mode already provided authoritative data.
-    _github_skip_retry: set[str] = set()
+    # YouTube already tried every budgeted planner angle and its metadata
+    # fallback. Repeating that batch cannot broaden a thin result.
+    skip_retry_sources: set[str] = {"youtube"}
     if _github_person_done or _github_custom_done:
-        _github_skip_retry.add("github")
+        skip_retry_sources.add("github")
     _retry_thin_sources(
         topic=topic,
         bundle=bundle,
@@ -2101,7 +2106,7 @@ def run(
         rate_limited_sources=rate_limited_sources,
         rate_limit_lock=rate_limit_lock,
         settings=settings,
-        skip_sources=_github_skip_retry,
+        skip_sources=skip_retry_sources,
         subreddits=subreddits,
         first_party_handles=explicit_first_party,
         run_started=run_started,
@@ -2123,6 +2128,23 @@ def run(
         bundle.items_by_source, topic=topic, config=config, depth=depth, mock=mock,
         elapsed=time.monotonic() - run_started,
     )
+    # Topic bodies and engagement arrive after cross-stream dedupe. Refresh
+    # every copy before fusion so ranking uses those signals, not stale search
+    # excerpts and zero counts captured before enrichment.
+    epic_items = {item.item_id: item for item in items_by_source.get("epicforums", [])}
+    for sq in plan.subqueries:
+        key = (sq.label, "epicforums")
+        stream = bundle.items_by_source_and_query.get(key, [])
+        for item in stream:
+            if item.item_id in epic_items:
+                fusion.merge_source_items(item, epic_items[item.item_id])
+        if stream:
+            bundle.items_by_source_and_query[key] = signals.annotate_stream(
+                stream, sq.ranking_query, plan.freshness_mode,
+                reference_date=to_date, max_days=lookback_days,
+            )
+    if config.get("_epicforums_client"):
+        bundle.artifacts["epicforums_budget"] = config["_epicforums_client"].budget()
     source_status = _finalize_source_status(bundle.source_status, items_by_source)
     # Normalized set of handles this run resolved for the topic. A candidate
     # authored by one of these is first-party and is exempted from the
@@ -3512,6 +3534,9 @@ def _retrieve_stream(*args, **kwargs) -> tuple[list[dict], dict]:
         "date_range": list(kwargs.get("date_range") or ()),
         "depth": kwargs.get("depth") or "",
     }
+    if source == "youtube":
+        config = kwargs.get("config") or {}
+        fixture_request["search_queries"] = config.get("_youtube_search_queries") or [fixture_request["search_query"]]
     module_backed = source in {
         "reddit",
         "x",
@@ -3900,7 +3925,7 @@ def _retrieve_stream_impl(
             client=config.get("_epicforums_client") or epicforums.Client(config, depth),
         )
         artifact = _result_outcome_artifact(source, result)
-        artifact["epicforums"] = {key: result[key] for key in ("requests", "request_limit", "more_results") if key in result}
+        artifact["epicforums"] = {key: result[key] for key in ("requests", "request_limit", "remaining_requests", "remaining_search_requests", "more_results") if key in result}
         if result.get("warnings"):
             artifact["_warnings"] = result["warnings"]
         if result.get("more_results"):
@@ -3909,6 +3934,8 @@ def _retrieve_stream_impl(
     if source == "youtube":
         result = youtube_yt.search_and_transcribe(
             raw_topic or topic or subquery.search_query, from_date, to_date, depth=depth,
+            search_queries=config.get("_youtube_search_queries") or [subquery.search_query],
+            intent=config.get("_plan_intent"), freshness_mode=config.get("_plan_freshness_mode"),
         )
         return youtube_yt.parse_youtube_response(result), _result_outcome_artifact(source, result)
 

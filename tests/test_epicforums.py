@@ -11,7 +11,7 @@ from urllib.parse import parse_qs, urlsplit
 
 import pytest
 
-from lib import doctor, env, epicforums as ef, fusion, health, http, normalize, pipeline, planner, render, rerank, schema
+from lib import doctor, env, epicforums as ef, fusion, health, http, normalize, pipeline, planner, providers, render, rerank, schema, signals
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "epicforums"
 FROM, TO = "2026-08-31", "2026-09-30"
@@ -147,7 +147,8 @@ def test_search_window_merges_topics_and_caches_categories(monkeypatch, clock):
     client = ef.Client()
     result = ef.search_epicforums("Unreal Engine 5.8 path tracer glass", FROM, TO, client=client)
     assert len(result["topics"]) == 2
-    assert result["categories"] == {11: "Development", 36: "Rendering"}
+    assert result["categories"] == {}
+    assert not any("categories" in row[0] for row in calls)
     for url, _, kwargs in calls:
         assert kwargs["headers"]["User-Agent"] == ef.USER_AGENT
         assert kwargs["retries"] == 1 and kwargs["retry_dns"] is False
@@ -341,9 +342,9 @@ def test_pipeline_dispatch_shares_one_client_and_enriches(monkeypatch):
     kwargs = dict(source="epicforums", subquery=query, date_range=(FROM, TO), config=config, depth="default", topic="Unreal glass", mock=False, runtime=None)
     raw, artifact = pipeline._retrieve_stream(**kwargs)
     assert len(raw) == 2
-    assert artifact["epicforums"]["requests"] == 4
+    assert artifact["epicforums"]["requests"] == 3
     pipeline._retrieve_stream(**kwargs)
-    assert len(calls) == 4
+    assert len(calls) == 3
     items = normalize.normalize_source_items("epicforums", raw, FROM, TO)
     final = pipeline._finalize_items_by_source({"epicforums": items}, config=config)
     assert all("topic_body" in i.metadata for i in final["epicforums"])
@@ -391,3 +392,94 @@ def test_pipeline_mock_and_footer():
     footer = "\n".join(render._build_source_footer_lines(report))
     assert "Epic Forums" in footer and "5 likes" in footer and "12 replies" in footer
     assert report.source_status["epicforums"].items_returned == 1
+
+
+GLASS_TITLE = "Substrate Glass Rendering Black and Opaque Only in Path Tracer in 5.8"
+# Synthetic excerpt/date around the reported real thread, not a live recording.
+GLASS_EXCERPT = "Substrate glass is black and opaque in the path tracer but renders correctly with Lumen."
+GLASS_QUERY = "photoreal architectural glass in unreal engine 5: path tracer glass, curtain wall reflections, thin translucent"
+
+
+def glass_response():
+    return {"topics": [{"id": 2762890, "title": GLASS_TITLE, "excerpt": GLASS_EXCERPT,
+                        "created_at": "2026-09-01T12:00:00Z", "posts_count": 1}], "posts": []}
+
+
+def test_deep_search_fanout_leaves_body_budget_and_enriches_unique_best(monkeypatch):
+    calls = []
+
+    def get(url, **kwargs):
+        calls.append(url)
+        if "/search.json" in url:
+            return glass_response()
+        if "/categories" in url:
+            return {"category_list": {"categories": []}}
+        return {"post_stream": {"posts": []}}
+
+    monkeypatch.setattr(http, "get", get)
+    client = ef.Client(depth="deep")
+    for n in range(5):
+        result = ef.search_epicforums(f"angle{n} glass rendering issue{n}", FROM, TO, "deep", client=client)
+        assert "error" not in result
+    assert len(calls) == client.search_requests == 15
+    assert all("/search.json" in url for url in calls)
+    assert result["remaining_requests"] >= client.settings["enrich"] + 1
+    items = normalize.normalize_source_items("epicforums", [
+        {"id": i, "title": f"Technical topic {i}", "date": TO,
+         "url": f"{ef.BASE_URL}/t/{i}"} for i in range(8)
+    ], FROM, TO)
+    for i, item in enumerate(items):
+        item.local_relevance = i / 10
+    ef.enrich_source_items(items + [copy.deepcopy(items[-1])], client)
+    bodies = [url for url in calls if "/t/" in url]
+    assert bodies == [f"{ef.BASE_URL}/t/{i}.json" for i in range(7, 2, -1)]
+    assert client.budget()["remaining_requests"] == client.settings["requests"] - len(calls)
+    assert ef.DEPTH_CONFIG["deep"]["requests"] > ef.DEPTH_CONFIG["default"]["requests"] > ef.DEPTH_CONFIG["quick"]["requests"]
+
+
+def test_search_sorts_relevance_before_result_cap_and_uses_excerpt():
+    response = glass_response()
+    response["topics"].insert(0, {"id": 999, "title": "Cooking pancakes", "created_at": TO})
+    response.update(from_date=FROM, to_date=TO, result_limit=1)
+    found = ef.parse_epicforums_response(response, "path tracer glass")
+    assert [item["id"] for item in found] == [2762890]
+    assert found[0]["snippet"] == GLASS_EXCERPT
+
+
+@pytest.mark.parametrize("freshness", ["evergreen_ok", "strict_recent"])
+def test_glass_thread_survives_pipeline_floor_and_refreshes_enrichment(monkeypatch, freshness):
+    monkeypatch.setattr(pipeline, "available_sources", lambda *a: ["epicforums"])
+    monkeypatch.setattr(providers, "resolve_runtime", lambda c, d: (providers.mock_runtime(c, d), None))
+
+    def get(url, **kwargs):
+        if "/search.json" in url:
+            return glass_response()
+        if "/categories" in url:
+            return {"category_list": {"categories": []}}
+        return {"like_count": 5, "views": 300, "posts_count": 4,
+                "post_stream": {"posts": [{"post_number": 1, "cooked": f"<p>{GLASS_EXCERPT} Thin translucent transmission.</p>"}]}}
+
+    monkeypatch.setattr(http, "get", get)
+    plan = {"intent": "how_to", "freshness_mode": freshness, "cluster_mode": "thematic",
+            "subqueries": [{"label": "glass", "search_query": "Unreal Engine path tracer glass",
+                            "ranking_query": GLASS_QUERY, "sources": ["epicforums"]}]}
+    report = pipeline.run(topic=GLASS_QUERY, config={}, depth="deep", requested_sources=["epicforums"],
+                          external_plan=plan, as_of_date=TO)
+    assert len(report.ranked_candidates) == 1
+    candidate = report.ranked_candidates[0]
+    assert candidate.local_relevance >= .5
+    assert candidate.engagement == 50  # refreshed after the search's missing counts
+    assert "Thin translucent" in candidate.source_items[0].body
+    assert rerank.candidate_relevance_ok(candidate)
+    assert render._clusters_clearing_relevance_floor(report, report.clusters)
+    assert report.artifacts["epicforums_budget"]["remaining_requests"] > 0
+    if freshness == "evergreen_ok":
+        assert candidate.freshness >= 40
+
+
+def test_off_topic_forum_and_alternate_host_do_not_gain_topic_credit():
+    raw = {"id": 1, "date": TO, "url": f"{ef.BASE_URL}/t/1", "title": "Cooking pancakes",
+           "search_query": "Unreal Engine path tracer glass"}
+    item = normalize.normalize_source_items("epicforums", [raw], FROM, TO)[0]
+    assert signals.local_relevance(item, GLASS_QUERY) == 0
+    assert ef.content_relevance("Unreal Engine glass", "Glass transmission", "https://forum.example") < .5

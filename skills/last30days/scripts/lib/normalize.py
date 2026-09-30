@@ -304,6 +304,7 @@ def _normalize_epicforums(source, item, index, from_date, to_date) -> schema.Sou
         engagement=item.get("engagement") or {}, relevance_hint=item.get("relevance", 0.5),
         why_relevant="Epic Developer Community discussion", snippet=text[:600],
         metadata={"topic_id": item.get("id"), "category_id": item.get("category_id"),
+                  "search_query": item.get("search_query", ""),
                   "marketplace_ad": bool(item.get("marketplace_ad")),
                   "tags": item.get("tags") or [], "created_at": item.get("created_at"),
                   "last_posted_at": item.get("last_posted_at"), "matched_at": item.get("matched_at"),

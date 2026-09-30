@@ -184,7 +184,7 @@ def _search_url(topic, from_date, to_date):
 
 
 def _search_candidates(topic, from_date, to_date, count):
-    """Bound flat extraction and fall back once for empty/unsupported URL search."""
+    """Yield bounded search attempts; callers stop once metadata verifies dates."""
     targets = (_search_url(topic, from_date, to_date), f"ytsearch{count * 3}:{topic}")
     previous_error = None
     for index, target in enumerate(targets):
@@ -201,14 +201,16 @@ def _search_candidates(topic, from_date, to_date, count):
         except (OSError, subproc.SubprocTimeout) as exc:
             raw, error = [], str(exc)
         if raw or (error and classify_run_failure(error) == health.RATE_LIMITED):
-            return raw, error
-        if index:
+            yield raw, error
+            if error and classify_run_failure(error) == health.RATE_LIMITED:
+                return
+        elif index:
             # A clean empty fallback cannot erase a failed primary fetch.
-            return [], error or previous_error
-        previous_error = error
-        _log("Upload-date search returned no candidates; trying ytsearch fallback"
-             + (f" ({error})" if error else ""))
-    return [], previous_error
+            yield [], error or previous_error
+        if not index:
+            previous_error = error
+            _log("Upload-date search returned no verified in-window videos; trying relevance search"
+                 + (f" ({error})" if error else ""))
 
 
 def search_youtube(topic, from_date, to_date, depth="default"):
@@ -227,37 +229,44 @@ def search_youtube(topic, from_date, to_date, depth="default"):
     payload = {"items": [], "error": "YouTube search failed"}
     try:
         _log(f"Searching '{core}' ({from_date} through {to_date}, metadata cap {count})")
-        raw, error = _search_candidates(core, from_date, to_date, count)
-        unique = {video["id"]: video for video in raw}
-        candidates = sorted(unique.values(), key=lambda v: (
-            _compute_relevance(core, str(v.get("title") or "")),
-            v.get("view_count") or 0,
-        ), reverse=True)[:count]
         items = []
-        with ThreadPoolExecutor(max_workers=_YTDLP_MAX_CONCURRENT) as pool:
-            futures = [pool.submit(_video_metadata, v) for v in candidates]
-            for future in futures:
-                video, failure = future.result()
-                if failure:
-                    error = _prefer_search_error(error, failure)
-                published = _date(video.get("upload_date"))
-                if not published or not from_date <= published <= to_date:
-                    continue
-                title = str(video.get("title") or "")
-                description = str(video.get("description") or "")[:500]
-                items.append({
-                    "video_id": video["id"], "title": title,
-                    "url": f"https://www.youtube.com/watch?v={video['id']}",
-                    "channel_name": video.get("channel") or video.get("uploader") or "",
-                    "date": published, "description": description,
-                    "engagement": {"views": video.get("view_count") or 0,
-                                   "likes": video.get("like_count") or 0,
-                                   "comments": video.get("comment_count") or 0},
-                    "duration": video.get("duration"),
-                    "channel_boost": channel_boost(video.get("channel") or video.get("uploader")),
-                    "relevance": _compute_relevance(core, f"{title} {description}"),
-                    "why_relevant": f"YouTube: {title[:60]}",
-                })
+        checked = set()
+        error = None
+        for raw, search_error in _search_candidates(core, from_date, to_date, count):
+            if search_error:
+                error = _prefer_search_error(error, search_error)
+            unique = {video["id"]: video for video in raw if video["id"] not in checked}
+            candidates = sorted(unique.values(), key=lambda v: (
+                _compute_relevance(core, str(v.get("title") or "")),
+                v.get("view_count") or 0,
+            ), reverse=True)[:count]
+            checked.update(video["id"] for video in candidates)
+            with ThreadPoolExecutor(max_workers=_YTDLP_MAX_CONCURRENT) as pool:
+                futures = [pool.submit(_video_metadata, v) for v in candidates]
+                for future in futures:
+                    video, failure = future.result()
+                    if failure:
+                        error = _prefer_search_error(error, failure)
+                    published = _date(video.get("upload_date"))
+                    if not published or not from_date <= published <= to_date:
+                        continue
+                    title = str(video.get("title") or "")
+                    description = str(video.get("description") or "")[:500]
+                    items.append({
+                        "video_id": video["id"], "title": title,
+                        "url": f"https://www.youtube.com/watch?v={video['id']}",
+                        "channel_name": video.get("channel") or video.get("uploader") or "",
+                        "date": published, "description": description,
+                        "engagement": {"views": video.get("view_count") or 0,
+                                       "likes": video.get("like_count") or 0,
+                                       "comments": video.get("comment_count") or 0},
+                        "duration": video.get("duration"),
+                        "channel_boost": channel_boost(video.get("channel") or video.get("uploader")),
+                        "relevance": _compute_relevance(core, f"{title} {description}"),
+                        "why_relevant": f"YouTube: {title[:60]}",
+                    })
+            if items or (error and classify_run_failure(error) == health.RATE_LIMITED):
+                break
         items.sort(key=_transcript_candidate_sort_key, reverse=True)
         _log(f"{len(items)} videos with verified dates in the requested window")
         payload = {"items": items, **({"error": error} if error else {})}
@@ -498,7 +507,7 @@ def _extract_core_subject(topic: str) -> str:
     return extract_core_subject(topic, noise=VIRAL_NOISE | _YT_EXTRA)
 
 
-def expand_youtube_queries(topic: str, depth: str) -> List[str]:
+def expand_youtube_queries(topic: str, depth: str, *, intent: str | None = None, freshness_mode: str | None = None) -> List[str]:
     """Generate multiple YouTube search queries from a topic.
 
     Mirrors reddit.py's expand_reddit_queries() pattern:
@@ -517,7 +526,7 @@ def expand_youtube_queries(topic: str, depth: str) -> List[str]:
     if core.lower() != original_clean.lower() and len(original_clean.split()) <= 8:
         queries.append(original_clean)
 
-    qtype = infer_query_intent(topic)
+    qtype = intent or infer_query_intent(topic)
 
     # Intent-specific YouTube content-type variants
     if qtype == "opinion":
@@ -533,7 +542,7 @@ def expand_youtube_queries(topic: str, depth: str) -> List[str]:
         queries.append(f"{core} review OR reaction OR breakdown")
 
     # Deep depth: add full-length content variant
-    if depth == "deep":
+    if depth == "deep" and qtype != "how_to" and freshness_mode != "evergreen_ok":
         queries.append(f"{core} full OR complete OR official")
 
     # Cap by depth budget
@@ -742,6 +751,10 @@ def search_and_transcribe(
     from_date: str,
     to_date: str,
     depth: str = "default",
+    *,
+    search_queries: List[str] | None = None,
+    intent: str | None = None,
+    freshness_mode: str | None = None,
 ) -> Dict[str, Any]:
     """Full YouTube search: find videos, then fetch transcripts for top results.
 
@@ -758,7 +771,12 @@ def search_and_transcribe(
         Dict with 'items' list. Each item has a 'transcript_snippet' field.
     """
     # Step 1: Multi-query search — run yt-dlp for each expanded query
-    queries = expand_youtube_queries(topic, depth)
+    # Planner queries already express the requested angles. Do not append
+    # content-type terms or replace them with the long prose research topic.
+    queries = list(dict.fromkeys(q.strip() for q in (search_queries or []) if q.strip()))
+    if not queries:
+        queries = expand_youtube_queries(topic, depth, intent=intent, freshness_mode=freshness_mode)
+    queries = queries[:{"quick": 1, "default": 2, "deep": 3}.get(depth, 2)]
     seen_ids: Set[str] = set()
     items: List[Dict[str, Any]] = []
     search_error: Optional[str] = None
