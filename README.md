@@ -34,7 +34,7 @@ npx skills add Musty3931/last30days-skill -g
 
 More install options (claude.ai web, OpenClaw, manual) in the [Install](#install) section below.
 
-Zero config. Reddit (with comments) and GitHub work immediately. Run it once and the setup wizard unlocks X plus the free Digg and arXiv CLIs in 30 seconds.
+Zero config. Reddit (with comments), GitHub, and arXiv through OpenAlex work immediately. Run it once and the setup wizard unlocks X plus the free Digg and arXiv CLIs in 30 seconds.
 
 ---
 
@@ -68,7 +68,7 @@ If you're meeting with a CEO, have you read all their tweets and GitHub activity
 | **X / Twitter** | The hot take, the expert thread, the breaking reaction. First to know, first to argue. Backends: your browser cookies (free), an xAI or Xquik API key, the xurl CLI, or the Grok CLI (opt-in). |
 | **GitHub** | For people: PR velocity, top repos by stars, release notes. For projects: live star counts, issues, and discussions. Free, always on. |
 | **Digg** | Curated story clusters from Digg's AI 1000 leaderboard (~1000 high-signal AI accounts on X), with attributable inline quotes (no X auth required). Auto-enabled when `digg-pp-cli` is on PATH (first-run setup installs it). |
-| **arXiv** | The papers behind the hype. New research in the window, free, no API key. Auto-enabled when `arxiv-pp-cli` is on PATH (first-run setup installs it). |
+| **arXiv** | The papers behind the hype. New research in the window, free, no API key. Available through OpenAlex by default; optional `arxiv-pp-cli` fallback on errors. See [backend configuration](CONFIGURATION.md). |
 | **Epic Forums** | Epic Developer Community discussions for Unreal Engine, UE5, UEFN, Fortnite, MetaHuman, Nanite, and Lumen. Anonymous Discourse JSON with likes, replies, views, categories, and topic excerpts; no setup required. |
 | **YouTube** | Recent videos with verified upload dates, views, and short caption quotes. Enabled when `yt-dlp` is available; no account, cookies, or audio downloads. |
 
@@ -101,7 +101,7 @@ Still here from upstream v3:
 - **Free Reddit with real scores and top comments.** Keyless RSS + shreddit scraping, dedicated-subreddit discovery, and a relevance floor so a viral off-topic post can't hijack your brief. An optional ScrapeCreators key is the backup lane when the free path returns nothing.
 - **X search with automatic backend failover.** FROM and ABOUT lanes so a person's own posts and the conversation about them both rank; bird (browser cookies) → xAI → xurl → Xquik, with the Grok CLI as an explicit opt-in.
 - **GitHub person-mode and project-mode.** `--github-user=steipete` for what someone is shipping; `--github-repo=owner/repo` for live stars, releases, and top issues.
-- **Digg and arXiv as free, keyless CLIs** installed by first-run setup.
+- **arXiv through OpenAlex** with no key or CLI required; first-run setup installs the free Digg CLI and optional arXiv fallback CLI.
 - **The pre-research brain**, cross-source cluster merging, Best Takes and Top Community Comments, comparisons (`A vs B`, `--competitors-list`, `--competitors-plan`), discovery mode (`what's trending in AI agents?`), drill mode, freshness verification, audience registers, the `doctor` health check, the research library and feed, and shareable HTML briefs (`--emit=html`).
 
 Configuration knobs live in [CONFIGURATION.md](CONFIGURATION.md). Upstream history is in [CHANGELOG.md](CHANGELOG.md).
@@ -236,7 +236,7 @@ ln -s "$(pwd)/last30days-skill/skills/last30days" ~/.claude/skills/last30days
 
 The symlink keeps the install in sync with your working tree as you edit — no re-copy needed. For `claude.ai`, build the `.skill` file from source: `bash skills/last30days/scripts/build-skill.sh` produces `dist/last30days.skill`.
 
-Reddit (with comments) and GitHub work immediately. Zero configuration. Run `/last30days` once and the setup wizard unlocks X and installs the free Digg and arXiv CLIs in 30 seconds.
+Reddit (with comments), GitHub, and arXiv through OpenAlex work immediately. Zero configuration. Run `/last30days` once and the setup wizard unlocks X and installs the free Digg and arXiv CLIs in 30 seconds.
 
 ## Bring your own keys
 
@@ -245,7 +245,8 @@ These platforms don't have relationships with each other. X doesn't know what Re
 | Sources | What you need | Cost |
 |---------|---------------|------|
 | Reddit (with comments) + GitHub | Nothing | Free |
-| Digg + arXiv | Free CLIs, auto-installed by first-run setup | Free |
+| Digg | Free CLI, auto-installed by first-run setup | Free |
+| arXiv | OpenAlex by default, optional API key and CLI fallback | Free keyless budget |
 | YouTube | `yt-dlp` on PATH (`brew install yt-dlp`), or `LAST30DAYS_YTDLP`; disable with `LAST30DAYS_YOUTUBE=off` | Free |
 | X / Twitter | Log into x.com in any browser (consented cookie read), or set `XAI_API_KEY` / `XQUIK_API_KEY`, or the xurl CLI, or the Grok CLI pinned with `LAST30DAYS_X_BACKEND=grok` | Browser cookies are free; keys are provider-specific |
 | GitHub, deeper | `gh auth login` or `GITHUB_TOKEN` | Free (raises rate limits) |

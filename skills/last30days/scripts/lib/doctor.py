@@ -54,7 +54,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
-from . import backends, env, epicforums, health, http, prescriptions
+from . import arxiv, backends, env, epicforums, health, http, prescriptions
 from .backends import TIER_ERROR, TIER_OK, TIER_WARN
 
 # Rollup tiers (R1). ok/warn/error are U2's; only "off" is doctor's own.
@@ -177,6 +177,7 @@ KEY_PRESENCE_VARS = (
     "GOOGLE_API_KEY",
     "GEMINI_API_KEY",
     "GITHUB_TOKEN",
+    "OPENALEX_API_KEY",
 )
 
 # Failing statuses ranked most-specific-first for chained rollups: a broken
@@ -479,7 +480,21 @@ def _youtube_record(config):
 
 
 def _arxiv_record(config):
-    return _cli_gated_record(config, "arxiv-pp-cli", "arxiv")
+    backend = arxiv.get_backend(config)
+    if backend == "openalex":
+        has_key = bool(config.get("OPENALEX_API_KEY"))
+        record = _record(
+            status=health.OK,
+            detail=("openalex backend; " + ("API key configured" if has_key else "keyless")
+                    + " (not probed); arxiv-pp-cli fallback on errors"),
+            requires="none (OPENALEX_API_KEY and arxiv-pp-cli optional)",
+        )
+        record["key_configured"] = has_key
+    else:
+        record = _cli_gated_record(config, "arxiv-pp-cli", "arxiv")
+        record["detail"] = "cli backend; " + record["detail"]
+    record["active_backend"] = backend
+    return record
 
 
 def _count_saved_briefs(memory_dir) -> int:
@@ -753,7 +768,8 @@ def build_report(config: Dict[str, Any]) -> Dict[str, Any]:
             "status": probe.status,
             "off_path": bool(getattr(probe, "off_path", False)),
             "detail": probe.detail,
-            "optional": source in _OPTIONAL_CLI_SOURCES,
+            "optional": (source in _OPTIONAL_CLI_SOURCES or
+                         (source == "arxiv" and arxiv.get_backend(config) == "openalex")),
         }
 
     # U7: attach backup sub-lanes to their parent source.
@@ -1111,7 +1127,10 @@ _SECRET_CONFIG_VARS = KEY_PRESENCE_VARS + (
 
 # Backend pin vars folded into the config fingerprint. Pin values are
 # backend names (e.g. "bird"), never secrets.
-_FINGERPRINT_PIN_VARS = (env.X_BACKEND_PIN_VAR, env.REDDIT_BACKEND_PIN_VAR, "LAST30DAYS_YOUTUBE", "LAST30DAYS_YTDLP")
+_FINGERPRINT_PIN_VARS = (
+    env.X_BACKEND_PIN_VAR, env.REDDIT_BACKEND_PIN_VAR, "LAST30DAYS_ARXIV_BACKEND",
+    "LAST30DAYS_YOUTUBE", "LAST30DAYS_YTDLP",
+)
 
 # Top-level report keys the renderers read unguarded; a cached report
 # missing any of them is treated as corrupt (absent), never rendered.
@@ -1367,6 +1386,11 @@ def _probe_source(name: str, config: Dict[str, Any], timeout: float) -> Optional
     if name == "youtube":
         from . import youtube_yt
         return youtube_yt.live_probe(config, timeout)
+    if name == "arxiv" and arxiv.get_backend(config) == "openalex":
+        # OpenAlex searches have a daily usage budget. Keep this backend
+        # unverified until research supplies evidence; an optional fallback
+        # CLI probe cannot establish whether OpenAlex is working.
+        return None
     url = _HTTP_PROBE_URLS.get(name)
     if url:
         ok, detail = _http_ok(

@@ -481,6 +481,9 @@ def get_config(policy: ConfigLoadPolicy | None = None) -> dict[str, Any]:
         ('LAST30DAYS_YT_SUB_LANGS', None),
         ('LAST30DAYS_YOUTUBE_CHANNELS', None),
         ('LAST30DAYS_REDDIT_BACKEND', None),
+        ('LAST30DAYS_ARXIV_BACKEND', 'openalex'),
+        ('OPENALEX_API_KEY', None),
+        ('LAST30DAYS_MAILTO', None),
         ('LAST30DAYS_EPICFORUMS', 'on'),
         ('LAST30DAYS_EPICFORUMS_BASE', None),
         # Keyless reddit.com token-bucket rate (req/sec). http.py reads it

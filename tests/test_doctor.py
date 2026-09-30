@@ -154,7 +154,7 @@ class KeylessEnvironment(unittest.TestCase):
         self.report = _build({})
 
     def test_free_sources_tier_ok(self):
-        for name in ("reddit", "github"):
+        for name in ("reddit", "github", "arxiv"):
             self.assertEqual("ok", self.report["sources"][name]["tier"], name)
             self.assertEqual("ok", self.report["sources"][name]["status"], name)
 
@@ -166,7 +166,7 @@ class KeylessEnvironment(unittest.TestCase):
             self.assertTrue(record["fix"], f"{name} must carry a fix prescription")
 
     def test_cli_sources_opt_in_when_binaries_missing(self):
-        for name in ("digg", "arxiv"):
+        for name in ("digg",):
             record = self.report["sources"][name]
             self.assertEqual("off", record["tier"], name)
             self.assertEqual("opt-in", record["status"], name)
@@ -745,6 +745,19 @@ class LiveProbe(unittest.TestCase):
         self.assertTrue(res["ok"])
         self.assertTrue(res["probed"])
 
+    def test_openalex_probe_does_not_measure_optional_cli(self):
+        with mock.patch("lib.health.probe_dependency") as probe, \
+             mock.patch("lib.doctor.urllib.request.urlopen") as request:
+            self.assertIsNone(doctor._probe_source("arxiv", {}, 5))
+        probe.assert_not_called()
+        request.assert_not_called()
+
+    def test_arxiv_cli_probe_still_reports_missing_binary(self):
+        with mock.patch("lib.health.probe_dependency", _probe_dep()):
+            result = doctor._probe_source("arxiv", {"LAST30DAYS_ARXIV_BACKEND": "cli"}, 5)
+        self.assertFalse(result["ok"])
+        self.assertTrue(result["probed"])
+
     def test_probe_source_credit_gated_returns_none(self):
         self.assertIsNone(doctor._probe_source("x", {}, 5))
 
@@ -992,6 +1005,12 @@ class CliHealth(unittest.TestCase):
         self.assertEqual(
             doctor.AUDIT_NOT_WORKING, report["sources"]["digg"]["audit_state"]
         )
+
+    def test_openalex_cli_is_optional(self):
+        record = _build({})["sources"]["arxiv"]
+        self.assertTrue(record["cli"]["optional"])
+        self.assertEqual("openalex", record["active_backend"])
+        self.assertEqual(health.OK, record["status"])
 
     def test_gh_absent_github_still_working(self):
         report = _build({})  # gh missing by default in _Hermetic
