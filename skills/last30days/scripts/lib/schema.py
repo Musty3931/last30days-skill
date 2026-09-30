@@ -806,6 +806,7 @@ def _agent_engagement(candidate: Candidate) -> dict[str, float | int]:
 
 
 _HEADLINE_ENGAGEMENT_FIELDS_BY_SOURCE = {
+    "youtube": ("views",),
     "digg": ("postCount",),
     "reddit": ("score",),
 }

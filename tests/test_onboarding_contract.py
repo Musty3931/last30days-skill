@@ -239,7 +239,7 @@ class TestOnboardingContract(unittest.TestCase):
 
     def test_manual_guide_denies_removed_sources_explicitly(self):
         self.assertIn("There are no other sources.", self.manual)
-        self.assertIn("exactly Reddit, X, GitHub, Digg, and arXiv", self.manual)
+        self.assertIn("exactly Reddit, X, GitHub, Digg, arXiv, and YouTube", self.manual)
 
     def test_no_source_tier_step(self):
         """The old Step 5 INCLUDE_SOURCES opt-in (TikTok/Instagram/comments tiers)

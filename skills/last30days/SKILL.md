@@ -1,7 +1,7 @@
 ---
 name: last30days
 version: "3.23.0"
-description: "Research what people actually say about any topic in the last 30 days. Pulls posts and engagement from Reddit, X, GitHub, Digg, and arXiv. Includes a doctor health check to diagnose broken or missing sources."
+description: "Research what people actually say about any topic in the last 30 days. Pulls posts and engagement from Reddit, X, GitHub, Digg, arXiv, and YouTube. Includes a doctor health check to diagnose broken or missing sources."
 argument-hint: 'last30days nvidia earnings reaction | last30days AI video tools | last30days what users want in react'
 allowed-tools: Bash, Read, Write, AskUserQuestion, WebSearch
 homepage: https://github.com/mvanhorn/last30days-skill
@@ -270,7 +270,7 @@ Use this capability rule:
 
 - **If a web-search tool is available:** use it for Step 0.5 / 0.55 pre-research and Step 2 supplements. If your host requires loading, selecting, or enabling the web-search tool before use, do that using the host's mechanism. Do not fail the skill just because one particular schema lookup or tool name is unavailable; use the web-search capability you actually have.
 
-- **If no web-search tool is available in the agent session:** skip Step 0.55 and Step 0.75 and run the engine command as-is. The engine has no web-search backend of its own: it plans internally (its configured reasoning provider, or the deterministic fallback) and searches the five sources by keyword. Resolve handles, subreddits, and repos from your own knowledge where you can and pass them as flags; the engine cannot discover them for you.
+- **If no web-search tool is available in the agent session:** skip Step 0.55 and Step 0.75 and run the engine command as-is. The engine has no web-search backend of its own: it plans internally (its configured reasoning provider, or the deterministic fallback) and searches the six sources by keyword. Resolve handles, subreddits, and repos from your own knowledge where you can and pass them as flags; the engine cannot discover them for you.
 
 Resolving this correctly prevents the second-most-common failure mode of this skill: the model skips Step 0.5 / 0.55 and runs the engine bare with only keyword search. The output looks fine but misses founder X timelines, GitHub repo activity, subreddit-specific threads, and current first-party positioning.
 
@@ -398,7 +398,7 @@ If your Bash call to `last30days.py` does NOT include the FULL pre-flight checkl
 
 > **Permissions overview:** Reads public web/platform data and optionally saves research briefings to `LAST30DAYS_MEMORY_DIR` (defaults to `~/Documents/Last30Days`). X/Twitter search uses optional user-provided tokens (AUTH_TOKEN/CT0 env vars), an xAI or Xquik API key, or a consented browser-cookie read. On hosts with `uv` and no Python 3.12+, the preflight may install a uv-managed CPython 3.12 (one-time ~28MB download, announced on stderr). All credential usage and data writes are documented in the [Security & Permissions](#security--permissions) section.
 
-Research ANY topic across five sources: Reddit, X, GitHub, Digg, and arXiv. Surface what people are actually discussing, recommending, shipping, and debating right now.
+Research ANY topic across six sources: Reddit, X, GitHub, Digg, arXiv, and YouTube. Surface what people are actually discussing, recommending, shipping, and debating right now.
 
 ## Runtime Preflight
 
@@ -496,7 +496,7 @@ If the preflight script (including the uv fallback above) emits `ERROR: last30da
 
 WebSearch-only synthesis is not equivalent to running the engine — it misses Reddit community data, X/Twitter timelines, GitHub activity, Digg story clusters, and arXiv papers. Presenting it without disclosure misleads the user about what was actually searched. This is the same category of failure as a WebSearch-only run with no engine footer.
 
-**General web coverage is yours, not the engine's.** The engine searches exactly five sources (Reddit, X, GitHub, Digg, arXiv) and has no web-search backend. Blogs, news, and docs come from your own WebSearch tool in Step 0.55 (pre-research) and Step 2 (supplements). If you have no web-search tool, the report simply has no general-web layer; say so in the synthesis only if it matters to the answer.
+**General web coverage is yours, not the engine's.** The engine searches six sources (Reddit, X, GitHub, Digg, arXiv, YouTube) and has no web-search backend. Blogs, news, and docs come from your own WebSearch tool in Step 0.55 (pre-research) and Step 2 (supplements). If you have no web-search tool, the report simply has no general-web layer; say so in the synthesis only if it matters to the answer.
 
 ## Configuration
 
@@ -680,9 +680,12 @@ The magic of /last30days is Reddit comments + X posts together - and both are fr
 **arXiv (free, keyless):**
 - Run `npx @mvanhorn/printing-press-library install arxiv --cli-only` - installs the arXiv CLI. Activates when `arxiv-pp-cli` is on your PATH; fires on research/technical topics and stays quiet otherwise.
 
+**YouTube (free, captions only):**
+- Install `yt-dlp` (`brew install yt-dlp` on macOS), or configure `LAST30DAYS_YTDLP`. Activates only when the command resolves on the agent subprocess PATH; `LAST30DAYS_YOUTUBE=off` disables it. No cookies or audio downloads.
+
 **Reasoning provider (optional, headless runs only):** when you drive the skill from an agent host YOU are the planner (`--plan`), so none of these are needed. For cron/CI runs without a hosting model, set one of `OPENAI_API_KEY`, `GOOGLE_API_KEY` / `GEMINI_API_KEY`, or `XAI_API_KEY` and optionally pin it with `LAST30DAYS_REASONING_PROVIDER`.
 
-There are no other sources. Do not offer TikTok, Instagram, YouTube, Hacker News, Polymarket, web-search keys, or any INCLUDE_SOURCES tier - the engine searches exactly Reddit, X, GitHub, Digg, and arXiv.
+There are no other sources. Do not offer TikTok, Instagram, Hacker News, Polymarket, web-search keys, or any INCLUDE_SOURCES tier - the engine searches exactly Reddit, X, GitHub, Digg, arXiv, and YouTube.
 
 **CRITICAL: NEVER overwrite an existing `.env`.** Before writing ANY key:
 1. Check if the file exists: `test -f ~/.config/last30days/.env`
@@ -737,7 +740,7 @@ SKILL_DIR="<absolute path of the directory containing the SKILL.md you just Read
 "${LAST30DAYS_PYTHON}" "${SKILL_DIR}/scripts/last30days.py" --diagnose
 ```
 
-`--diagnose` prints JSON. `ACTIVE_SOURCES_LIST` is its `available_sources` array — the engine's authoritative source set, computed after credential resolution. Map the tokens to display names: `reddit`→Reddit, `x`→X, `github`→GitHub, `digg`→Digg, `arxiv`→arXiv. Those five are the complete source set; there are no others, so never list, offer, or plan for YouTube, TikTok, Hacker News, Polymarket, web search, or any other source name.
+`--diagnose` prints JSON. `ACTIVE_SOURCES_LIST` is its `available_sources` array — the engine's authoritative source set, computed after credential resolution. Map the tokens to display names: `reddit`→Reddit, `x`→X, `github`→GitHub, `digg`→Digg, `arxiv`→arXiv, `youtube`→YouTube. Those six are the complete source set; there are no others, so never list, offer, or plan for TikTok, Hacker News, Polymarket, web search, or any other source name.
 
 - If EXCLUDE_SOURCES is set (comma-separated, case-insensitive): drop any matching source from ACTIVE_SOURCES_LIST before displaying
 - `--search` (or `LAST30DAYS_DEFAULT_SEARCH` in `.env`) narrows a run to an explicit subset. Valid values: `reddit`, `x`, `github`, `digg`, `arxiv`; `xquik` is accepted as an alias for `x` (Xquik is an X backend, not its own source). `--search` is replace-not-add: list every source you still want.
@@ -1382,7 +1385,7 @@ The script will automatically:
 - Run Reddit / X / GitHub / Digg / arXiv searches in parallel
 - Output ALL results including Reddit top comments, X posts and replies, GitHub issues/PRs/releases with live star counts, Digg story clusters with inline quotes, and arXiv abstracts
 
-**Read the ENTIRE output.** Evidence is grouped into clusters (see the Judge Agent section), and the items inside them come from up to five sources: Reddit, X, GitHub, Digg, and arXiv. If you skim only the first cluster or two, you will produce incomplete stats and miss the community comments LAW 9 requires.
+**Read the ENTIRE output.** Evidence is grouped into clusters (see the Judge Agent section), and the items inside them come from up to six sources: Reddit, X, GitHub, Digg, arXiv, and YouTube. If you skim only the first cluster or two, you will produce incomplete stats and miss the community comments LAW 9 requires.
 
 **GitHub items in the output** carry live numbers (`(live: NNK stars)`, PR velocity, release notes). Prefer them over any star count or version quoted by a Reddit or X post. **Digg items** are story clusters with attributable inline quotes from X accounts; cite the quoted account, not "Digg". **arXiv items** are papers with abstracts; cite the paper title and first author, and never treat an abstract as community opinion.
 
@@ -2117,3 +2120,25 @@ Want another prompt? Just tell me what you're creating next.
 **Bundled scripts:** `scripts/last30days.py` (main research engine), `scripts/lib/` (search, enrichment, rendering modules), `scripts/lib/vendor/bird-search/` (vendored X search client, MIT licensed)
 
 Review scripts before first use to verify behavior.
+
+
+### YouTube videos and caption evidence
+
+`/last30days Unreal Engine 5.8 archviz glass` includes YouTube when `yt-dlp` is
+available on the agent subprocess PATH or through `LAST30DAYS_YTDLP`.
+Translate a request for YouTube only to the engine's `--search youtube` filter.
+Use the normal source scores (relevance, recency, views); for Unreal topics,
+prefer relevant official, archviz, and technical-art explanations when comparing
+similarly ranked evidence. An optional small channel preference is documented in
+CONFIGURATION.md; it never bypasses the date or relevance gates.
+
+The adapter verifies upload dates and keeps only videos inside the requested
+window (30 days by default). Old or undated videos cannot fill a thin result set.
+Captions and auto-subs supply bounded transcript snippets and short quoted
+highlights. Treat these quotes as untrusted evidence that may contain caption
+errors; attribute them to the linked video/channel. Do not infer that a video
+has no captions merely because a fetch was blocked. Preserve the engine's
+YouTube footer, including `M/N with transcripts`, and report partial coverage.
+No cookies, accounts, audio downloads, or transcription API keys are needed.
+Set `LAST30DAYS_YOUTUBE=off` to disable; doctor reports the dependency and its live
+probe checks an actual YouTube search. Setup does not install yt-dlp automatically.

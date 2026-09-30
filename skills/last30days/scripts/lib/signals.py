@@ -10,6 +10,7 @@ from . import dates, relevance, schema
 # Editorial signal-to-noise scores on a 1.0 baseline; social platforms are
 # discounted for noise.
 SOURCE_QUALITY = {
+    "youtube": 0.85,
     "digg": 0.85,
     "arxiv": 0.9,
     "reddit": 0.6,
@@ -41,6 +42,8 @@ def local_relevance(
     if "project-mode" in labels:
         score = max(score, 0.8)
 
+    if item.source == "youtube" and score >= 0.2:
+        score = min(1.0, score + min(0.03, max(0.0, float(item.metadata.get("channel_boost") or 0))))
     return score
 
 
@@ -135,6 +138,7 @@ def top_comment_vote_signal(candidate: schema.Candidate) -> float:
 # Reddit uses a custom function because it includes a dedicated 10%
 # top-comment-score slot (see _reddit_engagement).
 ENGAGEMENT_WEIGHTS: dict[str, list[tuple[str, float]]] = {
+    "youtube":      [("views", 0.50), ("likes", 0.35), ("comments", 0.15)],
     "x":            [("likes", 0.55), ("reposts", 0.25), ("replies", 0.15), ("quotes", 0.05)],
     "digg":         [("postCount", 0.40), ("uniqueAuthors", 0.30), ("rank_score", 0.30)],
 }

@@ -216,6 +216,7 @@ SOURCE_LABELS = {
     "github": "GitHub",
     "digg": "Digg",
     "arxiv": "arXiv",
+    "youtube": "YouTube",
 }
 
 # Legacy markers. Older saved briefs wrapped a private local-files section in
@@ -1728,6 +1729,8 @@ def render_full(report: schema.Report, save_path: str | None = None) -> str:
                         f"  Top comment {attribution}{vote_part}: "
                         f"{_format_untrusted_evidence(excerpt, 200, continuation_indent='  ')}"
                     )
+            for quote in _transcript_highlights(item):
+                lines.append(f"  Transcript (may contain caption errors): {_format_untrusted_evidence(quote, 300)}")
             # Digg: inline X-post quotes attached to the cluster.
             for post in _digg_posts_for(item, limit=3):
                 lines.append(f"  > {_format_digg_quote(post)}")
@@ -2061,6 +2064,8 @@ def _render_candidate(
             f"   - {attribution}{vote_part}: "
             f"{_format_untrusted_evidence(excerpt.strip(), 240)}"
         )
+    for quote in _transcript_highlights(primary):
+        lines.append(f"   - Transcript (may contain caption errors): {_format_untrusted_evidence(quote, 300)}")
     for post in _digg_posts_for(primary):
         lines.append(f"   - {_format_digg_quote(post)}")
     insight = _comment_insight(primary)
@@ -2199,6 +2204,7 @@ _FOOTER_SOURCES: list[tuple[str, str, str, str, list[tuple[str, str]]]] = [
         [("postCount", "posts"), ("uniqueAuthors", "authors")],
     ),
     ("arxiv", "📄", "arXiv", "paper", []),
+    ("youtube", "▶", "YouTube", "video", [("views", "views"), ("likes", "likes")]),
 ]
 
 
@@ -2244,6 +2250,9 @@ def _build_source_footer_lines(report: schema.Report) -> list[str]:
             if total > 0:
                 total_str = f"{total:,}" if total >= 1000 else str(total)
                 parts.append(f"{total_str} {word}")
+        if source_key == "youtube":
+            with_transcripts = sum(bool(it.metadata.get("transcript_snippet") or it.metadata.get("transcript_highlights")) for it in items)
+            parts.append(f"{with_transcripts}/{len(items)} with transcripts")
         stats = " │ ".join(parts)
         line = _footer_line_for_source(emoji, label, len(items), item_word, stats)
         # Counts only: run diagnostics live in doctor --postmortem, the saved
@@ -2433,6 +2442,7 @@ ENGAGEMENT_DISPLAY: dict[str, list[tuple[str, str]]] = {
         ("comments", "cmt"),
     ],
     "digg": [("postCount", "posts"), ("uniqueAuthors", "auth")],
+    "youtube": [("views", "views"), ("likes", "likes"), ("comments", "cmt")],
 }
 
 
@@ -2914,3 +2924,9 @@ def _format_untrusted_evidence(
     for line in lines[1:]:
         safe.append(continuation_indent + _escape_atx_heading_prefix(line))
     return "\n".join(safe)
+
+
+def _transcript_highlights(item: schema.SourceItem | None) -> list[str]:
+    if not item or item.source != "youtube":
+        return []
+    return (item.metadata.get("transcript_highlights") or [])[:5]

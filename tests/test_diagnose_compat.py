@@ -40,7 +40,7 @@ from unittest import mock
 import last30days as cli
 
 # Source names the engine can emit in available_sources today (v3.10.0).
-KNOWN_SOURCE_NAMES = {"reddit", "x", "github", "digg", "arxiv"}
+KNOWN_SOURCE_NAMES = {"reddit", "x", "github", "digg", "arxiv", "youtube"}
 
 # ---------------------------------------------------------------------------
 # Frozen shapes (exact key sets — additions to legacy JSON are prohibited).

@@ -94,24 +94,24 @@ ALLOWED_INTENTS = {
 ALLOWED_CLUSTER_MODES = {"none", "story", "workflow", "market", "debate"}
 
 QUICK_SOURCE_PRIORITY = {
-    "factual": ["reddit", "x", "xquik", "github", "digg"],
-    "product": ["reddit", "x", "xquik", "github", "digg"],
-    "concept": ["reddit", "x", "xquik", "arxiv", "digg"],
-    "opinion": ["reddit", "x", "xquik", "digg"],
-    "how_to": ["reddit", "x", "xquik", "github"],
-    "comparison": ["reddit", "x", "xquik", "github", "digg"],
-    "breaking_news": ["x", "xquik", "reddit", "digg"],
-    "prediction": ["x", "xquik", "reddit", "digg"],
+    "factual": ["reddit", "x", "xquik", "github", "digg", "youtube"],
+    "product": ["reddit", "x", "xquik", "github", "digg", "youtube"],
+    "concept": ["reddit", "x", "xquik", "arxiv", "digg", "youtube"],
+    "opinion": ["reddit", "x", "xquik", "digg", "youtube"],
+    "how_to": ["reddit", "x", "xquik", "github", "youtube"],
+    "comparison": ["reddit", "x", "xquik", "github", "digg", "youtube"],
+    "breaking_news": ["x", "xquik", "reddit", "digg", "youtube"],
+    "prediction": ["x", "xquik", "reddit", "digg", "youtube"],
 }
 SOURCE_PRIORITY = {
-    "factual": ["reddit", "x", "github", "digg", "arxiv"],
-    "product": ["reddit", "x", "github", "digg"],
-    "concept": ["reddit", "x", "arxiv", "digg", "github"],
-    "opinion": ["reddit", "x", "digg"],
-    "how_to": ["reddit", "x", "github"],
-    "comparison": ["reddit", "x", "github", "digg"],
-    "breaking_news": ["x", "reddit", "digg"],
-    "prediction": ["x", "reddit", "digg"],
+    "factual": ["reddit", "x", "github", "digg", "arxiv", "youtube"],
+    "product": ["reddit", "x", "github", "digg", "youtube"],
+    "concept": ["reddit", "x", "arxiv", "digg", "github", "youtube"],
+    "opinion": ["reddit", "x", "digg", "youtube"],
+    "how_to": ["reddit", "x", "github", "youtube"],
+    "comparison": ["reddit", "x", "github", "digg", "youtube"],
+    "breaking_news": ["x", "reddit", "digg", "youtube"],
+    "prediction": ["x", "reddit", "digg", "youtube"],
 }
 SOURCE_LIMITS = {
     "quick": {
@@ -135,6 +135,7 @@ SOURCE_CAPABILITIES = {
     "xquik": {"discussion", "social"},
     "digg": {"discussion", "social", "link"},
     "arxiv": {"reference", "analysis", "link"},
+    "youtube": {"video", "video_longform", "discussion"},
     "github": {"discussion", "link"},
 }
 
@@ -772,7 +773,7 @@ def _default_source_weights(intent: str, sources: list[str]) -> dict[str, float]
             if source in base:
                 base[source] += bonus
     elif intent == "how_to":
-        for source, bonus in {"github": 0.8, "reddit": 0.5}.items():
+        for source, bonus in {"github": 0.8, "reddit": 0.5, "youtube": 2.0}.items():
             if source in base:
                 base[source] += bonus
     elif intent == "factual":

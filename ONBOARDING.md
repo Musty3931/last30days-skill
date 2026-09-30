@@ -117,7 +117,7 @@ Expected: a `Research complete` line with non-zero counts for Reddit and X.
 - Person topics work best when the skill can find their X handle and GitHub user. Product topics work best with a GitHub repo.
 - `/last30days trending` or `/last30days what's hot in AI agents` runs discovery mode across Reddit, Digg, and X.
 - "A vs B" topics run a comparison. The skill names the peers itself; there is no automatic competitor discovery.
-- Results save to `~/Documents/Last30Days` (or `LAST30DAYS_MEMORY_DIR`). Ask "search my library for X" to query past runs.
+- `LAST30DAYS_MEMORY_DIR` defaults to `~/Documents/Last30Days`; set it to change where results save. Ask "search my library for X" to query past runs.
 
 ## Known limits of this fork
 

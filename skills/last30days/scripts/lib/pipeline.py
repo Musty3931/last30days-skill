@@ -52,6 +52,7 @@ from . import (
     xai_x,
     xquik,
     xurl_x,
+    youtube_yt,
 )
 from .cluster import cluster_candidates
 from . import fusion
@@ -73,6 +74,7 @@ SEARCH_ALIAS = {
 }
 
 MAX_SOURCE_FETCHES: dict[str, int] = {
+    "youtube": 1,
     "x": 2,
 }
 
@@ -131,6 +133,7 @@ MOCK_AVAILABLE_SOURCES = [
     "github",
     "digg",
     "arxiv",
+    "youtube",
 ]
 
 
@@ -184,6 +187,8 @@ def available_sources(
     # The adapter relevance-and-recency gates so it stays quiet off-topic.
     if which("arxiv-pp-cli"):
         available.append("arxiv")
+    if youtube_yt.is_enabled(config) and youtube_yt.is_ytdlp_installed(config):
+        available.append("youtube")
     # xquik is a backend of the single "x" source (see env.x_backend_chain),
     # not a separate parallel source — registered via the "x" entry above.
     exclude = {s.strip().lower() for s in (config.get("EXCLUDE_SOURCES") or "").split(",") if s.strip()}
@@ -1752,6 +1757,8 @@ def run(
     internal_subrun: bool = False,
     save_dir: Path | str | None = None,
 ) -> schema.Report:
+    if not internal_subrun:
+        youtube_yt.reset_search_cache()
     settings = _resolve_depth_settings(depth, config)
     requested_sources = normalize_requested_sources(requested_sources)
     # Wall-clock origin for budget-aware enrichment lanes.
@@ -2695,6 +2702,9 @@ def _result_outcome_artifact(source: str, result: Any) -> dict[str, Any]:
     if source == "reddit":
         state = reddit.classify_run_failure(detail)
         attempted = True
+    elif source == "youtube":
+        state = youtube_yt.classify_run_failure(detail)
+        attempted = state != health.SKIPPED_UNCONFIGURED
     elif source == "x":
         state = bird_x.classify_run_failure(detail)
         attempted = True
@@ -3482,6 +3492,7 @@ def _retrieve_stream(*args, **kwargs) -> tuple[list[dict], dict]:
         "x",
         "digg",
         "arxiv",
+        "youtube",
         "github",
     }
     if module_backed:
@@ -3857,6 +3868,12 @@ def _retrieve_stream_impl(
         # _finalize_items_by_source so it runs on the items that actually
         # survive dedupe rather than on top-K of the raw fanout.
         return items, _result_outcome_artifact(source, result)
+    if source == "youtube":
+        result = youtube_yt.search_and_transcribe(
+            raw_topic or topic or subquery.search_query, from_date, to_date, depth=depth,
+        )
+        return youtube_yt.parse_youtube_response(result), _result_outcome_artifact(source, result)
+
     if source == "arxiv":
         result = arxiv.search_arxiv(subquery.search_query, from_date, to_date, depth=depth)
         # Relevance keys off the stable research topic, not the per-subquery
@@ -3960,6 +3977,15 @@ def _mock_stream_results(source: str, subquery: schema.SubQuery) -> tuple[list[d
                 "why_relevant": "Mock Digg cluster",
             },
         ],
+        "youtube": [{
+            "video_id": "YTmock00001", "title": f"{subquery.search_query} tutorial",
+            "url": "https://www.youtube.com/watch?v=YTmock00001",
+            "channel_name": "Example channel", "date": dates.get_date_range(5)[0],
+            "engagement": {"views": 12000, "likes": 400, "comments": 30},
+            "relevance": 0.9, "description": f"Recent {subquery.search_query} tutorial",
+            "transcript_snippet": f"This tutorial explains the practical details of {subquery.search_query} with three examples.",
+            "transcript_highlights": [f"This tutorial explains the practical details of {subquery.search_query} with three examples."],
+        }],
         "arxiv": [
             {
                 "id": f"http://arxiv.org/abs/2606.00001v1-{slug}",

@@ -13,7 +13,7 @@ Per-client patterns and the experimental beta channel are at the bottom.
 
 ## Why this document exists
 
-This is a focused **configuration reference** maintained alongside the engine. The runtime contract (the voice rules, the planner protocol, the LAWs the synthesizing model follows) lives in [`skills/last30days/SKILL.md`](skills/last30days/SKILL.md) - that file is authoritative when the two ever differ. This file's job is narrower: surface every knob a user or operator can turn, in one place, kept current with the code so client-facing setups stay reliable. This fork searches exactly five sources - Reddit, X, GitHub, Digg, and arXiv - so every knob below belongs to one of those, to the reasoning provider, or to output/storage. New configuration knobs added to the engine should be reflected here in the same PR.
+This is a focused **configuration reference** maintained alongside the engine. The runtime contract (the voice rules, the planner protocol, the LAWs the synthesizing model follows) lives in [`skills/last30days/SKILL.md`](skills/last30days/SKILL.md) - that file is authoritative when the two ever differ. This file's job is narrower: surface every knob a user or operator can turn, in one place, kept current with the code so client-facing setups stay reliable. This fork searches six sources - Reddit, X, GitHub, Digg, arXiv, and YouTube - so every knob below belongs to one of those, to the reasoning provider, or to output/storage. New configuration knobs added to the engine should be reflected here in the same PR.
 
 ---
 
@@ -124,9 +124,10 @@ The project-scoped file is useful for **intentional per-client setups**: drop a 
 | GitHub | none required. `gh` CLI auth or `GITHUB_TOKEN` raises the rate limit and deepens person-mode (`--github-user`) / project-mode (`--github-repo`) fetches | always on | yes |
 | Digg | `digg-pp-cli` on PATH (auto-installed during first-run setup via `npx -y @mvanhorn/printing-press-library@0.1.16 install digg --cli-only`; binary defaults to `$HOME/.local/bin` — Hermes/OpenClaw agent subprocesses must inherit that dir on PATH for Digg to activate) | always on if `digg-pp-cli` on PATH | yes (free, keyless, read-only) |
 | arXiv | `arxiv-pp-cli` on PATH (auto-installed during first-run setup via `npx -y @mvanhorn/printing-press-library@0.1.16 install arxiv --cli-only`) | always on if `arxiv-pp-cli` on PATH; fires on research/technical topics and stays quiet otherwise (relevance + recency gating) | yes (free, keyless) |
+| YouTube | `yt-dlp` on PATH or `LAST30DAYS_YTDLP` | videos and captions; no API key, cookies, or audio downloads | yes |
 | Planner / reranker (headless runs only) | one of `GOOGLE_API_KEY` / `GEMINI_API_KEY` / `GOOGLE_GENAI_API_KEY`, `OPENAI_API_KEY`, `XAI_API_KEY`; pin with `LAST30DAYS_REASONING_PROVIDER` | internal query planning + reranking when no hosting model passes `--plan` | provider pricing; unused when an agent host drives the skill |
 
-That table is exhaustive. There is no YouTube, TikTok, Instagram, Hacker News, Polymarket, web-search, or Perplexity key to set, and `INCLUDE_SOURCES` / `EXCLUDE_SOURCES` only accept the five names above.
+That table is exhaustive. There is no YouTube, TikTok, Instagram, Hacker News, Polymarket, web-search, or Perplexity key to set, and `EXCLUDE_SOURCES` / `LAST30DAYS_DEFAULT_SEARCH` select from the six source names above.
 
 **Reddit keyless pacing.** Unauthenticated reddit.com requests (RSS, listing partials, shreddit) share one token bucket. The default is `1` request per second with a burst of 2, slow enough that engine fan-out does not trip HTTP 429 on a typical home IP. Set `LAST30DAYS_REDDIT_KEYLESS_RATE` to a float req/sec to trade wall-clock for coverage: higher finishes faster and loses more sub-requests to 429; lower is safer and slower. Invalid or non-positive values fall back to `1`. A 429'd RSS or listing sub-request is retried once after a short jittered pause, still through the limiter. Identical reddit.com requests within one command (subreddit listings, listing feeds, comment pages, which repeat across subqueries) are fetched once and memoized, so a typical four-subquery run issues roughly a quarter of the requests it used to. Comment enrichment covers 4 / 8 / 12 threads per subquery at quick / default / deep depth. This does not change ScrapeCreators routing (`LAST30DAYS_REDDIT_BACKEND` / `LAST30DAYS_REDDIT_SC_MIN_ITEMS`).
 
@@ -180,7 +181,7 @@ CT0=<your-ct0-token>
 # OR pin a backend explicitly (bird / xai / xurl / xquik / grok)
 # LAST30DAYS_X_BACKEND=xai
 
-# Source set (all five are on when available; trim with either of these)
+# Source set (all six are on when available; trim with either of these)
 # EXCLUDE_SOURCES=arxiv
 # LAST30DAYS_DEFAULT_SEARCH=reddit,x,github
 ```
@@ -293,7 +294,7 @@ By default the engine decides the source set per query (everything available, mi
 LAST30DAYS_DEFAULT_SEARCH=reddit,x,github
 ```
 
-Accepts the same comma-separated names as `--search` (`reddit`, `x`, `github`, `digg`, `arxiv`); the only alias is `xquik` → `x`, because Xquik is a backend of the single X source rather than a source of its own. Precedence: an explicit `--search` on the command line always wins; `LAST30DAYS_DEFAULT_SEARCH` applies only when the flag is omitted; when neither is set, per-query behavior is unchanged. `INCLUDE_SOURCES` / `EXCLUDE_SOURCES` keep their existing additive/subtractive roles on whichever set is selected.
+Accepts the same comma-separated names as `--search` (`reddit`, `x`, `github`, `digg`, `arxiv`, `youtube`); the only alias is `xquik` → `x`, because Xquik is a backend of the single X source rather than a source of its own. Precedence: an explicit `--search` on the command line always wins; `LAST30DAYS_DEFAULT_SEARCH` applies only when the flag is omitted; when neither is set, per-query behavior is unchanged. `EXCLUDE_SOURCES` removes sources from whichever set is selected.
 
 ### Audience register (`LAST30DAYS_REGISTER`)
 
@@ -377,6 +378,36 @@ Add `--debug` to any run to emit verbose `[DEBUG]` log lines to stderr from the 
 **Always-on alternative:** set `LAST30DAYS_DEBUG=true` in your `.env` or export it from your shell. The flag still works as before; the env var is purely additive — works whether shell-exported or set in `.env`.
 
 ---
+
+### YouTube (yt-dlp and captions)
+
+`/last30days Unreal Engine 5.8 archviz glass` searches YouTube automatically when
+`yt-dlp` is on the **agent subprocess PATH**. Install it on macOS with
+`brew install yt-dlp`. This lane needs no API key, account, cookies, audio
+transcription package, or audio download.
+
+| Setting | Default | Effect |
+| --- | --- | --- |
+| `LAST30DAYS_YOUTUBE` | `on` | `off` disables the lane, including its live probe. |
+| `LAST30DAYS_YTDLP` | `yt-dlp` on PATH | Executable path or shell-quoted argument list, e.g. `/opt/homebrew/bin/yt-dlp` or `uvx yt-dlp`; executed without a shell. Quote paths containing spaces. |
+| `LAST30DAYS_YT_SUB_LANGS` | `en,es,pt` | Caption-language priority; manual captions and auto-subs are supported. |
+| `LAST30DAYS_YOUTUBE_CHANNELS` | empty | Optional comma-separated exact channel names, e.g. `Unreal Engine,Unreal Sensei`; adds at most 0.03 to relevance for already relevant videos. Normal relevance, recency, and engagement ranking still applies. |
+
+These settings support process environment > global `.env` > defaults.
+Doctor checks the configured command and `doctor --probe` performs a bounded live
+search. A working binary alone does not prove that YouTube permits live access.
+For development or scripting, `python3 skills/last30days/scripts/last30days.py
+"Unreal Engine 5.8 archviz glass" --search youtube --emit compact` isolates the lane.
+
+The compatible search prefix is `ytsearchN:` (not `ytsearchdate`). Flat search
+lacks upload dates, so the adapter fetches metadata for only its best candidates
+in a pool of two, caching metadata and captions within the run. Quick/default/deep
+use at most 1/2/3 searches, 6/8/16 metadata calls **per search**, and 0/2/8 caption
+attempts across merged results: at most 7/20/59 yt-dlp invocations per source
+retrieval, less when cached. One YouTube retrieval stream runs per research pass.
+Both date bounds are enforced; undated, old, and future videos are excluded even
+if no recent results remain. Each transcript is capped at 5,000 words and its
+short highlights appear as attributed evidence. No paid or audio fallback runs.
 
 ## Trend monitoring (`--store` + watchlist + briefings)
 
