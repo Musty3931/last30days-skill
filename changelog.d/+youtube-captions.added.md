@@ -1,1 +1,0 @@
-Add optional keyless YouTube research via yt-dlp with verified upload dates, bounded caption extraction, transcript highlights, and doctor diagnostics. Configure the command with LAST30DAYS_YTDLP or disable the lane with LAST30DAYS_YOUTUBE=off.

@@ -482,6 +482,8 @@ def get_config(policy: ConfigLoadPolicy | None = None) -> dict[str, Any]:
         ('LAST30DAYS_YOUTUBE_CHANNELS', None),
         ('LAST30DAYS_REDDIT_BACKEND', None),
         ('LAST30DAYS_ARXIV_BACKEND', 'openalex'),
+        ('LAST30DAYS_ARXIV_FULLTEXT', 'off'),
+        ('LAST30DAYS_ARXIV_FULLTEXT_MAX', None),
         ('OPENALEX_API_KEY', None),
         ('LAST30DAYS_MAILTO', None),
         ('LAST30DAYS_EPICFORUMS', 'on'),

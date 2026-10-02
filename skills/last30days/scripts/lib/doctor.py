@@ -494,6 +494,8 @@ def _arxiv_record(config):
         record = _cli_gated_record(config, "arxiv-pp-cli", "arxiv")
         record["detail"] = "cli backend; " + record["detail"]
     record["active_backend"] = backend
+    if arxiv.fulltext_enabled(config):
+        record["fulltext"] = {"enabled": True, "pdftotext": bool(shutil.which("pdftotext"))}
     return record
 
 
@@ -868,6 +870,12 @@ def _audit_source_line(name: str, record: Dict[str, Any], state: str) -> str:
         parts.append(f"; fix: {record['fix']}")
     # Backup sub-lanes render on their own indented lines (U7),
     # after the primary line (with its fix) is complete.
+    if record.get("fulltext"):
+        fulltext = record["fulltext"]
+        probe = fulltext.get("probe") or {}
+        html_state = "reachable" if probe.get("ok") else "unavailable" if probe.get("probed") else "unverified"
+        pdf = "present" if fulltext.get("pdftotext") else "absent"
+        parts.append(f"\n      full text: on; arxiv.org/html {html_state}; pdftotext {pdf} (optional)")
     for sub in _sub_lane_lines(record):
         parts.append("\n" + sub)
     return "".join(parts)
@@ -1129,7 +1137,7 @@ _SECRET_CONFIG_VARS = KEY_PRESENCE_VARS + (
 # backend names (e.g. "bird"), never secrets.
 _FINGERPRINT_PIN_VARS = (
     env.X_BACKEND_PIN_VAR, env.REDDIT_BACKEND_PIN_VAR, "LAST30DAYS_ARXIV_BACKEND",
-    "LAST30DAYS_YOUTUBE", "LAST30DAYS_YTDLP",
+    "LAST30DAYS_YOUTUBE", "LAST30DAYS_YTDLP", "LAST30DAYS_ARXIV_FULLTEXT",
 )
 
 # Top-level report keys the renderers read unguarded; a cached report
@@ -1372,6 +1380,15 @@ def _http_ok(
 
 
 def _probe_source(name: str, config: Dict[str, Any], timeout: float) -> Optional[Dict[str, Any]]:
+    if name == "arxiv_fulltext":
+        if not arxiv.fulltext_enabled(config):
+            return None
+        try:
+            page = arxiv._fulltext_request("2405.15793", "html", time.monotonic() + timeout)
+            ok = "<article" in page.lower()
+            return {"ok": ok, "detail": "arxiv.org/html article" if ok else "no article in HTML", "probed": True}
+        except Exception as exc:
+            return {"ok": False, "detail": type(exc).__name__, "probed": True}
     if name == "epicforums":
         if not epicforums.enabled(config):
             return None
@@ -1417,6 +1434,8 @@ def _probe_sources(config: Dict[str, Any], timeout: int) -> Dict[str, Dict[str, 
     source only (never a hung command); other probes are unaffected.
     """
     names = _probeable_sources()
+    if arxiv.fulltext_enabled(config):
+        names = (*names, "arxiv_fulltext")
     results: Dict[str, Dict[str, Any]] = {}
     with concurrent.futures.ThreadPoolExecutor(
         max_workers=min(8, len(names) or 1)
@@ -1443,6 +1462,11 @@ def _probe_sources(config: Dict[str, Any], timeout: int) -> Dict[str, Dict[str, 
 def _apply_probe(report: Dict[str, Any], probe_results: Dict[str, Dict[str, Any]]) -> None:
     """Attach probe results and re-derive audit_state for probed sources."""
     for name, res in probe_results.items():
+        if name == "arxiv_fulltext":
+            record = (report.get("sources") or {}).get("arxiv")
+            if record is not None and record.get("fulltext"):
+                record["fulltext"]["probe"] = res
+            continue
         record = (report.get("sources") or {}).get(name)
         if record is None:
             continue

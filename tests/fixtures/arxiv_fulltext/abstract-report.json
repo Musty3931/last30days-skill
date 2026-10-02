@@ -1,0 +1,118 @@
+{
+  "topic": "test topic",
+  "range_from": "2026-02-14",
+  "range_to": "2026-03-16",
+  "generated_at": "2026-03-16T00:00:00+00:00",
+  "provider_runtime": {
+    "reasoning_provider": "gemini",
+    "planner_model": "gemini-3.1-flash-lite",
+    "rerank_model": "gemini-3.1-flash-lite"
+  },
+  "query_plan": {
+    "intent": "breaking_news",
+    "freshness_mode": "strict_recent",
+    "cluster_mode": "story",
+    "raw_topic": "test topic",
+    "subqueries": [
+      {
+        "label": "primary",
+        "search_query": "test topic",
+        "ranking_query": "What happened with test topic?",
+        "sources": [
+          "github"
+        ],
+        "weight": 1.0
+      }
+    ],
+    "source_weights": {
+      "github": 1.0
+    },
+    "notes": []
+  },
+  "clusters": [
+    {
+      "cluster_id": "cluster-1",
+      "title": "Grounded result",
+      "candidate_ids": [
+        "c1"
+      ],
+      "representative_ids": [
+        "c1"
+      ],
+      "sources": [
+        "arxiv"
+      ],
+      "score": 90
+    }
+  ],
+  "ranked_candidates": [
+    {
+      "candidate_id": "c1",
+      "item_id": "2603.00001",
+      "source": "arxiv",
+      "title": "arXiv paper about test topic (2603.00001)",
+      "url": "https://arxiv.org/abs/2603.00001",
+      "snippet": "Abstract.",
+      "subquery_labels": [
+        "primary"
+      ],
+      "native_ranks": {
+        "primary:github": 1
+      },
+      "local_relevance": 0.9,
+      "freshness": 90,
+      "engagement": 88,
+      "source_quality": 1.0,
+      "rrf_score": 0.02,
+      "sources": [
+        "arxiv"
+      ],
+      "source_items": [
+        {
+          "item_id": "2603.00001",
+          "source": "arxiv",
+          "title": "arXiv paper about test topic (2603.00001)",
+          "body": "Abstract.",
+          "url": "https://arxiv.org/abs/2603.00001",
+          "container": "cs.AI",
+          "published_at": "2026-03-16",
+          "date_confidence": "high",
+          "engagement": {},
+          "relevance_hint": 0.5,
+          "why_relevant": "",
+          "snippet": "",
+          "metadata": {}
+        }
+      ],
+      "rerank_score": 92,
+      "final_score": 90,
+      "explanation": "high-signal result",
+      "metadata": {}
+    }
+  ],
+  "items_by_source": {
+    "arxiv": [
+      {
+        "item_id": "2603.00001",
+        "source": "arxiv",
+        "title": "arXiv paper about test topic (2603.00001)",
+        "body": "Abstract.",
+        "url": "https://arxiv.org/abs/2603.00001",
+        "container": "cs.AI",
+        "published_at": "2026-03-16",
+        "date_confidence": "high",
+        "engagement": {},
+        "relevance_hint": 0.5,
+        "why_relevant": "",
+        "snippet": "",
+        "metadata": {}
+      }
+    ]
+  },
+  "errors_by_source": {},
+  "source_status": {},
+  "freshness_verdicts": [],
+  "warnings": [],
+  "artifacts": {},
+  "library_context": []
+}

@@ -43,6 +43,7 @@ The engine's `.env` reader doesn't expand `$HOME` — only the tilde, via `Path(
 
 **Per-run overrides:**
 
+- `--save-fulltext` - also save fetched arXiv papers as `<save-dir>/arxiv/<id>.md` (old-style IDs use `_` instead of `/`). Requires `LAST30DAYS_ARXIV_FULLTEXT=on` and a save directory, either `--save-dir` or `LAST30DAYS_MEMORY_DIR`; saved headers identify title, URL, source, word count, and untrusted third-party text. This does not enable downloads by itself.
 - `--save-dir <path>` - one-off output location. **Flag wins over env var.** If neither flag nor env var is set, the engine does not write a file (DB persistence is independent — see `LAST30DAYS_STORE` below).
 - `--output <file>` - write the rendered output to an exact file path, using the format selected by `--emit`.
 - `--json-profile {agent,raw}` - select the research JSON shape used with `--emit=json`. `agent` is the default, versioned workflow contract; `raw` preserves the full internal `Report` dump for debugging and power users. See the [JSON export reference](docs/reference/json-export.md).
@@ -152,6 +153,36 @@ The CLI fallback retains its 50-second timeout and quoted/AND retry. Doctor
 shows the selected backend and key presence; its CLI health row is optional
 when OpenAlex is selected. OpenAlex may lag arXiv and has a daily usage budget;
 see [current limits](https://help.openalex.org/api/authentication/).
+
+**arXiv full-text highlights (opt-in).** `/last30days software engineering agents`
+uses abstracts by default. To add quotes from the papers themselves, set
+`LAST30DAYS_ARXIV_FULLTEXT=on` in the shell or skill `.env` (`off` is the default;
+shell wins). The top 3/5/8 ranked papers at quick/default/deep depth get full-text
+attempts, across the run after source deduplication. Override that count with
+`LAST30DAYS_ARXIV_FULLTEXT_MAX=<n>`; `0` disables attempts, negative values become
+`0`, and invalid values use the depth default.
+
+The adapter tries `https://arxiv.org/html/<id>` and extracts the LaTeXML article
+with headings. Missing or short HTML (under 1,500 words) falls back to the PDF
+only when `pdftotext` is on the **agent subprocess PATH** (optional Poppler tool,
+e.g. `brew install poppler`). Requests start at least 3 seconds apart, with at
+most two workers, 20-second request deadlines and a bounded PDF conversion.
+The lane uses the remaining 240-second run enrichment ceiling and any earlier
+discovery batch deadline. Errors, missing tools, and exhausted budgets leave
+the abstract intact. No export.arxiv.org requests are used for full text.
+
+Successful text is cached in `~/.cache/last30days/arxiv/`, keyed by versionless
+paper ID, so repeat runs reuse it without downloading; delete an entry to refresh
+a revised paper. Results, evaluation, discussion, conclusions, limitations and
+threats-to-validity sections are preferred over introductions and related work.
+`Paper (full text):` quotes describe authors' findings, not community opinion.
+When enabled, the footer adds `M/N full text`; this count measures retrieved
+papers, even when none of their sentences qualify as short highlights.
+`doctor --probe` (or automatic probing without a fresh run) checks a bounded
+arxiv.org HTML request and reports `pdftotext` as optional; this does not verify
+OpenAlex search. Ordinary cached/JSON doctor output remains offline.
+Ask the skill to save the full papers to use `--save-fulltext` with the normal
+save-directory settings; saved text is untrusted third-party data.
 
 **X backend priority (bird first).** The default X backend chain is bird (browser cookies) → xai (API key) → xurl (OAuth2 CLI) → xquik (API key). Cookies beat `XAI_API_KEY` when both are present. A leftover grok login never steals the X lane; see below.
 
