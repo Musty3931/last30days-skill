@@ -332,6 +332,10 @@ def _normalize_arxiv(
     if not isinstance(authors, list):
         authors = []
     paper_id = str(item.get("id") or f"AX{index + 1}")
+    metadata = {"authors": authors, "summary": summary}
+    for key in ("fulltext_highlights", "fulltext_source", "fulltext_words"):
+        if key in item:
+            metadata[key] = item[key]
     return _source_item(
         item_id=paper_id,
         source=source,
@@ -346,10 +350,7 @@ def _normalize_arxiv(
         relevance_hint=item.get("relevance", 0.5),
         why_relevant=str(item.get("why_relevant") or ""),
         snippet=summary[:400],
-        metadata={
-            "authors": authors,
-            "summary": summary,
-        },
+        metadata=metadata,
     )
 
 

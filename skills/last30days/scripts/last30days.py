@@ -574,6 +574,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--no-browser-cookies", action="store_true",
                         help="Disable browser-cookie extraction even when FROM_BROWSER is configured")
     parser.add_argument("--save-dir", help="Optional directory for saving the rendered output")
+    parser.add_argument("--save-fulltext", action="store_true", help="Save fetched arXiv papers under --save-dir/arxiv (requires LAST30DAYS_ARXIV_FULLTEXT=on)")
     parser.add_argument("--output", help="Optional exact file path for saving the rendered output")
     parser.add_argument("--synthesis-file", help="Markdown synthesis to embed in --emit=html output")
     parser.add_argument("--publish-html", action="store_true",
@@ -2543,6 +2544,12 @@ def _main(
     if args.save_dir is None:
         env_val = os.environ.get("LAST30DAYS_MEMORY_DIR")
         args.save_dir = env_val if env_val is not None else config.get("LAST30DAYS_MEMORY_DIR")
+
+    if args.save_fulltext:
+        if not args.save_dir or str(config.get("LAST30DAYS_ARXIV_FULLTEXT") or "off").strip().lower() != "on":
+            sys.stderr.write("[last30days] --save-fulltext requires a save directory and LAST30DAYS_ARXIV_FULLTEXT=on.\n")
+            return 2
+        config["_save_fulltext"] = True
 
     if args.preflight:
         requested_sources = resolve_requested_sources(args.search, config)

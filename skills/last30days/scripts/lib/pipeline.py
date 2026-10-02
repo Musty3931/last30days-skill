@@ -743,10 +743,12 @@ def enrich_nominations(
     if not nominations:
         return []
 
+    deadline = time.monotonic() + max(1.0, budget_seconds)
+
     def _run_one(nomination: Nomination) -> schema.Report:
         return run(
             topic=nomination.name,
-            config=config,
+            config={**config, "_enrichment_deadline": deadline},
             depth=depth,
             requested_sources=requested_sources,
             mock=mock,
@@ -781,7 +783,6 @@ def enrich_nominations(
             daemon=True,
         ).start()
 
-    deadline = time.monotonic() + max(1.0, budget_seconds)
     pending = len(nominations)
     while pending and (remaining := deadline - time.monotonic()) > 0:
         try:
@@ -2127,7 +2128,25 @@ def run(
     items_by_source = _finalize_items_by_source(
         bundle.items_by_source, topic=topic, config=config, depth=depth, mock=mock,
         elapsed=time.monotonic() - run_started,
+        save_dir=save_dir if config.get("_save_fulltext") else None,
     )
+    if arxiv.fulltext_enabled(config):
+        bundle.artifacts["arxiv_fulltext_enabled"] = True
+        # Fusion can keep a lower-ranked copy from an earlier query stream.
+        # Copy paper metadata onto every surviving alias before that merge.
+        papers = {
+            (arxiv._paper_id(item.url) or arxiv._paper_id(item.item_id)): item.metadata
+            for item in items_by_source.get("arxiv", [])
+            if item.metadata.get("fulltext_source")
+        }
+        for (_, source), stream in bundle.items_by_source_and_query.items():
+            if source == "arxiv":
+                for item in stream:
+                    metadata = papers.get(arxiv._paper_id(item.url) or arxiv._paper_id(item.item_id))
+                    if metadata:
+                        for key in ("fulltext_highlights", "fulltext_source", "fulltext_words"):
+                            if key in metadata:
+                                item.metadata[key] = metadata[key]
     # Topic bodies and engagement arrive after cross-stream dedupe. Refresh
     # every copy before fusion so ranking uses those signals, not stale search
     # excerpts and zero counts captured before enrichment.
@@ -2587,8 +2606,15 @@ def _finalize_items_by_source(
     depth: str = "default",
     mock: bool = False,
     elapsed: float = 0.0,
+    save_dir: Path | str | None = None,
 ) -> dict[str, list[schema.SourceItem]]:
     finalized = {}
+    # Full papers share the existing enrichment ceiling, including time already
+    # spent retrieving sources and any earlier post-ranking enrichments.
+    deadline = min(
+        time.monotonic() + max(0.0, ENRICH_BUDGET_SECONDS - elapsed),
+        (config or {}).get("_enrichment_deadline", float("inf")),
+    )
     for source, items in items_by_source_raw.items():
         items = sorted(items, key=lambda item: item.local_rank_score or 0.0, reverse=True)
         # Same thread from two subquery streams: fold the enriched copy into
@@ -2622,6 +2648,18 @@ def _finalize_items_by_source(
                 if client is not None:
                     epicforums.enrich_source_items(items, client)
                     http.fixture_source_record(enrichment_request, schema.to_dict(items))
+        if source == "arxiv" and items and not mock and arxiv.fulltext_enabled(config or {}):
+            matched, replayed = http.fixture_source_replay(enrichment_request)
+            if matched:
+                items = _merge_replayed_enrichment(items, replayed)
+            else:
+                try:
+                    arxiv.enrich_source_items(
+                        items, topic, config=config, depth=depth, deadline=deadline, save_dir=save_dir,
+                    )
+                except Exception as exc:
+                    log.source_log("arXiv", f"Full text enrichment unavailable: {type(exc).__name__}", tty_only=False)
+                http.fixture_source_record(enrichment_request, schema.to_dict(items))
         finalized[source] = items
     return finalized
 
