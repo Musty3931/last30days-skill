@@ -1733,6 +1733,8 @@ def render_full(report: schema.Report, save_path: str | None = None) -> str:
                     )
             for quote in _transcript_highlights(item):
                 lines.append(f"  Transcript (may contain caption errors): {_format_untrusted_evidence(quote, 300)}")
+            for quote in _paper_highlights(item):
+                lines.append(f'  Paper (full text): "{_format_untrusted_evidence(quote, 300)}"')
             # Digg: inline X-post quotes attached to the cluster.
             for post in _digg_posts_for(item, limit=3):
                 lines.append(f"  > {_format_digg_quote(post)}")
@@ -2070,6 +2072,8 @@ def _render_candidate(
         )
     for quote in _transcript_highlights(primary):
         lines.append(f"   - Transcript (may contain caption errors): {_format_untrusted_evidence(quote, 300)}")
+    for quote in _paper_highlights(primary):
+        lines.append(f'   - Paper (full text): "{_format_untrusted_evidence(quote, 300)}"')
     for post in _digg_posts_for(primary):
         lines.append(f"   - {_format_digg_quote(post)}")
     insight = _comment_insight(primary)
@@ -2258,6 +2262,9 @@ def _build_source_footer_lines(report: schema.Report) -> list[str]:
         if source_key == "youtube":
             with_transcripts = sum(bool(it.metadata.get("transcript_snippet") or it.metadata.get("transcript_highlights")) for it in items)
             parts.append(f"{with_transcripts}/{len(items)} with transcripts")
+        if source_key == "arxiv" and report.artifacts.get("arxiv_fulltext_enabled"):
+            with_fulltext = sum(it.metadata.get("fulltext_source") in {"html", "pdf"} and bool(it.metadata.get("fulltext_words")) for it in items)
+            parts.append(f"{with_fulltext}/{len(items)} full text")
         stats = " │ ".join(parts)
         line = _footer_line_for_source(emoji, label, len(items), item_word, stats)
         # Counts only: run diagnostics live in doctor --postmortem, the saved
@@ -2930,6 +2937,12 @@ def _format_untrusted_evidence(
     for line in lines[1:]:
         safe.append(continuation_indent + _escape_atx_heading_prefix(line))
     return "\n".join(safe)
+
+
+def _paper_highlights(item: schema.SourceItem | None) -> list[str]:
+    if not item or item.source != "arxiv":
+        return []
+    return (item.metadata.get("fulltext_highlights") or [])[:5]
 
 
 def _transcript_highlights(item: schema.SourceItem | None) -> list[str]:

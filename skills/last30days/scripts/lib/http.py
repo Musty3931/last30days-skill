@@ -1,5 +1,6 @@
 """HTTP utilities for last30days skill (stdlib only)."""
 
+import base64
 import json
 from collections import OrderedDict
 import math
@@ -620,7 +621,8 @@ def request(
     raw: bool = False,
     deadline_monotonic: float | None = None,
     retry_dns: bool = True,
-) -> Union[Dict[str, Any], str]:
+    binary: bool = False,
+) -> Union[Dict[str, Any], str, bytes]:
     """Make an HTTP request and return JSON response.
 
     Args:
@@ -634,12 +636,13 @@ def request(
         retries: Number of retries on failure
         max_429_retries: Maximum 429 retries before giving up (separate cap)
         raw: If True, return raw response text instead of parsed JSON
+        binary: Opt-in raw bytes (e.g. PDF); fixtures store a base64 string.
         retry_dns: Expand DNS retries by default; False lets a source own its request budget.
         deadline_monotonic: Optional absolute monotonic deadline shared by all
             attempts and retry delays.
 
     Returns:
-        Parsed JSON response as dict, or raw text string if raw=True.
+        Parsed JSON response as dict, raw text if raw=True, or bytes if binary=True.
 
     Raises:
         HTTPError: On request failure
@@ -667,10 +670,12 @@ def request(
     ))
 
     fixture_request = _fixture_request(method, url, json_data, raw)
+    if binary:
+        fixture_request["binary"] = True
     fixture_redactions = _fixture_redactions(url, headers, json_data)
     replayed = _fixture_replay(fixture_request)
     if replayed is not _NO_FIXTURE:
-        return replayed
+        return base64.b64decode(replayed) if binary else replayed
 
     data = None
     if json_data is not None:
@@ -709,13 +714,14 @@ def request(
         time.sleep(delay)
         return True
 
-    def open_and_read(request_timeout: float) -> tuple[int, str]:
+    def open_and_read(request_timeout: float) -> tuple[int, str | bytes]:
         with urllib.request.urlopen(req, timeout=request_timeout) as response:
-            return response.status, response.read().decode('utf-8')
+            payload = response.read()
+            return response.status, payload if binary else payload.decode("utf-8")
 
     def open_and_read_before_deadline(
         request_timeout: float,
-    ) -> tuple[int, str]:
+    ) -> tuple[int, str | bytes]:
         """Stop waiting at the wall deadline, even during DNS or body reads."""
         if deadline_monotonic is None:
             return open_and_read(request_timeout)
@@ -758,8 +764,9 @@ def request(
             ):
                 raise_recorded(deadline_error())
             log(f"Response: {response_status} ({len(body)} bytes)")
-            if raw:
-                _fixture_record(fixture_request, value=body, redactions=fixture_redactions)
+            if raw or binary:
+                recorded = base64.b64encode(body).decode("ascii") if binary else body
+                _fixture_record(fixture_request, value=recorded, redactions=fixture_redactions)
                 return body
             parsed = json.loads(body) if body else {}
             _fixture_record(fixture_request, value=parsed, redactions=fixture_redactions)
