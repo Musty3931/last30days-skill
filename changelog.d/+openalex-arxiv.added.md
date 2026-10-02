@@ -1,1 +1,0 @@
-arXiv paper research now uses OpenAlex by default without requiring a key or CLI, with automatic arxiv-pp-cli fallback on errors and rate limits. Configure the backend with LAST30DAYS_ARXIV_BACKEND, optionally supply OPENALEX_API_KEY and LAST30DAYS_MAILTO, and inspect the active backend in doctor.

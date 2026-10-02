@@ -1,1 +1,0 @@
-Preserve YouTube bot-check and extraction errors even when yt-dlp exits successfully, including partial metadata responses, so blocked fetches report degraded coverage instead of no results or absent captions.

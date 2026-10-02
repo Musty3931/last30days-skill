@@ -9,6 +9,30 @@ This project uses [towncrier](https://towncrier.readthedocs.io/). Upcoming notes
 
 <!-- towncrier release notes start -->
 
+## [3.23.3] - 2026-10-01
+
+### Removed
+
+- Stripped the engine down to five sources: Reddit, X, GitHub, Digg, and arXiv. Removed YouTube (and yt-dlp/transcripts), Hacker News, Polymarket, StockTwits, DripStack, TikTok, Instagram, Threads, Pinterest, LinkedIn, Telegram, Bluesky, Truth Social, Xiaohongshu, Techmeme, Trustpilot, Amazon, web search (Brave/Exa/Serper/Parallel and the keyless floor), Perplexity/OpenRouter deep research, the hosted remote backend, local corpus, jobs/hiring signals, and web-search-driven auto-resolve and competitor discovery. Comparison mode still works with explicit peers (`--competitors-list`, `--competitors-plan`, or a "A vs B" topic). Translated READMEs were dropped.
+
+### Added
+
+- Add opt-in arXiv full-text highlights for top-ranked papers, using cached LaTeXML HTML with an optional pdftotext PDF fallback under the enrichment budget. Enable with `LAST30DAYS_ARXIV_FULLTEXT=on`, adjust the paper count with `LAST30DAYS_ARXIV_FULLTEXT_MAX`, and optionally save papers with `--save-fulltext`; evidence and the footer distinguish full-paper coverage while default-off output stays unchanged.
+- Add optional keyless YouTube research via yt-dlp with verified upload dates, bounded caption extraction, transcript highlights, and doctor diagnostics. Configure the command with LAST30DAYS_YTDLP or disable the lane with LAST30DAYS_YOUTUBE=off.
+- Research Unreal Engine and Epic ecosystem topics with the keyless Epic Developer Community forums source, including category names, likes/replies/views, and topic excerpts. The lane uses bounded, rate-limited anonymous Discourse requests, supports doctor checks and alternate Discourse hosts, and can be disabled with `LAST30DAYS_EPICFORUMS=off`.
+- arXiv paper research now uses OpenAlex by default without requiring a key or CLI, with automatic arxiv-pp-cli fallback on errors and rate limits. Configure the backend with LAST30DAYS_ARXIV_BACKEND, optionally supply OPENALEX_API_KEY and LAST30DAYS_MAILTO, and inspect the active backend in doctor.
+
+### Fixed
+
+- Grok Bot / Cursor agent chat is now a hidden-link citation host: LAW 8 detects it via `CURSOR_AGENT` (alongside `CLAUDECODE` for Claude Code) and inline-links every cited r/sub, u/name comment author, @handle, GitHub repo, and creator with URLs copied verbatim from the engine evidence. Codex, Gemini CLI, and raw CLI keep the plain-label regime, so no URL soup returns. ([#1095](https://github.com/mvanhorn/last30days-skill/issues/1095))
+- Epic Forums reserves depth-scaled request budgets for search before enriching the best deduplicated threads, reports remaining requests, and ranks technical discussions using their excerpts, fetched bodies, and engagement without requiring descriptive query prefixes as entity names. YouTube uses the planner's concise search angles without added suffixes and retries relevance search when upload-filtered candidates have no verified dates in the requested window.
+- Preserve YouTube bot-check and extraction errors even when yt-dlp exits successfully, including partial metadata responses, so blocked fetches report degraded coverage instead of no results or absent captions.
+- YouTube searches now use an upload-date filter matched to the requested window
+  before verifying individual video dates, with a bounded `ytsearchN:` fallback
+  for empty or unsupported URL searches. Quick and default runs inspect more
+  candidate metadata, while bot checks and rate limits remain visible failures.
+
+
 ## [3.23.0] - 2026-09-01
 
 ### Added
