@@ -239,10 +239,27 @@ def test_request_spacing_includes_pdf_and_respects_deadline(monkeypatch):
     assert starts == [100.0,103.0]
 
 
+# Pin the pre-feature origin/main revision so future main changes cannot silently
+# redefine the baseline. Neither this test nor its subprocess fetches from Git.
+ORIGIN_MAIN_BASELINE = "eaf979e79566ca6f45f5978cbf75c33af0f9b193"
+FROZEN_RENDER_DATE = "2026-03-16"
+FROZEN_RENDER_VERSION = "3.23.2"
+
+
+@pytest.fixture
+def frozen_compact_renderer(monkeypatch):
+    from datetime import date
+
+    frozen_today = date.fromisoformat(FROZEN_RENDER_DATE)
+    monkeypatch.setattr(render, "date", SimpleNamespace(today=lambda: frozen_today))
+    monkeypatch.setattr(render, "_skill_version", lambda: FROZEN_RENDER_VERSION)
+
+
 @pytest.mark.parametrize("setting", [None, "off"])
-def test_fulltext_off_compact_is_byte_identical_to_origin_main(monkeypatch, setting):
-    """Golden captured from eaf979e before edits, using test_render_v3's arXiv fixture."""
-    monkeypatch.setattr(render, "_skill_version", lambda: "3.23.2")
+def test_fulltext_off_compact_is_byte_identical_to_origin_main(
+    monkeypatch, frozen_compact_renderer, setting,
+):
+    """The disabled feature preserves the independently verified baseline bytes."""
     if setting is None:
         monkeypatch.delenv("LAST30DAYS_ARXIV_FULLTEXT", raising=False)
     else:
@@ -254,6 +271,88 @@ def test_fulltext_off_compact_is_byte_identical_to_origin_main(monkeypatch, sett
     monkeypatch.setattr(arxiv, "fetch_fulltexts_parallel", forbidden)
     report.items_by_source = pipeline._finalize_items_by_source(report.items_by_source, report.topic, config=config)
     assert render.render_compact(report).encode() == (FIXTURES / "abstract-compact.md").read_bytes()
+
+
+@pytest.fixture(scope="module")
+def origin_main_checkout(tmp_path_factory):
+    """Export the complete baseline scripts, including their own dependencies."""
+    import subprocess
+    import tarfile
+
+    root = Path(__file__).resolve().parents[1]
+    try:
+        available = subprocess.run(
+            ["git", "cat-file", "-e", ORIGIN_MAIN_BASELINE + "^{commit}"],
+            cwd=root, capture_output=True, timeout=30,
+        )
+    except FileNotFoundError:
+        pytest.skip("origin/main parity requires Git and the pinned baseline commit")
+    if available.returncode:
+        # Source archives and shallow CI checkouts may not contain old objects.
+        # The current-code golden guard above always runs, including there.
+        pytest.skip(
+            f"origin/main parity requires local commit {ORIGIN_MAIN_BASELINE}: "
+            f"{available.stderr.decode().strip()}"
+        )
+    checkout = tmp_path_factory.mktemp("arxiv-origin-main")
+    archive = checkout / "scripts.tar"
+    subprocess.run(
+        ["git", "archive", "--format=tar", f"--output={archive}",
+         ORIGIN_MAIN_BASELINE, "skills/last30days/scripts"],
+        cwd=root, check=True, capture_output=True, timeout=30,
+    )
+    with tarfile.open(archive) as snapshot:
+        snapshot.extractall(checkout, filter="data")
+    return checkout
+
+
+@pytest.mark.parametrize("setting", ["absent", "off"])
+def test_origin_main_renderer_independently_matches_golden(origin_main_checkout, setting):
+    """Run the pre-feature code in isolation with the SAME JSON, clock and version.
+
+    Reproduce offline with:
+    uv run pytest tests/test_arxiv_fulltext.py -k origin_main -v
+    Both baseline cases must pass (not skip) to establish origin/main provenance.
+    """
+    import subprocess
+    import sys
+
+    script = """
+import json
+import os
+import sys
+from datetime import date
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
+
+scripts, fixture, setting, frozen_date, version = sys.argv[1:]
+sys.path.insert(0, scripts)
+if setting == "absent":
+    os.environ.pop("LAST30DAYS_ARXIV_FULLTEXT", None)
+    config = {}
+else:
+    os.environ["LAST30DAYS_ARXIV_FULLTEXT"] = "off"
+    config = {"LAST30DAYS_ARXIV_FULLTEXT": "off"}
+from lib import http, pipeline, render, schema
+assert Path(render.__file__).resolve() == Path(scripts) / "lib" / "render.py"
+render.date = SimpleNamespace(today=lambda: date.fromisoformat(frozen_date))
+render._skill_version = lambda: version
+with patch.object(http, "request", side_effect=AssertionError("network forbidden")):
+    report = schema.report_from_dict(json.loads(Path(fixture).read_text()))
+    report.items_by_source = pipeline._finalize_items_by_source(
+        report.items_by_source, report.topic, config=config,
+    )
+    sys.stdout.buffer.write(render.render_compact(report).encode("utf-8"))
+"""
+    result = subprocess.run(
+        [sys.executable, "-I", "-c", script,
+         str(origin_main_checkout / "skills/last30days/scripts"),
+         str(FIXTURES / "abstract-report.json"), setting,
+         FROZEN_RENDER_DATE, FROZEN_RENDER_VERSION],
+        cwd=origin_main_checkout, capture_output=True, check=True, timeout=30,
+    )
+    assert result.stdout == (FIXTURES / "abstract-compact.md").read_bytes()
 
 
 def test_render_paper_quotes_and_feature_scoped_footer():
